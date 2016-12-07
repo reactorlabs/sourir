@@ -116,8 +116,13 @@ let rec eval heap env = function
     Lit (Bool (value_eq v1 v2))
   | Op (Eq, _) -> raise (Arity_error Eq)
 
+type type_error = {
+  expected : litteral_type;
+  received : litteral_type;
+}
+
 exception Unbound_label of label
-exception Type_error of { expected: litteral_type; received: litteral_type }
+exception Type_error of type_error
 
 let get_bool (Lit lit : value) = 
   match lit with
