@@ -185,6 +185,11 @@ let reduce conf =
          env = new_env }
      end
 
+let rec reduce_bounded (conf, n) =
+  if n == 0 then conf
+  else let conf = reduce conf in
+    reduce_bounded (conf, n - 1)
+
 let start program pc = {
   trace = [];
   heap = Heap.empty;
@@ -195,39 +200,6 @@ let start program pc = {
 
 let stop conf = List.assoc conf.pc conf.program = Stop
 
-let test_print = [
-    (1, Print (Lit (Int 1)));
-    (2, Print (Lit (Int 2)));
-    (3, Stop)
-  ]
-
-let conf = start test_print 1
-let conf = reduce conf
-let conf = reduce conf
-let () = assert (stop conf)
-
-let test_decl_const = [
-    (1, Decl_const ("x", Lit (Int 1)));
-    (2, Print (Var "x"));
-    (3, Stop)
-  ]
-
-let conf = start test_decl_const 1
-let conf = reduce conf
-let conf = reduce conf
-let () = assert (stop conf)
-
-let test_mut = [
-    (1, Decl_mut ("x", Lit (Int 1)));
-    (2, Print (Var "x"));
-    (3, Assign ("x", Lit (Int 2)));
-    (4, Print (Var "x"));
-    (5, Stop)
-  ]
-
-let conf = start test_mut 1
-let conf = reduce conf
-let conf = reduce conf
-let conf = reduce conf
-let conf = reduce conf
-let () = assert (stop conf)
+let run_bounded (prog, n) =
+  let conf = start prog 1 in
+    reduce_bounded (conf, n)
