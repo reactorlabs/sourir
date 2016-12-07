@@ -12,11 +12,6 @@ let stop      = (Stop)
 
 let x = "x"
 
-let rec do_assemble (prog, i) =
-  match prog with
-  | [] -> []
-  | cur :: tail -> (i, cur) :: do_assemble (tail, i+1)
-
-let assemble prog = do_assemble (prog, 1)
+let assemble prog = prog
 
 

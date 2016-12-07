@@ -4,7 +4,7 @@ module Variable = struct
 end
 
 module Label = struct
-  type t = int
+  type t = string
   let compare = String.compare
 end
 
@@ -22,12 +22,13 @@ end
 type variable = Variable.t
 type label = Label.t
 
-type program = (label * instruction) list
+type program = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * expression
   | Assign of variable * expression
   | Branch of expression * label * label
+  | Label of label
   | Goto of label
   | Print of expression
   | Invalidate of expression * label * variable list
@@ -58,12 +59,14 @@ type trace = value list
 type environment = binding Env.t
 type heap = value Heap.t
 
+type pc = int
+
 type configuration = {
   trace : trace;
   heap : heap;
   env : environment;
   program : program;
-  pc : label;
+  pc : pc;
 }
 
 type litteral_type = Nil | Bool | Int
@@ -131,11 +134,23 @@ let get_bool (Lit lit : value) =
      let expected, received = Bool, litteral_type other in
      raise (Type_error { expected; received })
 
+let resolve code label =
+  let rec loop i =
+    if i >= Array.length code then raise (Unbound_label label)
+    else if code.(i) = Label label then i
+    else loop (i + 1)
+  in loop 0
+
+let instruction conf =
+  if conf.pc >= Array.length conf.program
+  then Stop
+  else conf.program.(conf.pc)
+
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
+  let resolve label = resolve conf.program label in
   let pc' = conf.pc + 1 in
-  match List.assoc conf.pc conf.program with
-  | exception Not_found -> raise (Unbound_label conf.pc)
+  match instruction conf with
   | Stop -> conf
   | Decl_const (x, e) -> 
      let v = eval conf e in
@@ -159,8 +174,9 @@ let reduce conf =
      }
   | Branch (e, l1, l2) ->
      let b = get_bool (eval conf e) in
-     { conf with pc = if b then l1 else l2 }
-  | Goto pc -> { conf with pc }
+     { conf with pc = resolve (if b then l1 else l2) }
+  | Label _ -> { conf with pc = pc' }
+  | Goto label -> { conf with pc = resolve label }
   | Print e ->
      let v = eval conf e in
      { conf with
@@ -181,14 +197,9 @@ let reduce conf =
        in
        let new_env = List.fold_left add Env.empty xs in
        { conf with
-         pc = l;
+         pc = resolve l;
          env = new_env }
      end
-
-let rec reduce_bounded (conf, n) =
-  if n == 0 then conf
-  else let conf = reduce conf in
-    reduce_bounded (conf, n - 1)
 
 let start program pc = {
   trace = [];
@@ -198,8 +209,13 @@ let start program pc = {
   pc;
 }
 
-let stop conf = List.assoc conf.pc conf.program = Stop
+let stop conf = instruction conf = Stop
+
+let rec reduce_bounded (conf, n) =
+  if n = 0 then conf
+  else let conf = reduce conf in
+    reduce_bounded (conf, n - 1)
 
 let run_bounded (prog, n) =
-  let conf = start prog 1 in
+  let conf = start prog 0 in
     reduce_bounded (conf, n)
