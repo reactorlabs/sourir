@@ -130,6 +130,13 @@ type type_error = {
 exception Unbound_label of label
 exception Type_error of type_error
 
+let get_int (Lit lit : value) =
+  match lit with
+  | Int n -> n
+  | other ->
+     let expected, received = Int, litteral_type other in
+     raise (Type_error { expected; received })
+
 let get_bool (Lit lit : value) = 
   match lit with
   | Bool b -> b

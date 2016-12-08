@@ -49,6 +49,19 @@ let test_jump =
     label "jump";
   |]
 
+let test_overloading =
+  let open Assembler.OO in
+  let b, x, y = bool_var "b", int_var "x", int_var "y" in
+  Assembler.assemble [|
+    mut b (bool true);
+    mut x (int 1);
+    const y x;
+    goto "jump";
+    assign b (bool false);
+    label "jump";
+    assign x (int 2);
+  |]
+
 let suite =
   let open Assembler in
   "suite">:::
@@ -60,6 +73,10 @@ let suite =
    "print">:: run test_print
      (trace_is Value.[int 1; int 2]);
    "jump">:: run test_jump (has_var x (Value.bool true));
+   "jump (oo)" >:: run test_overloading
+     (has_var "b" (Value.bool true)
+      &&& has_var "x" (Value.int 2)
+      &&& has_var "y" (Value.int 1));
   ]
 ;;
 
