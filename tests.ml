@@ -84,6 +84,25 @@ let test_eq a b =
     eq z x y;
   |]
 
+let test_sum limit_ =
+  let open Assembler.OO in
+  let ax, i, sum, limit, one =
+    bool_var "ax", int_var "i", int_var "sum", int_var "limit", int_var "one" in
+  Assembler.assemble [|
+    mut i (int 0);
+    mut sum (int 0);
+    const limit (int limit_);
+    const one (int 1);
+    label "loop";
+    eq ax limit i;
+    branch ax "continue" "loop_body";
+    label "loop_body";
+    add sum sum i;
+    add i i one;
+    goto "loop";
+    label "continue";
+  |]
+
 let suite =
   let open Assembler in
   "suite">:::
@@ -103,6 +122,7 @@ let suite =
    "add2">:: run (test_add 2 1) (has_var "z" (Value.int 3));
    "eq">:: run (test_eq 1 2) (has_var "z" (Value.bool false));
    "neq">:: run (test_eq 1 1) (has_var "z" (Value.bool true));
+   "loops">:: run (test_sum 5) (has_var "sum" (Value.int 10));
   ]
 ;;
 

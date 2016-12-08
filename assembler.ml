@@ -69,6 +69,7 @@ module OO = struct
   let assign x e = Assign (x#variable, e#expression)
   let print e = Print (e#expression)
   let goto l = Goto l
+  let branch e tr fs = Branch (e#expression, tr, fs)
   let label l = Label l
   let stop = (Stop)
 
