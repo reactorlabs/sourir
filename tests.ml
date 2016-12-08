@@ -64,6 +64,7 @@ let test_overloading =
     assign b (bool false);
     label "jump";
     assign x (int 2);
+    stop;
   |]
 
 let test_add a b =
@@ -101,6 +102,17 @@ let test_sum limit_ =
     add i i one;
     goto "loop";
     label "continue";
+    stop;
+  |]
+
+let test_scope_1 =
+  let open Assembler.OO in
+  let x = int_var "x" in
+  Assembler.assemble [|
+    goto "l";
+    const x (int 0);
+    label "l";
+    print x;
   |]
 
 let suite =
