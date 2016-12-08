@@ -82,6 +82,17 @@ exception Unbound_variable of variable
 exception Invalid_heap
 exception Arity_error of primop
 exception Invalid_update
+exception Unbound_label of label
+type type_error = {
+  expected : litteral_type;
+  received : litteral_type;
+}
+exception Type_error of type_error
+type product_type_error = {
+  expected : litteral_type * litteral_type;
+  received : litteral_type * litteral_type;
+}
+exception ProductType_error of product_type_error
 
 let lookup heap env x =
   match Env.find x env with
@@ -111,7 +122,17 @@ let litteral_eq (lit1 : litteral) (lit2 : litteral) =
   | Bool _, _ | _, Bool _ -> false
   | Int n1, Int n2 -> n1 = n2
 
+let litteral_plus (lit1 : litteral) (lit2 : litteral) =
+  match lit1, lit2 with
+  | Int n1, Int n2 -> n1 + n2
+  | x1, x2 ->
+      let expected = (Int, Int) in
+      let received = litteral_type x1, litteral_type x2 in
+      raise (ProductType_error { expected; received })
+
+
 let value_eq (Lit lit1) (Lit lit2) = litteral_eq lit1 lit2
+let value_plus (Lit lit1) (Lit lit2) = litteral_plus lit1 lit2
 
 let rec eval heap env = function
   | Var x -> lookup heap env x
@@ -120,15 +141,11 @@ let rec eval heap env = function
     let v1 = eval heap env (Var x1) in
     let v2 = eval heap env (Var x2) in
     Lit (Bool (value_eq v1 v2))
-  | Op (Eq, _) -> raise (Arity_error Eq)
-
-type type_error = {
-  expected : litteral_type;
-  received : litteral_type;
-}
-
-exception Unbound_label of label
-exception Type_error of type_error
+  | Op (Plus, [x1; x2]) ->
+    let v1 = eval heap env (Var x1) in
+    let v2 = eval heap env (Var x2) in
+    Lit (Int (value_plus v1 v2))
+  | Op (primop, _) -> raise (Arity_error Eq)
 
 let get_int (Lit lit : value) =
   match lit with
