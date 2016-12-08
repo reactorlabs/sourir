@@ -41,7 +41,7 @@ and litteral =
   | Nil
   | Bool of bool
   | Int of int
-and primop = Eq
+and primop = Eq | Plus
 
 type value =
   | Lit of litteral
@@ -61,12 +61,15 @@ type heap = value Heap.t
 
 type pc = int
 
+type status = Running | Stopped
+
 type configuration = {
   trace : trace;
   heap : heap;
   env : environment;
   program : program;
   pc : pc;
+  status : status;
 }
 
 type litteral_type = Nil | Bool | Int
@@ -150,8 +153,10 @@ let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
   let resolve label = resolve conf.program label in
   let pc' = conf.pc + 1 in
+  assert (conf.status = Running);
   match instruction conf with
-  | Stop -> conf
+  | Stop -> { conf with
+              status = Stopped }
   | Decl_const (x, e) -> 
      let v = eval conf e in
      { conf with
@@ -205,11 +210,13 @@ let start program pc = {
   trace = [];
   heap = Heap.empty;
   env = Env.empty;
+  status = Running;
   program;
   pc;
 }
 
-let stop conf = instruction conf = Stop
+let stop conf =
+  conf.status = Stopped
 
 let rec reduce_bounded (conf, n) =
   if n = 0 then conf
@@ -219,3 +226,12 @@ let rec reduce_bounded (conf, n) =
 let run_bounded (prog, n) =
   let conf = start prog 0 in
     reduce_bounded (conf, n)
+
+let rec reduce_forever conf =
+  if stop conf then conf
+  else reduce_forever (reduce conf)
+
+let run_forever program =
+  reduce_forever (start program 0)
+
+let read_trace conf = List.rev conf.trace
