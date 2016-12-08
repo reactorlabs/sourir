@@ -1,4 +1,4 @@
-open Ast
+open Instr
 open Eval
 
 module Value = struct
@@ -11,26 +11,26 @@ let assemble prog = prog
 module OO = struct
   type 'a litteral = <
     eval : 'a;
-    litteral : Ast.litteral;
+    litteral : Instr.litteral;
     value : value;
     expression : expression;
   >
 
   type 'a value = <
     eval : 'a;
-    value : Ast.value;
+    value : Instr.value;
     expression : expression;
   >
 
   type 'a variable = <
     eval : Eval.heap -> Eval.environment -> 'a;
-    variable : Ast.variable;
+    variable : Instr.variable;
     expression : expression;
   >
 
   type 'a expression = <
     eval : Eval.heap -> Eval.environment -> 'a;
-    expression : Ast.expression;
+    expression : Instr.expression;
   >
 
   let var of_value v : 'a variable = object
@@ -44,16 +44,16 @@ module OO = struct
 
   let int n : int litteral = object
     method eval = n
-    method litteral : Ast.litteral = Int n
-    method value : Ast.value = Lit (Int n)
-    method expression : Ast.expression = Lit (Int n)
+    method litteral : Instr.litteral = Int n
+    method value : Instr.value = Lit (Int n)
+    method expression : Instr.expression = Lit (Int n)
   end
 
   let bool b : bool litteral = object
     method eval = b
-    method litteral : Ast.litteral = Bool b
-    method value : Ast.value = Lit (Bool b)
-    method expression : Ast.expression = Lit (Bool b)
+    method litteral : Instr.litteral = Bool b
+    method value : Instr.value = Lit (Bool b)
+    method expression : Instr.expression = Lit (Bool b)
   end
 
   let op_add x1 x2 = object
