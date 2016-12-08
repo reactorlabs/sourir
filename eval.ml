@@ -1,4 +1,4 @@
-open Ast
+open Instr
 
 module Env = Map.Make(Variable)
 module Heap = Map.Make(Address)
@@ -30,7 +30,7 @@ exception Unbound_variable of variable
 exception Invalid_heap
 exception Arity_error of primop
 exception Invalid_update
-exception Unbound_label of label
+
 type type_error = {
   expected : litteral_type;
   received : litteral_type;
@@ -109,13 +109,6 @@ let get_bool (Lit lit : value) =
      let expected, received = Bool, litteral_type other in
      raise (Type_error { expected; received })
 
-let resolve code label =
-  let rec loop i =
-    if i >= Array.length code then raise (Unbound_label label)
-    else if code.(i) = Label label then i
-    else loop (i + 1)
-  in loop 0
-
 let instruction conf =
   if conf.pc >= Array.length conf.program
   then Stop
@@ -123,7 +116,7 @@ let instruction conf =
 
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
-  let resolve label = resolve conf.program label in
+  let resolve label = Instr.resolve conf.program label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
   match instruction conf with
