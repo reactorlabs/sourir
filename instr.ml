@@ -51,3 +51,13 @@ type address = Address.t
 type binding =
   | Const of value
   | Mut of address
+
+exception Unbound_label of label
+
+let resolve code label =
+  let rec loop i =
+    if i >= Array.length code then raise (Unbound_label label)
+    else if code.(i) = Label label then i
+    else loop (i + 1)
+  in loop 0
+

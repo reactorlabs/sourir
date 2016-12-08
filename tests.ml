@@ -1,5 +1,5 @@
 open OUnit
-open Ast
+open Instr
 open Eval
 
 let ok _ = true
