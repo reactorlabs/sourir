@@ -1,5 +1,6 @@
-open OUnit;;
-open Sourir;;
+open OUnit
+open Ast
+open Eval
 
 let ok _ = true
 

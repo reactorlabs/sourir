@@ -1,4 +1,5 @@
-open Sourir;;
+open Ast
+open Eval
 
 module Value = struct
   let int n : value = Lit (Int n)
@@ -32,26 +33,26 @@ let assemble prog = prog
 module OO = struct
   type 'a litteral = <
     eval : 'a;
-    litteral : Sourir.litteral;
+    litteral : Ast.litteral;
     value : value;
     expression : expression;
   >
 
   type 'a value = <
     eval : 'a;
-    value : Sourir.value;
+    value : Ast.value;
     expression : expression;
   >
 
   type 'a variable = <
-    eval : Sourir.heap -> Sourir.environment -> 'a;
-    variable : Sourir.variable;
+    eval : Eval.heap -> Eval.environment -> 'a;
+    variable : Ast.variable;
     expression : expression;
   >
 
   type 'a expression = <
-    eval : Sourir.heap -> Sourir.environment -> 'a;
-    expression : Sourir.expression;
+    eval : Eval.heap -> Eval.environment -> 'a;
+    expression : Ast.expression;
   >
 
   let var of_value v : 'a variable = object
@@ -65,16 +66,16 @@ module OO = struct
 
   let int n : int litteral = object
     method eval = n
-    method litteral : Sourir.litteral = Int n
-    method value : Sourir.value = Lit (Int n)
-    method expression : Sourir.expression = Lit (Int n)
+    method litteral : Ast.litteral = Int n
+    method value : Ast.value = Lit (Int n)
+    method expression : Ast.expression = Lit (Int n)
   end
 
   let bool b : bool litteral = object
     method eval = b
-    method litteral : Sourir.litteral = Bool b
-    method value : Sourir.value = Lit (Bool b)
-    method expression : Sourir.expression = Lit (Bool b)
+    method litteral : Ast.litteral = Bool b
+    method value : Ast.value = Lit (Bool b)
+    method expression : Ast.expression = Lit (Bool b)
   end
 
   let const x e = Decl_const (x#variable, e#expression)

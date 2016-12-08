@@ -1,17 +1,10 @@
 tests:
-	ocamlbuild -I src/ -tag pkg_oUnit tests.byte
-	@cp `readlink tests.byte` bin/tests.byte
-	@rm tests.byte
-	bin/tests.byte
+	ocamlbuild -use-ocamlfind -no-links tests.byte
+	_build/tests.byte
 	@echo
 
-main:
-	ocamlbuild -I src/ main.byte
-	@cp `readlink main.byte` bin/main.byte
-	@rm main.byte
-
 clean:
-	-rm -rf _build/ bin/*
+	ocamlbuild -clean
 
 .PHONY: tests clean
 
