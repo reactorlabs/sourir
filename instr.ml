@@ -33,6 +33,7 @@ and instruction =
   | Print of expression
   | Invalidate of expression * label * variable list
   | Stop
+  | Comment of string
 and expression =
   | Lit of litteral
   | Var of variable

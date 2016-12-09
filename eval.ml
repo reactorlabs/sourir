@@ -120,6 +120,8 @@ let reduce conf =
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
   match instruction conf with
+  | Comment _ -> { conf with
+                   pc = pc' }
   | Stop -> { conf with
               status = Stopped }
   | Decl_const (x, e) -> 
