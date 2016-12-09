@@ -1,0 +1,12 @@
+  mut i = 0
+  mut sum = 0
+  const limit = 10
+  const one = 1
+loop:
+  branch (i == limit) continue loop_body
+loop_body:
+  sum <- (sum + i)
+  assign <- (i + one)
+  goto loop
+continue:
+  stop

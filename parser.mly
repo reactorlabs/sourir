@@ -1,58 +1,63 @@
 %token NIL
 %token<bool> BOOL
 %token<int> INT
-%token<Ast.variable> VARIABLE
-%token<Ast.label> LABEL
-%token DOUBLE_EQUAL (* PLUS MINUS TIMES LT LTE GT GTE *)
-%token LBRACKET RBRACKET
-%token COLON
-%token CONST MUT EQUAL LEFTARROW BRANCH GOTO PRINT INVALIDATE STOP
+%token<string> IDENTIFIER
+%token DOUBLE_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
+%token LPAREN RPAREN LBRACKET RBRACKET
+%token COLON EQUAL LEFTARROW
+%token CONST MUT BRANCH GOTO PRINT INVALIDATE STOP
+%token<string> COMMENT
 %token NEWLINE
 %token EOF
 
-%start <Ast.program> program
+%start<Instr.program> program
 
-%{ open Ast %}
+%{ open Instr %}
+
 
 %%
 
 program:
-| prog=list(labeled_instruction) EOF { prog }
+| prog=list(instruction_line) EOF { Array.of_list prog }
 
-labeled_instruction:
-| l=line_label i=instruction NEWLINE { (l, i) }
-
-line_label:
-| l=LABEL COLON option(NEWLINE) { l }
+instruction_line:
+| i=instruction NEWLINE { i }
 
 instruction:
-| CONST x=VARIABLE EQUAL e=expression
+| CONST x=variable EQUAL e=expression
   { Decl_const (x, e) }
-| MUT x=VARIABLE EQUAL e=expression
+| MUT x=variable EQUAL e=expression
   { Decl_mut (x, e) }
-| x=VARIABLE LEFTARROW e=expression
+| x=variable LEFTARROW e=expression
   { Assign (x, e) }
-| BRANCH e=expression l1=LABEL l2=LABEL
+| BRANCH e=expression l1=label l2=label
   { Branch (e, l1, l2) }
-| GOTO l=LABEL
+| l=label COLON
+  { Label l }
+| GOTO l=label
   { Goto l }
 | PRINT e=expression
   { Print e }
 | INVALIDATE
-  e=expression l=LABEL
-  xs=delimited(LBRACKET, list(VARIABLE), RBRACKET)
+  e=expression l=label
+  xs=delimited(LBRACKET, list(variable), RBRACKET)
   { Invalidate (e, l, xs) }
 | STOP
   { Stop }
+| s=COMMENT
+  { Comment s }
 
 expression:
   | lit=lit { Lit lit }
-  | x=VARIABLE { Var x }
-  | x=VARIABLE op=infixop y=VARIABLE { Op (op, [x;y]) }
+  | x=variable { Var x }
+  | LPAREN x=variable op=infixop y=variable RPAREN  { Op (op, [x;y]) }
+
+label: id=IDENTIFIER { (id : Label.t) }
+variable: id=IDENTIFIER { (id : Variable.t) }
 
 infixop:
   | DOUBLE_EQUAL { Eq }
-  (* | PLUS { Add } *)
+  | PLUS { Plus }
   (* | MINUS { Sub } *)
   (* | TIMES { Mult } *)
   (* | LT { Lt } *)

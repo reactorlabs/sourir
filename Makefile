@@ -3,6 +3,13 @@ tests:
 	_build/tests.byte
 	@echo
 
+sourir:
+	ocamlbuild -use-ocamlfind -use-menhir -no-links sourir.byte
+	cp _build/sourir.byte sourir
+
+run: sourir
+	./sourir test.sou
+
 clean:
 	ocamlbuild -clean
 
