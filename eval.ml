@@ -60,7 +60,7 @@ let update heap env x v =
     begin match Heap.find a heap with
     | exception Not_found -> raise Invalid_heap
     | _ -> Heap.add a v heap
-    end  
+    end
 
 let litteral_eq (lit1 : litteral) (lit2 : litteral) =
   match lit1, lit2 with

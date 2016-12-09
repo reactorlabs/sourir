@@ -3,8 +3,6 @@ open Instr
 module VarSet = Set.Make(Variable)
 
 (** TODO:
-    - nice error printing when vars out of bound
-    - handle programs that don't end on an explicit Stop
     - "none", how to handle ?
     - keep track of const/mut status
 *)
@@ -38,13 +36,14 @@ let free_vars = function
 
 let successors program pc =
   let pc' = pc + 1 in
+  let next = if pc' = Array.length program then [] else [pc'] in
   let resolve = Instr.resolve program in
   match program.(pc) with
   | Decl_const _
   | Decl_mut _
   | Assign _
   | Label _
-  | Print _ -> [pc']
+  | Print _ -> next
   | Goto l | Invalidate (_, l, _) -> [resolve l]
   | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   | Stop -> []
@@ -57,6 +56,8 @@ let update cell set =
     cell := Some new_set;
     if VarSet.equal old_set new_set then None
     else Some new_set
+
+exception UndefinedVariable of VarSet.t
 
 let infer (program : instruction array) =
   let state =
@@ -71,15 +72,18 @@ let infer (program : instruction array) =
         let free, bound, succs =
           free_vars instr, bound_vars instr,
           successors program pc in
-        assert (VarSet.subset free env);
         let env' = VarSet.union bound env in
         let new_work = List.map (fun pc -> (env', pc)) succs in
         work (new_work @ rest)
       end
     | [] ->
       let finish (cell, instr) =
+        let free = free_vars instr in
         match !cell with
-        | Some set -> (set, instr)
+        | Some set ->
+            if not (VarSet.subset free set) then
+              raise (UndefinedVariable (VarSet.diff free set));
+            (set, instr)
         | None -> (VarSet.singleton "none", instr)
       in
       Array.map finish state

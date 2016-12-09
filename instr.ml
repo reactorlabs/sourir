@@ -51,3 +51,13 @@ type address = Address.t
 type binding =
   | Const of value
   | Mut of address
+
+exception InvalidJumpTarget of string
+
+let resolve program label =
+  let rec do_resolve pc =
+    if pc == Array.length program then raise (InvalidJumpTarget label);
+    if program.(pc) = Label label then pc
+    else do_resolve (pc+1)
+  in do_resolve 0
+
