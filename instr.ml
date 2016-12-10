@@ -33,6 +33,7 @@ and instruction =
   | Print of expression
   | Invalidate of expression * label * variable list
   | Stop
+  | Comment of string
 and expression =
   | Lit of litteral
   | Var of variable
@@ -52,12 +53,12 @@ type binding =
   | Const of value
   | Mut of address
 
-exception InvalidJumpTarget of string
+exception Unbound_label of label
 
-let resolve program label =
-  let rec do_resolve pc =
-    if pc == Array.length program then raise (InvalidJumpTarget label);
-    if program.(pc) = Label label then pc
-    else do_resolve (pc+1)
-  in do_resolve 0
+let resolve code label =
+  let rec loop i =
+    if i >= Array.length code then raise (Unbound_label label)
+    else if code.(i) = Label label then i
+    else loop (i + 1)
+  in loop 0
 

@@ -1,10 +1,24 @@
+OCAMLBUILD=ocamlbuild -use-ocamlfind -use-menhir -no-links
+# -use-ocamlfind: use the ocamlfind library manager
+# -use-menhir: use the Menhir parser generator
+# -no-links: do not create symlink from build outputs in _build into
+#            the project directory
+
+all: tests sourir
+
 tests:
-	ocamlbuild -use-ocamlfind -no-links tests.byte
+	$(OCAMLBUILD) tests.byte
 	_build/tests.byte
-	@echo
+
+sourir:
+	$(OCAMLBUILD) sourir.byte
+	cp _build/sourir.byte sourir
+
+run: sourir
+	./sourir test.sou
 
 clean:
 	ocamlbuild -clean
 
-.PHONY: tests clean
+.PHONY: all run tests clean
 

@@ -3,6 +3,7 @@ open Instr
 module VarSet = Set.Make(Variable)
 
 (** TODO:
+    - nice error printing when vars out of bound
     - "none", how to handle ?
     - keep track of const/mut status
 *)
@@ -16,6 +17,7 @@ let bound_vars = function
     | Goto _
     | Print _
     | Invalidate _
+    | Comment _
     | Stop) -> VarSet.empty
 
 let expr_vars = function
@@ -29,6 +31,7 @@ let free_vars = function
   | Assign (x, e) -> VarSet.union (VarSet.singleton x) (expr_vars e)
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
+  | Comment _ -> VarSet.empty
   | Print e -> expr_vars e
   | Invalidate (e, _l, xs) ->
     VarSet.union (VarSet.of_list xs) (expr_vars e)
@@ -43,6 +46,7 @@ let successors program pc =
   | Decl_mut _
   | Assign _
   | Label _
+  | Comment _
   | Print _ -> next
   | Goto l | Invalidate (_, l, _) -> [resolve l]
   | Branch (_e, l1, l2) -> [resolve l1; resolve l2]

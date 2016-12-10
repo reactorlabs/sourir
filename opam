@@ -1,0 +1,20 @@
+opam-version: "1.2"
+name: "sourir"
+version: "dev"
+maintainer: "reactorlabs"
+authors: ["gabriel.scherer@gmail.com" "o@o1o.ch"]
+homepage: "https://github.com/reactorlabs/sourir"
+bug-reports: "https://github.com/reactorlabs/sourir/issues"
+dev-repo: "https://github.com/reactorlabs/sourir.git"
+license: "none for now"
+
+build: [
+  [make "sourir"]
+]
+depends: [
+  "ounit" {>= "2.0.0"}
+  "menhir" {>= "20161115"}
+]
+available: [
+  ocaml-version >= "4.03.0"
+]
