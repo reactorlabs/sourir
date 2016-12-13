@@ -2,6 +2,8 @@ open OUnit
 open Instr
 open Eval
 open Scope
+open Parse
+open Disass
 
 let ok _ = true
 
@@ -215,6 +217,26 @@ let infer_broken_scope program missing_vars = function() ->
      let expected = (UndefinedVariable (VarSet.of_list missing_vars)) in
      assert_raises expected test
 
+let test_parse_disass_file file = function() ->
+  let prog1 = drop_annots(Parse.parse_file file) in
+  let disass1 = Disass.disassemble prog1 in
+  let prog2 = drop_annots(Parse.parse_string disass1) in
+  let disass2 = Disass.disassemble prog2 in
+  assert_equal disass1 disass2
+
+let test_parse_disass str = function() ->
+  let prog1 = drop_annots(Parse.parse_string str) in
+  let disass1 = Disass.disassemble prog1 in
+  let prog2 = drop_annots(Parse.parse_string disass1) in
+  let disass2 = Disass.disassemble prog2 in
+  assert_equal disass1 disass2
+
+let test_disass_parse prog = function() ->
+  let disass1 = Disass.disassemble (drop_annots prog) in
+  let prog2 = drop_annots(Parse.parse_string disass1) in
+  let disass2 = Disass.disassemble prog2 in
+  assert_equal disass1 disass2
+
 let suite =
   let open Assembler in
   "suite">:::
@@ -245,7 +267,19 @@ let suite =
    "scope1ok">:: run_checked (test_scope_1 "c" "c") (has_var "c" (Value.int 0));
    "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"];
    "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"];
-  ]
+   "parser">:: test_parse_disass ("stop\n");
+   "parser1">:: test_parse_disass ("const x = 3\nprint x\nstop\n");
+   "parser2">:: test_parse_disass ("goto l\nx <- 3\nl:\n");
+   "parser3">:: test_parse_disass ("const x = (y + x)\n");
+   "parser4">:: test_parse_disass ("x <- (x == y)\n");
+   "parser5">:: test_parse_disass ("# asdfasdf\n");
+   "parser6">:: test_parse_disass ("branch (x == y) as fd\n");
+   "parser7">:: test_parse_disass ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser8">:: test_parse_disass_file "test.sou";
+   "disass1">:: test_disass_parse (test_sum 10);
+   "disass2">:: test_disass_parse (test_add 1 0);
+   "disass3">:: test_disass_parse test_broken_scope_4;
+   ]
 ;;
 
 let _ =
