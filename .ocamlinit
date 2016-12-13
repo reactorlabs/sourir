@@ -1,0 +1,8 @@
+let print_set ppf (set : Scope.VarSet.t) =
+  Scope.VarSet.elements set
+   |> List.map (Printf.sprintf "%S")
+   |> String.concat "; "
+   |> Format.fprintf ppf "[%s]"
+;;
+
+#install_printer print_set;;

@@ -14,11 +14,17 @@ sourir:
 	$(OCAMLBUILD) sourir.byte
 	cp _build/sourir.byte sourir
 
+lib:
+	$(OCAMLBUILD) sourir.cma
+
+runtop: lib
+	utop -I _build sourir.cma
+
 run: sourir
 	./sourir test.sou
 
 clean:
 	ocamlbuild -clean
 
-.PHONY: all run tests clean
+.PHONY: all sourir run tests clean
 
