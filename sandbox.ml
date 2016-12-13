@@ -2,5 +2,5 @@ open Print
 open Tests
 open Batteries
 
-let o = disassemble (test_sum 10)
+let o = disassemble (drop_annots (test_sum 10))
 let () = Printf.printf "%s\n" o
