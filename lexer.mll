@@ -51,6 +51,10 @@ rule token = parse
   | "]" { RBRACKET }
   | "(" { LPAREN }
   | ")" { RPAREN }
+  | "{" { LBRACE }
+  | "}" { RBRACE }
+  | "," { COMMA }
+  | "..." { TRIPLE_DOT }
   | ":" { COLON }
   | "=" { EQUAL }
   | "<-" { LEFTARROW }

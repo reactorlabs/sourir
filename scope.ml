@@ -2,9 +2,19 @@ open Instr
 
 module VarSet = Set.Make(Variable)
 
-(** TODO:
-    - nice error printing when vars out of bound
-    - "none", how to handle ?
+type scope_annotation =
+  | Exact of VarSet.t
+  | At_least of VarSet.t
+
+type inference_state =
+  | Any_scope
+  | Precise_scope of VarSet.t
+
+type inferred_scope =
+  | Dead
+  | Scope of VarSet.t
+
+(* TODO:
     - keep track of const/mut status
 *)
 
@@ -54,25 +64,28 @@ let successors program pc =
 
 let update cell set =
   match !cell with
-  | None -> cell := Some set; Some set
-  | Some old_set ->
+  | Any_scope -> cell := Precise_scope set; Some set
+  | Precise_scope old_set ->
     let new_set = VarSet.inter set old_set in
-    cell := Some new_set;
+    cell := Precise_scope new_set;
     if VarSet.equal old_set new_set then None
     else Some new_set
 
 exception UndefinedVariable of VarSet.t
 
-let infer (program : instruction array) =
-  let state =
-    let temp instr = ref None, instr in
-    Array.map temp program in
+let infer annotated_program =
+  let annotations = Array.map fst annotated_program in
+  let program = Array.map snd annotated_program in
+  let state = Array.map (fun _ -> ref Any_scope) annotated_program in
   let rec work = function
     | (set, pc) :: rest ->
-      let (preset, instr) = state.(pc) in
-      begin match update preset set with
+      let set = match annotations.(pc) with
+        | None | Some (At_least _) -> set
+        | Some (Exact vars) -> VarSet.inter set vars in
+      begin match update state.(pc) set with
       | None -> work rest
       | Some env ->
+        let instr = program.(pc) in
         let free, bound, succs =
           free_vars instr, bound_vars instr,
           successors program pc in
@@ -81,14 +94,20 @@ let infer (program : instruction array) =
         work (new_work @ rest)
       end
     | [] ->
-      let finish (cell, instr) =
-        let free = free_vars instr in
-        match !cell with
-        | Some set ->
-            if not (VarSet.subset free set) then
-              raise (UndefinedVariable (VarSet.diff free set));
-            (set, instr)
-        | None -> (VarSet.singleton "none", instr)
+      let finish (annotation, instr) preset =
+        match !preset with
+        | Any_scope -> Dead
+        | Precise_scope set ->
+            let must_have vars =
+              if not (VarSet.subset vars set)
+              then raise (UndefinedVariable (VarSet.diff vars set)) in
+            must_have (free_vars instr);
+            begin match annotation with
+              | None -> ()
+              | Some (At_least xs | Exact xs) -> must_have xs;
+            end;
+            Scope set
       in
-      Array.map finish state
-  in work [(VarSet.empty, 0)]
+      Array.map2 finish annotated_program state
+  in
+  work [(VarSet.empty, 0)]

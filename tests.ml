@@ -12,17 +12,26 @@ let has_var x v =
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
+let drop_annots = Array.map snd
+
 let run prog pred () =
-  let final_conf = run_forever prog in
+  let final_conf = run_forever (drop_annots prog) in
   assert (pred final_conf)
 
 let run_checked prog pred =
   let () = ignore (infer prog) in
   run prog pred
 
+let exact vars = Some (Scope.Exact (VarSet.of_list vars))
+let at_least vars = Some (Scope.At_least (VarSet.of_list vars))
+
+let no_annotations program =
+  let no_annot instr = ((None : Scope.scope_annotation option), instr) in
+  Array.map no_annot program
+
 let test_print =
   let open Assembler.OO in
-  Assembler.assemble [|
+  no_annotations [|
     print (int 1);
     print (int 2);
     stop
@@ -31,7 +40,7 @@ let test_print =
 let test_decl_const =
   let open Assembler.OO in
   let x = int_var "x" in
-  Assembler.assemble [|
+  no_annotations [|
     const x (int 1);
     print x;
     stop;
@@ -40,7 +49,7 @@ let test_decl_const =
 let test_mut =
   let open Assembler.OO in
   let x = int_var "x" in
-  Assembler.assemble [|
+  no_annotations [|
     mut x (int 1);
     print x;
     assign x (int 2);
@@ -51,7 +60,7 @@ let test_mut =
 let test_jump =
   let open Assembler.OO in
   let x = int_var "x" in
-  Assembler.assemble [|
+  no_annotations [|
     mut x (bool true);
     goto "jump";
     assign x (bool false);
@@ -61,7 +70,7 @@ let test_jump =
 let test_overloading =
   let open Assembler.OO in
   let b, x, y = bool_var "b", int_var "x", int_var "y" in
-  Assembler.assemble [|
+  no_annotations [|
     mut b (bool true);
     mut x (int 1);
     const y x;
@@ -75,7 +84,7 @@ let test_overloading =
 let test_add a b =
   let open Assembler.OO in
   let x, y, z = int_var "x", int_var "y", int_var "z" in
-  Assembler.assemble [|
+  no_annotations [|
     mut x (int a);
     mut y (int b);
     add z x y;
@@ -84,7 +93,7 @@ let test_add a b =
 let test_eq a b =
   let open Assembler.OO in
   let x, y, z = int_var "x", int_var "y", bool_var "z" in
-  Assembler.assemble [|
+  no_annotations [|
     mut x (int a);
     mut y (int b);
     eq z x y;
@@ -94,7 +103,7 @@ let test_sum limit_ =
   let open Assembler.OO in
   let ax, i, sum, limit, one =
     bool_var "ax", int_var "i", int_var "sum", int_var "limit", int_var "one" in
-  Assembler.assemble [|
+  no_annotations [|
     mut i (int 0);
     mut sum (int 0);
     const limit (int limit_);
@@ -113,14 +122,14 @@ let test_sum limit_ =
 let test_broken_scope_1 =
   let open Assembler.OO in
   let x = int_var "x" in
-  Assembler.assemble [|
+  no_annotations [|
     print x;
   |]
 
 let test_broken_scope_2 =
   let open Assembler.OO in
   let x = int_var "x" in
-  Assembler.assemble [|
+  no_annotations [|
     goto "l";
     const x (int 0);
     label "l";
@@ -130,7 +139,7 @@ let test_broken_scope_2 =
 let test_broken_scope_3 =
   let open Assembler.OO in
   let x, y = int_var "x", int_var "y" in
-  Assembler.assemble [|
+  no_annotations [|
     const y (bool false);
     branch y "cont" "next";
     label "next";
@@ -142,7 +151,7 @@ let test_broken_scope_3 =
 let test_broken_scope_3 =
   let open Assembler.OO in
   let x, y = int_var "x", bool_var "y" in
-  Assembler.assemble [|
+  no_annotations [|
     const y (bool false);
     branch y "cont" "next";
     label "next";
@@ -151,10 +160,40 @@ let test_broken_scope_3 =
     print x;
   |]
 
+let test_broken_scope_4 =
+  let open Assembler.OO in
+  let x, y, z = int_var "x", int_var "y", bool_var "z" in
+  [|
+    None, mut x (int 0);
+    None, mut y (int 0);
+    exact ["x"], mut z (bool false);
+    None, eq z x y;
+  |]
+
+let test_broken_scope_4_fixed =
+  let open Assembler.OO in
+  let x, y, z = int_var "x", int_var "y", bool_var "z" in
+  [|
+    None, mut x (int 0);
+    None, mut y (int 0);
+    at_least ["x"], mut z (bool false);
+    None, eq z x y;
+  |]
+
+let test_broken_scope_5 =
+  let open Assembler.OO in
+  let x, y, z = int_var "x", int_var "y", bool_var "z" in
+  [|
+    None, mut x (int 0);
+    None, mut y (int 0);
+    at_least ["w"], mut z (bool false);
+    None, eq z x y;
+  |]
+
 let test_scope_1 test_var1 test_var2 =
   let open Assembler.OO in
   let a, b, c, t = int_var "a", int_var "b", int_var "c", bool_var "t" in
-  Assembler.assemble [|
+  no_annotations [|
     const t (bool false);
     branch t "a" "b";
     label "a";
@@ -168,6 +207,8 @@ let test_scope_1 test_var1 test_var2 =
     label "cont";
     add c (int_var test_var1) (int_var test_var2);
   |]
+
+
 
 let infer_broken_scope program missing_vars = function() ->
      let test = function() -> ignore (infer program) in
@@ -198,9 +239,12 @@ let suite =
    "scope2">:: infer_broken_scope test_broken_scope_2 ["x"];
    "scope3">:: infer_broken_scope test_broken_scope_3 ["x"];
    "scope3run">:: run test_broken_scope_3 (has_var "x" (Value.int 0));
-   "scope4ok">:: run_checked (test_scope_1 "c" "c") (has_var "c" (Value.int 0));
-   "scope4broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"];
-   "scope4broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"];
+   "scope4">:: infer_broken_scope test_broken_scope_4 ["y"];
+   "scope4fixed">:: run_checked test_broken_scope_4_fixed ok;
+   "scope5">:: infer_broken_scope test_broken_scope_5 ["w"];
+   "scope1ok">:: run_checked (test_scope_1 "c" "c") (has_var "c" (Value.int 0));
+   "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"];
+   "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"];
   ]
 ;;
 
