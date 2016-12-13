@@ -25,5 +25,5 @@ sb:
 clean:
 	ocamlbuild -clean
 
-.PHONY: all run tests clean sb
+.PHONY: all run tests clean sourir sb
 
