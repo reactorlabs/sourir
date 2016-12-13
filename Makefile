@@ -23,13 +23,8 @@ runtop: lib
 run: sourir
 	./sourir test.sou
 
-
-sb:
-	$(OCAMLBUILD) sandbox.byte
-	_build/sandbox.byte
-
 clean:
 	ocamlbuild -clean
 
-.PHONY: all run tests clean sourir sb
+.PHONY: all run tests clean sourir
 
