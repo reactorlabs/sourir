@@ -102,10 +102,10 @@ let get_int (Lit lit : value) =
      let expected, received = Int, litteral_type other in
      raise (Type_error { expected; received })
 
-let get_bool (Lit lit : value) = 
+let get_bool (Lit lit : value) =
   match lit with
   | Bool b -> b
-  | other -> 
+  | other ->
      let expected, received = Bool, litteral_type other in
      raise (Type_error { expected; received })
 
@@ -124,7 +124,7 @@ let reduce conf =
                    pc = pc' }
   | Stop -> { conf with
               status = Stopped }
-  | Decl_const (x, e) -> 
+  | Decl_const (x, e) ->
      let v = eval conf e in
      { conf with
        env = Env.add x (Const v) conf.env;
@@ -202,3 +202,21 @@ let run_forever program =
   reduce_forever (start program 0)
 
 let read_trace conf = List.rev conf.trace
+
+let rec reduce_interactive conf =
+  if stop conf then conf
+  else begin
+    let conf = reduce conf in
+    let string_of_val : value -> string = function
+      | Lit Nil -> "nil"
+      | Lit (Bool b) -> string_of_bool b
+      | Lit (Int n) -> string_of_int n in
+    begin match conf.trace with
+      | [] -> ()
+      | vs -> print_endline (String.concat " " (List.map string_of_val vs))
+    end;
+    reduce_interactive { conf with trace = [] }
+  end
+
+let run_interactive program =
+  reduce_interactive (start program 0)

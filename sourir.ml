@@ -9,7 +9,6 @@ let () =
   | path ->
     let annotated_program = Parse.parse_file path in
     begin match Scope.infer annotated_program with
-      | _scoped_program -> ()
       | exception Scope.UndefinedVariable xs ->
         begin match Scope.VarSet.elements xs with
           | [x] -> Printf.eprintf "Error: Variable %s undefined.\n%!" x
@@ -17,5 +16,7 @@ let () =
                     (String.concat ", " xs)
         end;
         exit 1
-    end;
-    ()
+      | _scopes ->
+        let program = Array.map snd annotated_program in
+        ignore (Eval.run_interactive program)
+    end

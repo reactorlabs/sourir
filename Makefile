@@ -20,5 +20,5 @@ run: sourir
 clean:
 	ocamlbuild -clean
 
-.PHONY: all run tests clean
+.PHONY: all run tests clean sourir
 

@@ -5,8 +5,9 @@
 loop:
   branch (i == limit) continue loop_body
 loop_body:
+  print i
   sum <- (sum + i)
-  assign <- (i + one)
+  i <- (i + one)
   goto loop
 continue:
-  stop
+  print sum
