@@ -4,4 +4,4 @@ Lexer
 Parser
 Parse
 Eval
-Disass
+Disasm

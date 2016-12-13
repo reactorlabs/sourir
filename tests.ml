@@ -1,31 +1,27 @@
 open OUnit
 open Instr
-open Eval
-open Scope
-open Parse
-open Disass
 
 let ok _ = true
 
 let trace_is li =
-  fun conf -> read_trace conf = li
+  fun conf -> Eval.read_trace conf = li
 let has_var x v =
-  fun conf -> (lookup conf.heap conf.env x = v)
+  fun conf -> Eval.(lookup conf.heap conf.env x = v)
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
 let drop_annots = Array.map snd
 
 let run prog pred () =
-  let final_conf = run_forever (drop_annots prog) in
+  let final_conf = Eval.run_forever (drop_annots prog) in
   assert (pred final_conf)
 
 let run_checked prog pred =
-  let () = ignore (infer prog) in
+  let () = ignore (Scope.infer prog) in
   run prog pred
 
-let exact vars = Some (Scope.Exact (VarSet.of_list vars))
-let at_least vars = Some (Scope.At_least (VarSet.of_list vars))
+let exact vars = Some Scope.(Exact (VarSet.of_list vars))
+let at_least vars = Some Scope.(At_least (VarSet.of_list vars))
 
 let no_annotations program =
   let no_annot instr = ((None : Scope.scope_annotation option), instr) in
@@ -213,27 +209,27 @@ let test_scope_1 test_var1 test_var2 =
 
 
 let infer_broken_scope program missing_vars = function() ->
-     let test = function() -> ignore (infer program) in
-     let expected = (UndefinedVariable (VarSet.of_list missing_vars)) in
+     let test = function() -> ignore (Scope.infer program) in
+     let expected = Scope.(UndefinedVariable (VarSet.of_list missing_vars)) in
      assert_raises expected test
 
-let test_parse_disass_file file = function() ->
+let test_parse_disasm_file file = function() ->
   let prog1 = Parse.parse_file file in
-  let disass1 = Disass.disassemble prog1 in
-  let prog2 = Parse.parse_string disass1 in
-  let disass2 = Disass.disassemble prog2 in
-  assert_equal disass1 disass2
+  let disasm1 = Disasm.disassemble prog1 in
+  let prog2 = Parse.parse_string disasm1 in
+  let disasm2 = Disasm.disassemble prog2 in
+  assert_equal disasm1 disasm2
 
-let test_parse_disass str = function() ->
+let test_parse_disasm str = function() ->
   let prog1 = Parse.parse_string str in
-  let disass1 = Disass.disassemble prog1 in
-  let prog2 = Parse.parse_string disass1 in
-  let disass2 = Disass.disassemble prog2 in
-  assert_equal disass1 disass2
+  let disasm1 = Disasm.disassemble prog1 in
+  let prog2 = Parse.parse_string disasm1 in
+  let disasm2 = Disasm.disassemble prog2 in
+  assert_equal disasm1 disasm2
 
-let test_disass_parse prog = function() ->
-  let disass1 = Disass.disassemble prog in
-  let prog2 = Parse.parse_string disass1 in
+let test_disasm_parse prog = function() ->
+  let disasm1 = Disasm.disassemble prog in
+  let prog2 = Parse.parse_string disasm1 in
   assert_equal prog prog2
 
 let suite =
@@ -266,21 +262,22 @@ let suite =
    "scope1ok">:: run_checked (test_scope_1 "c" "c") (has_var "c" (Value.int 0));
    "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"];
    "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"];
-   "parser">:: test_parse_disass ("stop\n");
-   "parser1">:: test_parse_disass ("const x = 3\nprint x\nstop\n");
-   "parser2">:: test_parse_disass ("goto l\nx <- 3\nl:\n");
-   "parser3">:: test_parse_disass ("const x = (y + x)\n");
-   "parser4">:: test_parse_disass ("x <- (x == y)\n");
-   "parser5">:: test_parse_disass ("# asdfasdf\n");
-   "parser6">:: test_parse_disass ("branch (x == y) as fd\n");
-   "parser7">:: test_parse_disass ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
-   "parser8">:: test_parse_disass_file "test.sou";
-   "disass1">:: test_disass_parse (test_sum 10);
-   "disass2">:: test_disass_parse (test_add 1 0);
-   "disass_scope1">:: test_disass_parse test_broken_scope_4;
-   "disass_scope2">:: test_disass_parse test_broken_scope_4_fixed;
-   "disass_scope3">:: test_disass_parse test_broken_scope_5;
-   "parser_scope1">:: test_parse_disass "{a, b} print x\n{a,x,...} #asdf\n";
+   "parser">:: test_parse_disasm ("stop\n");
+   "parser1">:: test_parse_disasm ("const x = 3\nprint x\nstop\n");
+   "parser2">:: test_parse_disasm ("goto l\nx <- 3\nl:\n");
+   "parser3">:: test_parse_disasm ("const x = (y + x)\n");
+   "parser4">:: test_parse_disasm ("x <- (x == y)\n");
+   "parser5">:: test_parse_disasm ("# asdfasdf\n");
+   "parser5b">:: test_parse_disasm ("invalidate (x == y) l [x, y, z]\nl:\n");
+   "parser6">:: test_parse_disasm ("branch (x == y) as fd\n");
+   "parser7">:: test_parse_disasm ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser8">:: test_parse_disasm_file "test.sou";
+   "disasm1">:: test_disasm_parse (test_sum 10);
+   "disasm2">:: test_disasm_parse (test_add 1 0);
+   "disasm_scope1">:: test_disasm_parse test_broken_scope_4;
+   "disasm_scope2">:: test_disasm_parse test_broken_scope_4_fixed;
+   "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
+   "parser_scope1">:: test_parse_disasm "{a, b} print x\n{a,x,...} #asdf\n";
    ]
 ;;
 

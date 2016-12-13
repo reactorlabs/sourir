@@ -56,7 +56,7 @@ instruction:
   { Print e }
 | INVALIDATE
   e=expression l=label
-  xs=delimited(LBRACKET, list(variable), RBRACKET)
+  xs=delimited(LBRACKET, separated_list(COMMA, variable), RBRACKET)
   { Invalidate (e, l, xs) }
 | STOP
   { Stop }

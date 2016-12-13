@@ -21,9 +21,11 @@ let id_or_keyword id =
 
 let comment_of_string str =
   let buf = Buffer.create 10 in
-  String.iter (function
-      | '\r' -> ()
-      | c -> Buffer.add_char buf c) str;
+  (* start at 1: skip the '#' character *)
+  for i = 1 to String.length str - 1 do
+    if str.[i] <> '\r'
+    then Buffer.add_char buf str.[i];
+  done;
   Buffer.contents buf
 
 let lexing_error lexbuf =
