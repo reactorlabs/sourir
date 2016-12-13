@@ -1,3 +1,4 @@
 <tests.*>: package(oUnit)
+<sandbox.*>: package(oUnit, batteries)
 
 true: debug
