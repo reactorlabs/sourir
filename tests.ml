@@ -1,29 +1,27 @@
 open OUnit
 open Instr
-open Eval
-open Scope
 
 let ok _ = true
 
 let trace_is li =
-  fun conf -> read_trace conf = li
+  fun conf -> Eval.read_trace conf = li
 let has_var x v =
-  fun conf -> (lookup conf.heap conf.env x = v)
+  fun conf -> Eval.(lookup conf.heap conf.env x = v)
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
 let drop_annots = Array.map snd
 
 let run prog pred () =
-  let final_conf = run_forever (drop_annots prog) in
+  let final_conf = Eval.run_forever (drop_annots prog) in
   assert (pred final_conf)
 
 let run_checked prog pred =
-  let () = ignore (infer prog) in
+  let () = ignore (Scope.infer prog) in
   run prog pred
 
-let exact vars = Some (Scope.Exact (VarSet.of_list vars))
-let at_least vars = Some (Scope.At_least (VarSet.of_list vars))
+let exact vars = Some Scope.(Exact (VarSet.of_list vars))
+let at_least vars = Some Scope.(At_least (VarSet.of_list vars))
 
 let no_annotations program =
   let no_annot instr = ((None : Scope.scope_annotation option), instr) in
@@ -211,8 +209,8 @@ let test_scope_1 test_var1 test_var2 =
 
 
 let infer_broken_scope program missing_vars = function() ->
-     let test = function() -> ignore (infer program) in
-     let expected = (UndefinedVariable (VarSet.of_list missing_vars)) in
+     let test = function() -> ignore (Scope.infer program) in
+     let expected = Scope.(UndefinedVariable (VarSet.of_list missing_vars)) in
      assert_raises expected test
 
 let test_parse_disasm_file file = function() ->
