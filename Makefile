@@ -14,6 +14,12 @@ sourir:
 	$(OCAMLBUILD) sourir.byte
 	cp _build/sourir.byte sourir
 
+lib:
+	$(OCAMLBUILD) sourir.cma
+
+runtop: lib
+	utop -I _build sourir.cma
+
 run: sourir
 	./sourir test.sou
 
