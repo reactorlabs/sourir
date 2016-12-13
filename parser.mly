@@ -3,16 +3,23 @@
 %token<int> INT
 %token<string> IDENTIFIER
 %token DOUBLE_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
-%token LPAREN RPAREN LBRACKET RBRACKET
-%token COLON EQUAL LEFTARROW
+%token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
+%token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
 %token CONST MUT BRANCH GOTO PRINT INVALIDATE STOP
 %token<string> COMMENT
 %token NEWLINE
 %token EOF
 
-%start<Instr.program> program
+%start<(Scope.scope_annotation option * Instr.instruction) array> program
 
-%{ open Instr %}
+%{ open Instr
+
+let scope_annotation (mode, xs) =
+  let xs = Scope.VarSet.of_list xs in
+  match mode with
+  | `Exact -> Scope.Exact xs
+  | `At_least -> Scope.At_least xs
+%}
 
 
 %%
@@ -21,7 +28,16 @@ program:
 | prog=list(instruction_line) EOF { Array.of_list prog }
 
 instruction_line:
-| i=instruction NEWLINE { i }
+| a=scope_annotation i=instruction NEWLINE { (a, i) }
+
+scope_annotation:
+| { None }
+| annot=delimited(LBRACE, scope, RBRACE) { Some (scope_annotation annot) }
+
+scope:
+| x=variable COMMA sc=scope { let (mode, xs) = sc in (mode, x::xs) }
+| x=variable { (`Exact, [x]) }
+| TRIPLE_DOT { (`At_least, []) }
 
 instruction:
 | CONST x=variable EQUAL e=expression
