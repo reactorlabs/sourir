@@ -218,24 +218,23 @@ let infer_broken_scope program missing_vars = function() ->
      assert_raises expected test
 
 let test_parse_disass_file file = function() ->
-  let prog1 = drop_annots(Parse.parse_file file) in
+  let prog1 = Parse.parse_file file in
   let disass1 = Disass.disassemble prog1 in
-  let prog2 = drop_annots(Parse.parse_string disass1) in
+  let prog2 = Parse.parse_string disass1 in
   let disass2 = Disass.disassemble prog2 in
   assert_equal disass1 disass2
 
 let test_parse_disass str = function() ->
-  let prog1 = drop_annots(Parse.parse_string str) in
+  let prog1 = Parse.parse_string str in
   let disass1 = Disass.disassemble prog1 in
-  let prog2 = drop_annots(Parse.parse_string disass1) in
+  let prog2 = Parse.parse_string disass1 in
   let disass2 = Disass.disassemble prog2 in
   assert_equal disass1 disass2
 
 let test_disass_parse prog = function() ->
-  let disass1 = Disass.disassemble (drop_annots prog) in
-  let prog2 = drop_annots(Parse.parse_string disass1) in
-  let disass2 = Disass.disassemble prog2 in
-  assert_equal disass1 disass2
+  let disass1 = Disass.disassemble prog in
+  let prog2 = Parse.parse_string disass1 in
+  assert_equal prog prog2
 
 let suite =
   let open Assembler in
@@ -278,7 +277,10 @@ let suite =
    "parser8">:: test_parse_disass_file "test.sou";
    "disass1">:: test_disass_parse (test_sum 10);
    "disass2">:: test_disass_parse (test_add 1 0);
-   "disass3">:: test_disass_parse test_broken_scope_4;
+   "disass_scope1">:: test_disass_parse test_broken_scope_4;
+   "disass_scope2">:: test_disass_parse test_broken_scope_4_fixed;
+   "disass_scope3">:: test_disass_parse test_broken_scope_5;
+   "parser_scope1">:: test_parse_disass "{a, b} print x\n{a,x,...} #asdf\n";
    ]
 ;;
 
