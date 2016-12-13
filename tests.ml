@@ -268,6 +268,7 @@ let suite =
    "parser3">:: test_parse_disasm ("const x = (y + x)\n");
    "parser4">:: test_parse_disasm ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm ("# asdfasdf\n");
+   "parser5b">:: test_parse_disasm ("invalidate (x == y) l [x, y, z]\nl:\n");
    "parser6">:: test_parse_disasm ("branch (x == y) as fd\n");
    "parser7">:: test_parse_disasm ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "test.sou";

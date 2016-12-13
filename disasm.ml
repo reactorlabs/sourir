@@ -34,7 +34,7 @@ let disassemble (prog : (Scope.scope_annotation option * Instr.instruction) arra
         | Goto label                      -> pr buf " goto %s" label
         | Print exp                       -> pr buf " print "; dump_expr exp
         | Invalidate (exp, l, vars)       -> pr buf " invalidate "; dump_expr exp;
-                                             pr buf " %s (%s)" l (String.concat ", " vars)
+                                             pr buf " %s [%s]" l (String.concat ", " vars)
         | Stop                            -> pr buf " stop"
         | Comment str                     -> pr buf " %s" str
         end;
