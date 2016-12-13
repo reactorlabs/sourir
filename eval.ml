@@ -3,6 +3,12 @@ open Instr
 module Env = Map.Make(Variable)
 module Heap = Map.Make(Address)
 
+exception EOF
+exception Invalid_input
+
+type input = unit -> input_tape (* may raise one of the exceptions above *)
+and input_tape = Next of value * input
+
 type trace = value list
 type environment = binding Env.t
 type heap = value Heap.t
@@ -12,6 +18,7 @@ type pc = int
 type status = Running | Stopped
 
 type configuration = {
+  input : input;
   trace : trace;
   heap : heap;
   env : environment;
@@ -149,6 +156,13 @@ let reduce conf =
      { conf with pc = resolve (if b then l1 else l2) }
   | Label _ -> { conf with pc = pc' }
   | Goto label -> { conf with pc = resolve label }
+  | Read x ->
+    let (Next (v, input')) = conf.input () in
+    { conf with
+      heap = update conf.heap conf.env x v;
+      input = input';
+      pc = pc';
+    }
   | Print e ->
      let v = eval conf e in
      { conf with
@@ -173,7 +187,30 @@ let reduce conf =
          env = new_env }
      end
 
-let start program pc = {
+let no_input () = raise EOF
+
+let rec list_input li () = match li with
+  | [] -> raise EOF
+  | v :: vs -> Next (v, list_input vs)
+
+let value_of_string : string -> value = function
+  | "nil" -> Lit Nil
+  | "true" -> Lit (Bool true)
+  | "false" -> Lit (Bool false)
+  | other ->
+    begin match int_of_string other with
+    | exception _ -> invalid_arg (Printf.sprintf "value_of_string(%s)" other)
+    | n -> Lit (Int n)
+    end
+
+let rec stdin_input () =
+  match value_of_string (read_line ()) with
+  | exception End_of_file -> raise EOF
+  | exception (Invalid_argument _) -> raise Invalid_input
+  | value -> Next (value, stdin_input)
+
+let start program input pc = {
+  input;
   trace = [];
   heap = Heap.empty;
   env = Env.empty;
@@ -190,16 +227,16 @@ let rec reduce_bounded (conf, n) =
   else let conf = reduce conf in
     reduce_bounded (conf, n - 1)
 
-let run_bounded (prog, n) =
-  let conf = start prog 0 in
+let run_bounded input (prog, n) =
+  let conf = start prog input 0 in
     reduce_bounded (conf, n)
 
 let rec reduce_forever conf =
   if stop conf then conf
   else reduce_forever (reduce conf)
 
-let run_forever program =
-  reduce_forever (start program 0)
+let run_forever input program =
+  reduce_forever (start program input 0)
 
 let read_trace conf = List.rev conf.trace
 
@@ -218,5 +255,5 @@ let rec reduce_interactive conf =
     reduce_interactive { conf with trace = [] }
   end
 
-let run_interactive program =
-  reduce_interactive (start program 0)
+let run_interactive input program =
+  reduce_interactive (start program input 0)

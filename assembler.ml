@@ -67,6 +67,7 @@ module OO = struct
   let const x e = Decl_const (x#variable, e#expression)
   let mut x e = Decl_mut (x#variable, e#expression)
   let assign x e = Assign (x#variable, e#expression)
+  let read x = Read (x#variable)
   let print e = Print (e#expression)
   let goto l = Goto l
   let branch e tr fs = Branch (e#expression, tr, fs)

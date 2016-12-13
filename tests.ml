@@ -12,8 +12,11 @@ let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
 let drop_annots = Array.map snd
 
-let run prog pred () =
-  let final_conf = Eval.run_forever (drop_annots prog) in
+let no_input = Eval.no_input
+let input = Eval.list_input
+
+let run prog input pred () =
+  let final_conf = Eval.run_forever input (drop_annots prog) in
   assert (pred final_conf)
 
 let run_checked prog pred =
@@ -206,6 +209,17 @@ let test_scope_1 test_var1 test_var2 =
     add c (int_var test_var1) (int_var test_var2);
   |]
 
+let test_read_print =
+  let open Assembler.OO in
+  let n, b = int_var "n", bool_var "b" in
+  no_annotations [|
+    mut n (int 0);
+    mut b (bool true);
+    read b;
+    read n;
+    print n;
+    print b;
+  |]
 
 
 let infer_broken_scope program missing_vars = function() ->
@@ -235,31 +249,41 @@ let test_disasm_parse prog = function() ->
 let suite =
   let open Assembler in
   "suite">:::
-  ["mut">:: run_checked test_mut
+  ["mut">:: run_checked test_mut no_input
      (has_var "x" (Value.int 2)
       &&& (trace_is Value.[int 1; int 2]));
-   "decl_const">:: run_checked test_decl_const
+   "decl_const">:: run_checked test_decl_const no_input
      (has_var "x" (Value.int 1));
-   "print">:: run_checked test_print
+   "print">:: run_checked test_print no_input
      (trace_is Value.[int 1; int 2]);
-   "jump">:: run_checked test_jump (has_var "x" (Value.bool true));
-   "jump (oo)" >:: run_checked test_overloading
+   "jump">:: run_checked test_jump no_input
+     (has_var "x" (Value.bool true));
+   "jump (oo)" >:: run_checked test_overloading no_input
      (has_var "b" (Value.bool true)
       &&& has_var "x" (Value.int 2)
       &&& has_var "y" (Value.int 1));
-   "add">:: run_checked (test_add 1 2) (has_var "z" (Value.int 3));
-   "add2">:: run_checked (test_add 2 1) (has_var "z" (Value.int 3));
-   "eq">:: run_checked (test_eq 1 2) (has_var "z" (Value.bool false));
-   "neq">:: run_checked (test_eq 1 1) (has_var "z" (Value.bool true));
-   "loops">:: run_checked (test_sum 5) (has_var "sum" (Value.int 10));
+   "add">:: run_checked (test_add 1 2) no_input
+     (has_var "z" (Value.int 3));
+   "add2">:: run_checked (test_add 2 1) no_input
+     (has_var "z" (Value.int 3));
+   "eq">:: run_checked (test_eq 1 2) no_input
+     (has_var "z" (Value.bool false));
+   "neq">:: run_checked (test_eq 1 1) no_input
+     (has_var "z" (Value.bool true));
+   "loops">:: run_checked (test_sum 5) no_input
+     (has_var "sum" (Value.int 10));
+   "read">:: run_checked test_read_print (input [Value.bool false; Value.int 1])
+     (trace_is [Value.int 1; Value.bool false]);
    "scope1">:: infer_broken_scope test_broken_scope_1 ["x"];
    "scope2">:: infer_broken_scope test_broken_scope_2 ["x"];
    "scope3">:: infer_broken_scope test_broken_scope_3 ["x"];
-   "scope3run">:: run test_broken_scope_3 (has_var "x" (Value.int 0));
+   "scope3run">:: run test_broken_scope_3 no_input
+     (has_var "x" (Value.int 0));
    "scope4">:: infer_broken_scope test_broken_scope_4 ["y"];
-   "scope4fixed">:: run_checked test_broken_scope_4_fixed ok;
+   "scope4fixed">:: run_checked test_broken_scope_4_fixed no_input ok;
    "scope5">:: infer_broken_scope test_broken_scope_5 ["w"];
-   "scope1ok">:: run_checked (test_scope_1 "c" "c") (has_var "c" (Value.int 0));
+   "scope1ok">:: run_checked (test_scope_1 "c" "c") no_input
+     (has_var "c" (Value.int 0));
    "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"];
    "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"];
    "parser">:: test_parse_disasm ("stop\n");

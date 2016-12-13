@@ -32,6 +32,7 @@ let disassemble (prog : (Scope.scope_annotation option * Instr.instruction) arra
         | Branch (exp, l1, l2)            -> pr buf " branch "; dump_expr exp; pr buf " %s %s" l1 l2
         | Label label                     -> pr buf "%s:" label
         | Goto label                      -> pr buf " goto %s" label
+        | Read var                        -> pr buf " read %s" var
         | Print exp                       -> pr buf " print "; dump_expr exp
         | Invalidate (exp, l, vars)       -> pr buf " invalidate "; dump_expr exp;
                                              pr buf " %s [%s]" l (String.concat ", " vars)

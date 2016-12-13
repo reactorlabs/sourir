@@ -30,6 +30,7 @@ and instruction =
   | Branch of expression * label * label
   | Label of label
   | Goto of label
+  | Read of variable
   | Print of expression
   | Invalidate of expression * label * variable list
   | Stop
