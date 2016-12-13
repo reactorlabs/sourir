@@ -4,6 +4,10 @@ let position {Lexing.pos_fname; pos_lnum; pos_cnum; pos_bol} =
   let character = pos_cnum - pos_bol in
   (file, line, character)
 
+let parse_string str =
+  let lexbuf = Lexing.from_string str in
+  Parser.program Lexer.token lexbuf
+
 let parse_file path =
   let chan = open_in path in
   let lexbuf =
