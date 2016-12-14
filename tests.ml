@@ -119,6 +119,7 @@ let test_sum limit_ =
     stop;
   |]
 
+
 let test_broken_scope_1 =
   let open Assembler.OO in
   let x = int_var "x" in
@@ -235,6 +236,47 @@ let test_disasm_parse prog = function() ->
   let prog2 = Parse.parse_string disasm1 in
   assert_equal prog prog2
 
+let test_branch = Parse.parse_string
+"mut x = 9
+ mut y = 10
+ mut r = 1
+ branch (x == y) l1 l2
+l1:
+ r <- 2
+ goto c
+l2:
+ r <- 3
+ goto c
+c:
+ print r
+"
+let test_branch_pruned = " mut x = 9
+ mut y = 10
+ mut r = 1
+ invalidate (x == y) %deopt_l2 [r, x, y]
+ r <- 2
+ print r
+ stop
+%deopt_l2:
+ r <- 3
+ print r
+ stop
+"
+
+let test_branch_pruning_exp prog expected =
+  let scope = Scope.infer prog in
+  let instrs = (drop_annots prog) in
+  let prog2 = Transform.branch_prune (instrs, scope) in
+  assert_equal (Disasm.disassemble (no_annotations prog2)) expected
+
+let test_branch_pruning prog =
+  let scope = Scope.infer prog in
+  let instrs = (drop_annots prog) in
+  let prog2 = Transform.branch_prune (instrs, scope) in
+  let res1 = Eval.run_forever no_input instrs in
+  let res2 = Eval.run_forever no_input prog2 in
+  assert_equal res1.trace res2.trace
+
 let suite =
   let open Assembler in
   "suite">:::
@@ -291,6 +333,9 @@ let suite =
    "disasm_scope2">:: test_disasm_parse test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
    "parser_scope1">:: test_parse_disasm "{a, b} print x\n{a,x,...} #asdf\n";
+   "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
+   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch);
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10));
    ]
 ;;
 

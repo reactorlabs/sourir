@@ -12,7 +12,8 @@ let successors program pc =
   | Comment _
   | Read _
   | Print _ -> next
-  | Goto l | Invalidate (_, l, _) -> [resolve l]
+  | Goto l -> [resolve l]
+  | Invalidate (_, l, _) -> next @ [resolve l]
   | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   | Stop -> []
 
@@ -20,7 +21,7 @@ module VarSet = Set.Make(Variable)
 
 (* Perform forward analysis on some code
  *
- * init_state : Initial input state to instruction 0
+ * init_state : Initial input state and first instruction
  * merge      : current state -> input state -> merge state if changed
  * update     : abstract instruction -> input state -> output state
  * program    : array of abstract instructions
@@ -29,7 +30,7 @@ module VarSet = Set.Make(Variable)
  * Returns an array of states for every instruction of the program.
  * Bottom is represented as None *)
 
-let forward_analysis (init_state : 'a)
+let forward_analysis (init_state : ('a * int))
                      (merge : 'a -> 'a -> 'a option)
                      (update : int -> 'a -> 'a)
                      (program : program)
@@ -53,5 +54,5 @@ let forward_analysis (init_state : 'a)
             work (new_work @ rest)
         end
   in
-  work [(init_state, 0)];
+  work [init_state];
   Array.map (!) program_state
