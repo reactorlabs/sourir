@@ -8,6 +8,7 @@ let disassemble (prog : Scope.annotated_program) =
       | Var v             -> pr buf "%s" v
       | Lit lit           -> pr buf "%s" (string_of_litteral lit)
       | Op (Plus, [a; b]) -> pr buf "(%s + %s)" a b
+      | Op (Neq,  [a; b]) -> pr buf "(%s != %s)" a b
       | Op (Eq,   [a; b]) -> pr buf "(%s == %s)" a b
       | Op (_, _)         -> assert(false)
     in

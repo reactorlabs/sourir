@@ -43,7 +43,10 @@ and litteral =
   | Nil
   | Bool of bool
   | Int of int
-and primop = Eq | Plus
+and primop =
+  | Eq
+  | Neq
+  | Plus
 
 type value =
   | Lit of litteral
