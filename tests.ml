@@ -277,6 +277,27 @@ let test_branch_pruning prog =
   let res2 = Eval.run_forever no_input prog2 in
   assert_equal res1.trace res2.trace
 
+let test_pred = fst (Parse.parse_string
+"l1:
+  goto l2
+ l3:
+  branch x l1 l2
+ l2:
+  branch x l1 l3
+  stop
+  goto l1
+")
+let do_test_pred = function () ->
+  let pred = Analysis.predecessors test_pred in
+  assert_equal (pred 0) [3; 5; 7];
+  assert_equal (pred 1) [0];
+  assert_equal (pred 2) [5];
+  assert_equal (pred 3) [2];
+  assert_equal (pred 4) [1; 3];
+  assert_equal (pred 5) [4];
+  assert_equal (pred 6) [];
+  assert_equal (pred 7) []
+
 let suite =
   let open Assembler in
   "suite">:::
@@ -336,6 +357,7 @@ let suite =
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch);
    "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10));
+   "predecessors">:: do_test_pred;
    ]
 ;;
 
