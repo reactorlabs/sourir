@@ -17,6 +17,6 @@ let () =
         end;
         exit 1
       | _scopes ->
-        let program = Array.map snd annotated_program in
+        let program = fst annotated_program in
         ignore (Eval.run_interactive program)
     end
