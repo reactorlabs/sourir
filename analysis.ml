@@ -35,6 +35,7 @@ let forward_analysis (init_state : 'a)
                      : 'a option array =
   let program_state = Array.map (fun _ -> ref None) program in
   let rec work = function
+    | [] -> ()
     | (in_state, pc) :: rest ->
         let cell = program_state.(pc) in
         let merged =
@@ -50,7 +51,6 @@ let forward_analysis (init_state : 'a)
             let new_work = List.map (fun pc -> (updated, pc)) succs in
             work (new_work @ rest)
         end
-    | [] -> ()
   in
   work [(init_state, 0)];
-  Array.map (fun r -> !r) program_state
+  Array.map (!) program_state
