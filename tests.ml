@@ -219,20 +219,20 @@ let infer_broken_scope program missing_vars = function() ->
 
 let test_parse_disasm_file file = function() ->
   let prog1 = Parse.parse_file file in
-  let disasm1 = Disasm.disassemble prog1 in
+  let disasm1 = Disasm.disassemble_annotated prog1 in
   let prog2 = Parse.parse_string disasm1 in
-  let disasm2 = Disasm.disassemble prog2 in
+  let disasm2 = Disasm.disassemble_annotated prog2 in
   assert_equal disasm1 disasm2
 
 let test_parse_disasm str = function() ->
   let prog1 = Parse.parse_string str in
-  let disasm1 = Disasm.disassemble prog1 in
+  let disasm1 = Disasm.disassemble_annotated prog1 in
   let prog2 = Parse.parse_string disasm1 in
-  let disasm2 = Disasm.disassemble prog2 in
+  let disasm2 = Disasm.disassemble_annotated prog2 in
   assert_equal disasm1 disasm2
 
 let test_disasm_parse prog = function() ->
-  let disasm1 = Disasm.disassemble prog in
+  let disasm1 = Disasm.disassemble_annotated prog in
   let prog2 = Parse.parse_string disasm1 in
   assert_equal prog prog2
 
@@ -294,9 +294,10 @@ let test_branch_pruning_exp prog expected =
   let scope = Scope.infer prog in
   let instrs = (drop_annots prog) in
   let prog2 = Transform.branch_prune (instrs, scope) in
-  assert_equal (Disasm.disassemble (no_annotations prog2)) expected
+  assert_equal (Disasm.disassemble prog2) expected
 
 let test_branch_pruning prog deopt =
+  let open Eval in
   let scope = Scope.infer prog in
   let instrs = (drop_annots prog) in
   let prog2 = Transform.branch_prune (instrs, scope) in

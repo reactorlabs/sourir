@@ -1,6 +1,6 @@
 open Instr
 
-let disassemble (prog : Scope.annotated_program) =
+let disassemble_annotated (prog : Scope.annotated_program) =
   let dump_instr buf instr annot =
     let pr = Printf.bprintf in
     let dump_expr exp =
@@ -37,3 +37,6 @@ let disassemble (prog : Scope.annotated_program) =
   let b = Buffer.create 1024 in
   Array.iter2 (dump_instr b) (fst prog) (snd prog);
   Buffer.contents b
+
+let disassemble (prog : Instr.program) =
+  disassemble_annotated (prog, Array.map (fun _ -> None) prog)
