@@ -72,10 +72,9 @@ let value_of_string str : value = Lit (litteral_of_string str)
 
 exception Unbound_label of label
 
-let resolve code label =
+let resolve (code : program) (label : string) =
   let rec loop i =
     if i >= Array.length code then raise (Unbound_label label)
     else if code.(i) = Label label then i
     else loop (i + 1)
   in loop 0
-
