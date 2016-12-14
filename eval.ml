@@ -3,6 +3,7 @@ open Instr
 module Env = Map.Make(Variable)
 module Heap = Map.Make(Address)
 
+type input = IO.input
 type trace = value list
 type environment = binding Env.t
 type heap = value Heap.t
@@ -12,6 +13,7 @@ type pc = int
 type status = Running | Stopped
 
 type configuration = {
+  input : input;
   trace : trace;
   heap : heap;
   env : environment;
@@ -149,6 +151,13 @@ let reduce conf =
      { conf with pc = resolve (if b then l1 else l2) }
   | Label _ -> { conf with pc = pc' }
   | Goto label -> { conf with pc = resolve label }
+  | Read x ->
+    let (IO.Next (v, input')) = conf.input () in
+    { conf with
+      heap = update conf.heap conf.env x v;
+      input = input';
+      pc = pc';
+    }
   | Print e ->
      let v = eval conf e in
      { conf with
@@ -173,7 +182,8 @@ let reduce conf =
          env = new_env }
      end
 
-let start program pc = {
+let start program input pc = {
+  input;
   trace = [];
   heap = Heap.empty;
   env = Env.empty;
@@ -190,16 +200,16 @@ let rec reduce_bounded (conf, n) =
   else let conf = reduce conf in
     reduce_bounded (conf, n - 1)
 
-let run_bounded (prog, n) =
-  let conf = start prog 0 in
+let run_bounded input (prog, n) =
+  let conf = start prog input 0 in
     reduce_bounded (conf, n)
 
 let rec reduce_forever conf =
   if stop conf then conf
   else reduce_forever (reduce conf)
 
-let run_forever program =
-  reduce_forever (start program 0)
+let run_forever input program =
+  reduce_forever (start program input 0)
 
 let read_trace conf = List.rev conf.trace
 
@@ -207,16 +217,12 @@ let rec reduce_interactive conf =
   if stop conf then conf
   else begin
     let conf = reduce conf in
-    let string_of_val : value -> string = function
-      | Lit Nil -> "nil"
-      | Lit (Bool b) -> string_of_bool b
-      | Lit (Int n) -> string_of_int n in
     begin match conf.trace with
       | [] -> ()
-      | vs -> print_endline (String.concat " " (List.map string_of_val vs))
+      | vs -> print_endline (String.concat " " (List.map string_of_value vs))
     end;
     reduce_interactive { conf with trace = [] }
   end
 
-let run_interactive program =
-  reduce_interactive (start program 0)
+let run_interactive input program =
+  reduce_interactive (start program input 0)

@@ -25,6 +25,7 @@ let bound_vars = function
     | Branch _
     | Label _
     | Goto _
+    | Read _
     | Print _
     | Invalidate _
     | Comment _
@@ -42,6 +43,7 @@ let free_vars = function
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
+  | Read x -> VarSet.singleton x
   | Print e -> expr_vars e
   | Invalidate (e, _l, xs) ->
     VarSet.union (VarSet.of_list xs) (expr_vars e)
@@ -57,7 +59,9 @@ let successors program pc =
   | Assign _
   | Label _
   | Comment _
-  | Print _ -> next
+  | Read _
+  | Print _
+    -> next
   | Goto l | Invalidate (_, l, _) -> [resolve l]
   | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   | Stop -> []

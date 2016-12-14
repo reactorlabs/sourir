@@ -30,6 +30,7 @@ and instruction =
   | Branch of expression * label * label
   | Label of label
   | Goto of label
+  | Read of variable
   | Print of expression
   | Invalidate of expression * label * variable list
   | Stop
@@ -52,6 +53,22 @@ type address = Address.t
 type binding =
   | Const of value
   | Mut of address
+
+let string_of_litteral : litteral -> string = function
+  | Nil -> "nil"
+  | Bool b -> string_of_bool b
+  | Int n -> string_of_int n
+
+let litteral_of_string : string -> litteral = function
+  | "nil" -> Nil
+  | "true" -> Bool true
+  | "false" -> Bool false
+  | n ->
+    try Int (int_of_string n) with _ ->
+      Printf.kprintf invalid_arg "litteral_of_string %S" n
+
+let string_of_value (Lit lit) = string_of_litteral lit
+let value_of_string str : value = Lit (litteral_of_string str)
 
 exception Unbound_label of label
 
