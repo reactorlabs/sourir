@@ -55,10 +55,14 @@ type binding =
 
 exception Unbound_label of label
 
-let resolve code label =
+let generic_resolve (at : 'p array -> int -> instruction) (code : 'p array) (label : string) =
   let rec loop i =
     if i >= Array.length code then raise (Unbound_label label)
-    else if code.(i) = Label label then i
+    else if (at code i) = Label label then i
     else loop (i + 1)
   in loop 0
+
+let resolve (code : instruction array) (label : string) =
+  let resolve = generic_resolve (fun code pc -> code.(pc)) code in
+  resolve label
 

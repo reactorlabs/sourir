@@ -207,7 +207,6 @@ let test_scope_1 test_var1 test_var2 =
   |]
 
 
-
 let infer_broken_scope program missing_vars = function() ->
      let test = function() -> ignore (Scope.infer program) in
      let expected = Scope.(UndefinedVariable (VarSet.of_list missing_vars)) in
