@@ -20,10 +20,10 @@ module VarSet = Set.Make(Variable)
 (* Perform forward analysis on some code
  *
  * init_state : Initial input state to instruction 0
- * merge      : current state * input state -> merge state if changed
- * update     : abstract instruction * input state -> output state
+ * merge      : current state -> input state -> merge state if changed
+ * update     : abstract instruction -> input state -> output state
  * program    : array of abstract instructions
- * prog_at    : program * index -> instruction at index
+ * prog_at    : program -> index -> instruction at index
  *
  * Returns an array of states for every instruction of the program.
  * Bottom is represented as None *)
@@ -35,8 +35,7 @@ let forward_analysis (init_state : 'a)
                      (prog_at : 'p array -> int -> Instr.instruction)
                      : 'a option array =
   let program_state = Array.map (fun _ -> ref None) program in
-  let rec work (worklist : ('a * int) list) : unit =
-    match worklist with
+  let rec work = function
     | (in_state, pc) :: rest ->
         let instr = program.(pc) in
         let cell = program_state.(pc) in
