@@ -12,8 +12,8 @@ let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
 let drop_annots = Array.map snd
 
-let no_input = Eval.no_input
-let input = Eval.list_input
+let no_input = IO.no_input
+let input = IO.list_input
 
 let run prog input pred () =
   let final_conf = Eval.run_forever input (drop_annots prog) in

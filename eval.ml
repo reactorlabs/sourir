@@ -3,12 +3,7 @@ open Instr
 module Env = Map.Make(Variable)
 module Heap = Map.Make(Address)
 
-exception EOF
-exception Invalid_input
-
-type input = unit -> input_tape (* may raise one of the exceptions above *)
-and input_tape = Next of value * input
-
+type input = IO.input
 type trace = value list
 type environment = binding Env.t
 type heap = value Heap.t
@@ -157,7 +152,7 @@ let reduce conf =
   | Label _ -> { conf with pc = pc' }
   | Goto label -> { conf with pc = resolve label }
   | Read x ->
-    let (Next (v, input')) = conf.input () in
+    let (IO.Next (v, input')) = conf.input () in
     { conf with
       heap = update conf.heap conf.env x v;
       input = input';
@@ -186,28 +181,6 @@ let reduce conf =
          pc = resolve l;
          env = new_env }
      end
-
-let no_input () = raise EOF
-
-let rec list_input li () = match li with
-  | [] -> raise EOF
-  | v :: vs -> Next (v, list_input vs)
-
-let value_of_string : string -> value = function
-  | "nil" -> Lit Nil
-  | "true" -> Lit (Bool true)
-  | "false" -> Lit (Bool false)
-  | other ->
-    begin match int_of_string other with
-    | exception _ -> invalid_arg (Printf.sprintf "value_of_string(%s)" other)
-    | n -> Lit (Int n)
-    end
-
-let rec stdin_input () =
-  match value_of_string (read_line ()) with
-  | exception End_of_file -> raise EOF
-  | exception (Invalid_argument _) -> raise Invalid_input
-  | value -> Next (value, stdin_input)
 
 let start program input pc = {
   input;
@@ -244,13 +217,9 @@ let rec reduce_interactive conf =
   if stop conf then conf
   else begin
     let conf = reduce conf in
-    let string_of_val : value -> string = function
-      | Lit Nil -> "nil"
-      | Lit (Bool b) -> string_of_bool b
-      | Lit (Int n) -> string_of_int n in
     begin match conf.trace with
       | [] -> ()
-      | vs -> print_endline (String.concat " " (List.map string_of_val vs))
+      | vs -> print_endline (String.concat " " (List.map string_of_value vs))
     end;
     reduce_interactive { conf with trace = [] }
   end

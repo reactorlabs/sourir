@@ -1,18 +1,12 @@
 open Instr
 
 let disassemble (prog : (Scope.scope_annotation option * Instr.instruction) array) =
-  let lit_to_str lit =
-    match lit with
-    | Int i  -> string_of_int i
-    | Bool b -> string_of_bool b
-    | Nil    -> "nil"
-  in
   let dump_instr buf (instr_annot : (Scope.scope_annotation option * Instr.instruction)) =
     let pr = Printf.bprintf in
     let dump_expr exp =
       match exp with
       | Var v             -> pr buf "%s" v
-      | Lit lit           -> pr buf "%s" (lit_to_str lit)
+      | Lit lit           -> pr buf "%s" (string_of_litteral lit)
       | Op (Plus, [a; b]) -> pr buf "(%s + %s)" a b
       | Op (Eq,   [a; b]) -> pr buf "(%s == %s)" a b
       | Op (_, _)         -> assert(false)
