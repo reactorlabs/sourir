@@ -10,6 +10,8 @@ type inferred_scope =
   | Dead
   | Scope of VarSet.t
 
+type annotated_program = (program * scope_annotation option array)
+
 (* TODO:
     - keep track of const/mut status
 *)
@@ -45,14 +47,16 @@ let free_vars = function
 
 exception UndefinedVariable of VarSet.t
 
-let infer annotated_program =
+let infer (program : annotated_program) : inferred_scope array =
+  let instructions = fst program in
+  let annotations = snd program in
   let init_state = VarSet.empty in
   let merge cur in_set =
     let merged = VarSet.inter cur in_set in
     if VarSet.equal cur merged then None else Some merged in
-  let update instr set =
-    let annot = fst instr in
-    let instr = snd instr in
+  let update pc set =
+    let annot = annotations.(pc) in
+    let instr = instructions.(pc) in
     let constr_set =
       begin match annot with
       | None | Some (At_least _) -> set
@@ -60,9 +64,10 @@ let infer annotated_program =
       end in
     let bound = bound_vars instr in
     VarSet.union bound constr_set in
-  let prog_at prog pc = snd prog.(pc) in
-  let res = Analysis.forward_analysis init_state merge update annotated_program prog_at in
-  let finish (annotation, instr) preset =
+  let res = Analysis.forward_analysis init_state merge update instructions in
+  let finish pc preset =
+    let annotation = annotations.(pc) in
+    let instr = instructions.(pc) in
     match preset with
     | None -> Dead
     | Some set ->
@@ -76,5 +81,5 @@ let infer annotated_program =
         end;
         Scope set
   in
-  Array.map2 finish annotated_program res
+  Array.mapi finish res
 

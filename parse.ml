@@ -4,11 +4,16 @@ let position {Lexing.pos_fname; pos_lnum; pos_cnum; pos_bol} =
   let character = pos_cnum - pos_bol in
   (file, line, character)
 
+let split_annotations program =
+  let annotations = Array.map fst program in
+  let instructions = Array.map snd program in
+  (instructions, annotations)
+
 let parse_string str =
   let lexbuf = Lexing.from_string str in
-  Parser.program Lexer.token lexbuf
+  split_annotations (Parser.program Lexer.token lexbuf)
 
-let parse_file path =
+let parse_file path : Scope.annotated_program =
   let chan = open_in path in
   let lexbuf =
     let open Lexing in
@@ -23,7 +28,7 @@ let parse_file path =
     lexbuf
   in
   match Parser.program Lexer.token lexbuf with
-  | program -> program
+  | program -> split_annotations program
   | exception (Lexer.Lexing_error invalid_input) ->
     let file, line, character = position lexbuf.Lexing.lex_curr_p in
     Printf.eprintf

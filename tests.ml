@@ -10,7 +10,7 @@ let has_var x v =
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
-let drop_annots = Array.map snd
+let drop_annots = fst
 
 let run prog pred () =
   let final_conf = Eval.run_forever (drop_annots prog) in
@@ -23,9 +23,8 @@ let run_checked prog pred =
 let exact vars = Some Scope.(Exact (VarSet.of_list vars))
 let at_least vars = Some Scope.(At_least (VarSet.of_list vars))
 
-let no_annotations program =
-  let no_annot instr = ((None : Scope.scope_annotation option), instr) in
-  Array.map no_annot program
+let no_annotations program : Scope.annotated_program =
+  (program, Array.map (fun _ -> None) program)
 
 let test_print =
   let open Assembler.OO in
@@ -158,35 +157,26 @@ let test_broken_scope_3 =
     print x;
   |]
 
-let test_broken_scope_4 =
-  let open Assembler.OO in
-  let x, y, z = int_var "x", int_var "y", bool_var "z" in
-  [|
-    None, mut x (int 0);
-    None, mut y (int 0);
-    exact ["x"], mut z (bool false);
-    None, eq z x y;
-  |]
+let test_broken_scope_4 = Parse.parse_string
+"mut x = 0
+mut y = 0
+{x} mut z = false
+z <- (x == y)
+"
 
-let test_broken_scope_4_fixed =
-  let open Assembler.OO in
-  let x, y, z = int_var "x", int_var "y", bool_var "z" in
-  [|
-    None, mut x (int 0);
-    None, mut y (int 0);
-    at_least ["x"], mut z (bool false);
-    None, eq z x y;
-  |]
+let test_broken_scope_4_fixed = Parse.parse_string
+"mut x = 0
+mut y = 0
+{x, ...} mut z = false
+z <- (x == y)
+"
 
-let test_broken_scope_5 =
-  let open Assembler.OO in
-  let x, y, z = int_var "x", int_var "y", bool_var "z" in
-  [|
-    None, mut x (int 0);
-    None, mut y (int 0);
-    at_least ["w"], mut z (bool false);
-    None, eq z x y;
-  |]
+let test_broken_scope_5 = Parse.parse_string
+"mut x = 0
+mut y = 0
+{w, ...} mut z = false
+z <- (x == y)
+"
 
 let test_scope_1 test_var1 test_var2 =
   let open Assembler.OO in
