@@ -31,6 +31,7 @@ let remove_dead_code prog entry=
 
 (* TODO: allow pruning of the true branch, but we need not expression for that *)
 let branch_prune (prog, scope) =
+  let deopt_label l = "%deopt_" ^ l in
   (* Convert "branch e l1 l2" to "invalidate e l1; goto l2" *)
   let rec kill_branch pc =
     if pc = Array.length prog then [Stop] else
@@ -40,7 +41,7 @@ let branch_prune (prog, scope) =
         begin match prog.(pc) with
         | Branch (exp, l1, l2) ->
             let vars = Scope.VarSet.elements scope in
-            Invalidate (exp, "%deopt_" ^ l2, vars) ::
+            Invalidate (exp, deopt_label l2, vars) ::
               Goto l1 ::
                 kill_branch (pc+1)
         | i ->
@@ -48,33 +49,33 @@ let branch_prune (prog, scope) =
         end
   in
   (* Scan the code and generate a landing-pad for all invalidates *)
-  let gen_landing_pad deopt_label =
+  let gen_landing_pad entry =
     let rec gen_landing_pad pc =
       if pc = Array.length prog then [Stop] else
+        let fresh_label l = l ^ "@" ^ entry in
         match prog.(pc) with
         (* this is the entry point, need to create the landing pad label *)
-        | Label l when ("%deopt_" ^ l) = deopt_label ->
-            Label (l ^ "@" ^ deopt_label) ::
-              Label deopt_label :: gen_landing_pad (pc+1)
+        | Label l when (deopt_label l) = entry ->
+            Label (fresh_label l) ::
+              Label entry :: gen_landing_pad (pc+1)
         (* we need to rename lables since they might clash with main function
          * TODO: this is ugly! what else should we do? *)
         | Label l ->
-            Label (l ^ "@" ^ deopt_label) :: gen_landing_pad (pc+1)
+            Label (fresh_label l) :: gen_landing_pad (pc+1)
         | Goto l ->
-            Goto (l ^ "@" ^ deopt_label) :: gen_landing_pad (pc+1)
+            Goto (fresh_label l) :: gen_landing_pad (pc+1)
         | Branch (exp, l1, l2) ->
-            Branch (exp, (l1 ^ "@" ^ deopt_label),
-                         (l2 ^ "@" ^ deopt_label)) :: gen_landing_pad (pc+1)
+            Branch (exp, (fresh_label l1), (fresh_label l2)) :: gen_landing_pad (pc+1)
         | Invalidate _ -> assert(false)
         | i ->
             i :: gen_landing_pad (pc+1)
     in
-    let instrs = Comment ("Landing pad for deopt " ^ deopt_label) ::
+    let instrs = Comment ("Landing pad for deopt " ^ entry) ::
       gen_landing_pad 0 in
     let copy = Array.of_list instrs in
     (* so far the landing pad is a copy of the original function. lets remove
      * the unreachable part of the prologue *)
-    remove_dead_code copy ((resolve copy deopt_label) - 1)
+    remove_dead_code copy (resolve copy entry)
   in
   let rec gen_deopt_targets = function
     | Invalidate (exp, label, vars) :: rest ->
