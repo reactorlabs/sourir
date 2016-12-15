@@ -17,44 +17,14 @@ let successors program pc =
   | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   | Stop -> []
 
-let predecessors program pc =
-  let before =
-    if pc == 0 then []
-    else
-      let pc' = pc - 1 in
-      match program.(pc') with
-      | Decl_const _
-      | Decl_mut _
-      | Assign _
-      | Label _
-      | Comment _
-      | Read _
-      | Invalidate _
-      | Print _ -> [pc']
-      | Goto _
-      | Branch _
-      | Stop -> []
-  in
-  let jmps =
-    let find_origins label =
-      let rec find_origins pc =
-        if Array.length program = pc then []
-        else
-          let pc' = pc + 1 in
-          match program.(pc) with
-          | Goto l when l = label -> pc :: find_origins pc'
-          | Branch (_, l1, l2) when l1 = label || l2 = label -> pc :: find_origins pc'
-          | Invalidate (_, l, _) when l = label -> pc :: find_origins pc'
-          | _ -> find_origins pc'
-      in
-      find_origins 0
-    in
-    match program.(pc) with
-    | Label l -> find_origins l
-    | _ -> []
-  in
-  before @ jmps
-
+let predecessors program =
+  let preds = Array.map (fun _ -> []) program in
+  let mark_successor pc pc' =
+    preds.(pc') <- pc :: preds.(pc') in
+  for pc = 0 to Array.length program - 1 do
+    List.iter (mark_successor pc) (successors program pc)
+  done;
+  preds
 
 module VarSet = Set.Make(Variable)
 
