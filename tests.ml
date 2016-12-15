@@ -321,6 +321,7 @@ let test_pred = fst (Parse.parse_string
 ")
 let do_test_pred = function () ->
   let pred = Analysis.predecessors test_pred in
+  let pred pc = pred.(pc) in
   assert_equal_sorted (pred 0) [3; 5; 7];
   assert_equal_sorted (pred 1) [0];
   assert_equal_sorted (pred 2) [5];
