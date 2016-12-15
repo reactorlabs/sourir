@@ -20,6 +20,7 @@ type configuration = {
   program : program;
   pc : pc;
   status : status;
+  deopt : string option;
 }
 
 type litteral_type = Nil | Bool | Int
@@ -82,6 +83,7 @@ let litteral_plus (lit1 : litteral) (lit2 : litteral) =
 
 
 let value_eq (Lit lit1) (Lit lit2) = litteral_eq lit1 lit2
+let value_neq (Lit lit1) (Lit lit2) = not (litteral_eq lit1 lit2)
 let value_plus (Lit lit1) (Lit lit2) = litteral_plus lit1 lit2
 
 let rec eval heap env = function
@@ -91,6 +93,10 @@ let rec eval heap env = function
     let v1 = eval heap env (Var x1) in
     let v2 = eval heap env (Var x2) in
     Lit (Bool (value_eq v1 v2))
+  | Op (Neq, [x1; x2]) ->
+    let v1 = eval heap env (Var x1) in
+    let v2 = eval heap env (Var x2) in
+    Lit (Bool (value_neq v1 v2))
   | Op (Plus, [x1; x2]) ->
     let v1 = eval heap env (Var x1) in
     let v2 = eval heap env (Var x2) in
@@ -179,7 +185,9 @@ let reduce conf =
        let new_env = List.fold_left add Env.empty xs in
        { conf with
          pc = resolve l;
-         env = new_env }
+         env = new_env;
+         deopt = Some l;
+       }
      end
 
 let start program input pc = {
@@ -188,6 +196,7 @@ let start program input pc = {
   heap = Heap.empty;
   env = Env.empty;
   status = Running;
+  deopt = None;
   program;
   pc;
 }

@@ -2,7 +2,7 @@
 %token<bool> BOOL
 %token<int> INT
 %token<string> IDENTIFIER
-%token DOUBLE_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
+%token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
 %token CONST MUT BRANCH GOTO PRINT INVALIDATE STOP
@@ -73,6 +73,7 @@ variable: id=IDENTIFIER { (id : Variable.t) }
 
 infixop:
   | DOUBLE_EQUAL { Eq }
+  | NOT_EQUAL { Neq }
   | PLUS { Plus }
   (* | MINUS { Sub } *)
   (* | TIMES { Mult } *)

@@ -16,7 +16,14 @@ let () =
                     (String.concat ", " xs)
         end;
         exit 1
-      | _scopes ->
+      | scopes ->
         let program = fst annotated_program in
+        let program = if ((Array.length Sys.argv > 2) && (Sys.argv.(2) = "--prune"))
+          then
+            let opt = Transform.branch_prune (program, scopes) in
+            let () = Printf.printf "%s" (Disasm.disassemble opt) in
+            opt
+          else program
+        in
         ignore (Eval.run_interactive IO.stdin_input program)
     end

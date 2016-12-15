@@ -23,9 +23,10 @@ let remove_dead_code prog entry=
   in
   let rec remove_dead_code pc =
     if pc = Array.length prog then [] else
-      match dead_code.(pc) with
-      | None -> remove_dead_code (pc+1)
-      | Some _ -> prog.(pc) :: remove_dead_code (pc+1)
+      match dead_code.(pc), prog.(pc) with
+      | None, Comment c -> Comment c :: remove_dead_code (pc+1)
+      | None, _ -> remove_dead_code (pc+1)
+      | Some _, _ -> prog.(pc) :: remove_dead_code (pc+1)
   in
   Array.of_list (remove_dead_code 0)
 

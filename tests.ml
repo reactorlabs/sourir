@@ -219,20 +219,20 @@ let infer_broken_scope program missing_vars = function() ->
 
 let test_parse_disasm_file file = function() ->
   let prog1 = Parse.parse_file file in
-  let disasm1 = Disasm.disassemble prog1 in
+  let disasm1 = Disasm.disassemble_annotated prog1 in
   let prog2 = Parse.parse_string disasm1 in
-  let disasm2 = Disasm.disassemble prog2 in
+  let disasm2 = Disasm.disassemble_annotated prog2 in
   assert_equal disasm1 disasm2
 
 let test_parse_disasm str = function() ->
   let prog1 = Parse.parse_string str in
-  let disasm1 = Disasm.disassemble prog1 in
+  let disasm1 = Disasm.disassemble_annotated prog1 in
   let prog2 = Parse.parse_string disasm1 in
-  let disasm2 = Disasm.disassemble prog2 in
+  let disasm2 = Disasm.disassemble_annotated prog2 in
   assert_equal disasm1 disasm2
 
 let test_disasm_parse prog = function() ->
-  let disasm1 = Disasm.disassemble prog in
+  let disasm1 = Disasm.disassemble_annotated prog in
   let prog2 = Parse.parse_string disasm1 in
   assert_equal prog prog2
 
@@ -250,6 +250,7 @@ l2:
 c:
  print r
 "
+
 let test_branch_pruned = " mut x = 9
  mut y = 10
  mut r = 1
@@ -257,25 +258,53 @@ let test_branch_pruned = " mut x = 9
  r <- 2
  print r
  stop
+ #Landing pad for deopt %deopt_l2
 %deopt_l2:
  r <- 3
  print r
  stop
 "
 
+let test_double_loop = Parse.parse_string
+"mut i = 0
+ mut sum = 0
+ const limit = 4
+ const one = 1
+loop1:
+  branch (i != limit) loop_body1 continue
+loop_body1:
+   mut i2 = 0
+   mut sum2 = 0
+loop2:
+    branch (i2 != limit) loop_body2 continue2
+loop_body2:
+     print i2
+     sum2 <- (sum + i2)
+     i2 <- (i2 + one)
+    goto loop2
+continue2:
+   sum <- (sum + sum2)
+   i <- (i + one)
+ goto loop1
+continue:
+ print sum
+"
+
 let test_branch_pruning_exp prog expected =
   let scope = Scope.infer prog in
   let instrs = (drop_annots prog) in
   let prog2 = Transform.branch_prune (instrs, scope) in
-  assert_equal (Disasm.disassemble (no_annotations prog2)) expected
+  assert_equal (Disasm.disassemble prog2) expected
 
-let test_branch_pruning prog =
+let test_branch_pruning prog deopt =
+  let open Eval in
   let scope = Scope.infer prog in
   let instrs = (drop_annots prog) in
   let prog2 = Transform.branch_prune (instrs, scope) in
   let res1 = Eval.run_forever no_input instrs in
   let res2 = Eval.run_forever no_input prog2 in
-  assert_equal res1.trace res2.trace
+  assert_equal res1.trace res2.trace;
+  assert_equal res2.deopt (Some deopt)
 
 let test_pred = fst (Parse.parse_string
 "l1:
@@ -355,9 +384,10 @@ let suite =
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
    "parser_scope1">:: test_parse_disasm "{a, b} print x\n{a,x,...} #asdf\n";
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
-   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch);
-   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10));
    "predecessors">:: do_test_pred;
+   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch "%deopt_l2");
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) "%deopt_loop_body");
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop "%deopt_continue2");
    ]
 ;;
 

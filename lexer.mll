@@ -48,6 +48,7 @@ rule token = parse
   | "false" { BOOL false }
   | id { id_or_keyword (Lexing.lexeme lexbuf) }
   | "==" { DOUBLE_EQUAL }
+  | "!=" { NOT_EQUAL }
   | "+" { PLUS }
   | "[" { LBRACKET }
   | "]" { RBRACKET }
