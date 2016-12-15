@@ -17,7 +17,7 @@ let successors program pc =
   | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   | Stop -> []
 
-let predecessors program pc =
+let local_predecessors program pc =
   let before =
     if pc == 0 then []
     else
@@ -55,6 +55,27 @@ let predecessors program pc =
   in
   before @ jmps
 
+let test_global_predecessors preds program =
+  let module PcSet = Set.Make(struct type t = int let compare : int -> _ = compare end) in
+  for pc = 0 to Array.length program - 1 do
+    assert (PcSet.equal
+              (PcSet.of_list preds.(pc) )
+              (PcSet.of_list (local_predecessors program pc)));
+  done;
+  ()
+
+let global_predecessors program =
+  let preds = Array.map (fun _ -> []) program in
+  let mark_successor pc pc' =
+    preds.(pc') <- pc :: preds.(pc') in
+  for pc = 0 to Array.length program - 1 do
+    List.iter (mark_successor pc) (successors program pc)
+  done;
+  test_global_predecessors preds program;
+  preds
+
+let predecessors program pc =
+  (global_predecessors program).(pc)
 
 module VarSet = Set.Make(Variable)
 
