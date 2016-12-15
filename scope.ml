@@ -52,7 +52,7 @@ exception UndefinedVariable of VarSet.t
 let infer (program : annotated_program) : inferred_scope array =
   let instructions = fst program in
   let annotations = snd program in
-  let init_state = VarSet.empty in
+  let init_state = (VarSet.empty, 0) in
   let merge cur in_set =
     let merged = VarSet.inter cur in_set in
     if VarSet.equal cur merged then None else Some merged in

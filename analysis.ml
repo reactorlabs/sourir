@@ -12,15 +12,55 @@ let successors program pc =
   | Comment _
   | Read _
   | Print _ -> next
-  | Goto l | Invalidate (_, l, _) -> [resolve l]
+  | Goto l -> [resolve l]
+  | Invalidate (_, l, _) -> next @ [resolve l]
   | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   | Stop -> []
+
+let predecessors program pc =
+  let before =
+    if pc == 0 then []
+    else
+      let pc' = pc - 1 in
+      match program.(pc') with
+      | Decl_const _
+      | Decl_mut _
+      | Assign _
+      | Label _
+      | Comment _
+      | Read _
+      | Invalidate _
+      | Print _ -> [pc']
+      | Goto _
+      | Branch _
+      | Stop -> []
+  in
+  let jmps =
+    let find_origins label =
+      let rec find_origins pc =
+        if Array.length program = pc then []
+        else
+          let pc' = pc + 1 in
+          match program.(pc) with
+          | Goto l when l = label -> pc :: find_origins pc'
+          | Branch (_, l1, l2) when l1 = label || l2 = label -> pc :: find_origins pc'
+          | Invalidate (_, l, _) when l = label -> pc :: find_origins pc'
+          | _ -> find_origins pc'
+      in
+      find_origins 0
+    in
+    match program.(pc) with
+    | Label l -> find_origins l
+    | _ -> []
+  in
+  before @ jmps
+
 
 module VarSet = Set.Make(Variable)
 
 (* Perform forward analysis on some code
  *
- * init_state : Initial input state to instruction 0
+ * init_state : Initial input state and first instruction
  * merge      : current state -> input state -> merge state if changed
  * update     : abstract instruction -> input state -> output state
  * program    : array of abstract instructions
@@ -29,7 +69,7 @@ module VarSet = Set.Make(Variable)
  * Returns an array of states for every instruction of the program.
  * Bottom is represented as None *)
 
-let forward_analysis (init_state : 'a)
+let forward_analysis (init_state : ('a * int))
                      (merge : 'a -> 'a -> 'a option)
                      (update : int -> 'a -> 'a)
                      (program : program)
@@ -53,5 +93,5 @@ let forward_analysis (init_state : 'a)
             work (new_work @ rest)
         end
   in
-  work [(init_state, 0)];
+  work [init_state];
   Array.map (!) program_state
