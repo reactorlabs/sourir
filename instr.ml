@@ -21,6 +21,7 @@ end
 
 type variable = Variable.t
 type label = Label.t
+type pc = int
 
 type program = instruction array
 and instruction =

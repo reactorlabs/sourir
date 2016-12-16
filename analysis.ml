@@ -39,9 +39,9 @@ module VarSet = Set.Make(Variable)
  * Returns an array of states for every instruction of the program.
  * Bottom is represented as None *)
 
-let forward_analysis (init_state : ('a * int))
+let forward_analysis (init_state : ('a * pc))
                      (merge : 'a -> 'a -> 'a option)
-                     (update : int -> 'a -> 'a)
+                     (update : pc -> 'a -> 'a)
                      (program : program)
                      : 'a option array =
   let program_state = Array.map (fun _ -> ref None) program in

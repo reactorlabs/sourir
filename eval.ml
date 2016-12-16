@@ -8,8 +8,6 @@ type trace = value list
 type environment = binding Env.t
 type heap = value Heap.t
 
-type pc = int
-
 type status = Running | Stopped
 
 type configuration = {
