@@ -380,7 +380,7 @@ let suite =
    "parser5b">:: test_parse_disasm ("invalidate (x == y) l [x, y, z]\nl:\n");
    "parser6">:: test_parse_disasm ("branch (x == y) as fd\n");
    "parser7">:: test_parse_disasm ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
-   "parser8">:: test_parse_disasm_file "test.sou";
+   "parser8">:: test_parse_disasm_file "examples/test.sou";
    "disasm1">:: test_disasm_parse (test_sum 10);
    "disasm2">:: test_disasm_parse (test_add 1 0);
    "disasm_scope1">:: test_disasm_parse test_broken_scope_4;
