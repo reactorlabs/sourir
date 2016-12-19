@@ -12,6 +12,7 @@ let keyword_table = [
   "print", PRINT;
   "invalidate", INVALIDATE;
   "stop", STOP;
+  "read", READ;
 ]
 
 let id_or_keyword id =
