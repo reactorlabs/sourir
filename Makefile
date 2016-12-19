@@ -21,7 +21,7 @@ runtop: lib
 	utop -I _build sourir.cma
 
 run: sourir
-	./sourir test.sou
+	./sourir examples/test.sou
 
 clean:
 	ocamlbuild -clean
