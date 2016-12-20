@@ -1,0 +1,20 @@
+  const zero = 0
+  const one = 1
+  mut x = 3
+  mut y = 7
+  mut z = 0
+  mut i = 0
+  mut acc = 0
+  const limit = 10
+loop:
+  branch (i == limit) continue loop_body
+loop_body:
+  # This statement cannot be moved
+  z <- (x + y)
+  acc <- (acc + z)
+  z <- (z + i)
+  print z
+  i <- (i + one)
+  goto loop
+continue:
+print acc

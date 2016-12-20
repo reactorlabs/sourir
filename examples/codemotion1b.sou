@@ -1,0 +1,28 @@
+# Based on a whiteboard example that also involves branch pruning
+# AFTER
+  const zero = 0
+  const one = 1
+  const two = 2
+  mut w1 = 10
+  # This assignment was moved
+  w1 <- (w1 + one)
+  mut w2 = 20
+  mut x = 30
+  mut z = 0
+  read z
+  invalidate (z == zero) l2 [zero, one, two, w1, w2, x, z]
+  x <- (x + one)
+  print w1
+  print w2
+  w2 <- (w2 + one)
+  print w2
+  print x
+  stop
+l2:
+  x <- (x + two)
+  print w1
+  print w2
+  w2 <- (w2 + one)
+  print w2
+  print x
+  stop
