@@ -1,7 +1,7 @@
   mut i = 0
   mut sum = 0
-  const limit = 10
-
+  mut limit = 0
+  read limit
 loop:
   branch (i == limit) continue loop_body
 loop_body:

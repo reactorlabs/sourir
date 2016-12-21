@@ -7,8 +7,8 @@ exception Error of parse_error
 (** The two functions below may raise this exception
     -- and no other. *)
 
-val parse_string : string -> Scope.annotated_program
-val parse_file : string -> Scope.annotated_program
+val parse_string : string -> Instr.annotated_program
+val parse_file : string -> Instr.annotated_program
 
 val report_error : parse_error -> unit
 (** Prints a user-friendly error message on the standard error ouput *)

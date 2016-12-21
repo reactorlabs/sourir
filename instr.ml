@@ -167,4 +167,12 @@ let used_vars = function
     VarSet.union (VarSet.of_list xs) (expr_vars e)
   | Stop -> VarSet.empty
 
+type scope_annotation =
+  | Exact of VarSet.t
+  | At_least of VarSet.t
 
+type inferred_scope =
+  | Dead
+  | Scope of VarSet.t
+
+type annotated_program = (program * scope_annotation option array)

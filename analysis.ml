@@ -131,19 +131,18 @@ let reaching prog : pc -> InstrSet.t =
     List.fold_left replace defs kill
   in
   let res = forward_analysis VariableMap.empty prog merge update in
-  function pc ->
-  let instr = prog.(pc) in
-  match res.(pc) with
-  | None -> raise (DeadCode pc)
-  | Some res ->
-      let used = VarSet.elements (used_vars instr) in
-      let definitions_of var = VariableMap.find var res in
-      let all_definitions = List.map definitions_of used in
-      List.fold_left InstrSet.union InstrSet.empty all_definitions
+  fun pc ->
+    let instr = prog.(pc) in
+    match res.(pc) with
+    | None -> raise (DeadCode pc)
+    | Some res ->
+        let used = VarSet.elements (used_vars instr) in
+        let definitions_of var = VariableMap.find var res in
+        let all_definitions = List.map definitions_of used in
+        List.fold_left InstrSet.union InstrSet.empty all_definitions
 
 
-(* returns a 'pc -> pc set' computing uses of a definition *)
-let used prog : pc -> InstrSet.t =
+let liveness_analysis prog =
   let merge cur_uses in_uses =
     let merged = VariableMap.union cur_uses in_uses in
     if VariableMap.equal cur_uses merged then None else Some merged
@@ -160,13 +159,29 @@ let used prog : pc -> InstrSet.t =
     in
     List.fold_left merge uses used
   in
-  let res = backwards_analysis VariableMap.empty prog merge update in
-  function pc ->
-  let instr = prog.(pc) in
-  match res.(pc) with
-  | None -> raise (DeadCode pc)
-  | Some res ->
-      let defined = VarSet.elements (defined_vars instr) in
-      let uses_of var = VariableMap.at var res in
-      let all_uses = List.map uses_of defined in
-      List.fold_left InstrSet.union InstrSet.empty all_uses
+  backwards_analysis VariableMap.empty prog merge update
+
+
+(* returns a 'pc -> variable set' computing live vars at a certain pc *)
+let live prog : pc -> variable list =
+  let res = liveness_analysis prog in
+  fun pc ->
+    match res.(pc) with
+    | None -> raise (DeadCode pc)
+    | Some res ->
+      let collect_key (key, value) = key in
+      let live_vars = List.map collect_key (VariableMap.bindings res) in
+      live_vars
+
+(* returns a 'pc -> pc set' computing uses of a definition *)
+let used prog : pc -> InstrSet.t =
+  let res = liveness_analysis prog in
+  fun pc ->
+    let instr = prog.(pc) in
+    match res.(pc) with
+    | None -> raise (DeadCode pc)
+    | Some res ->
+        let defined = VarSet.elements (defined_vars instr) in
+        let uses_of var = VariableMap.at var res in
+        let all_uses = List.map uses_of defined in
+        List.fold_left InstrSet.union InstrSet.empty all_uses

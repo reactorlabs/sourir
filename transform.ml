@@ -52,8 +52,8 @@ let branch_prune (prog, scope) =
   let rec kill_branch pc =
     if pc = Array.length prog then [Stop] else
     match scope.(pc) with
-    | Scope.Dead -> assert(false)
-    | Scope.Scope scope ->
+    | Dead -> assert(false)
+    | Scope scope ->
         begin match[@warning "-4"] prog.(pc) with
         | Branch (exp, l1, l2) ->
             let vars = Instr.VarSet.elements scope in
