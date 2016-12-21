@@ -16,10 +16,9 @@ let remove_empty_jmp prog =
 
 let remove_dead_code prog entry=
   let dead_code =
-    let init_state = ((), entry) in
     let merge _ _ = None in
     let update _ _ = () in
-    Analysis.forward_analysis [init_state] prog merge update
+    Analysis.forward_analysis_from entry () prog merge update
   in
   let rec remove_dead_code pc =
     if pc = Array.length prog then [] else

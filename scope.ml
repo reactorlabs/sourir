@@ -19,7 +19,6 @@ exception UndefinedVariable of VarSet.t
 let infer (program : annotated_program) : inferred_scope array =
   let instructions = fst program in
   let annotations = snd program in
-  let init_state = (VarSet.empty, 0) in
   let merge cur in_set =
     let merged = VarSet.inter cur in_set in
     if VarSet.equal cur merged then None else Some merged in
@@ -33,7 +32,7 @@ let infer (program : annotated_program) : inferred_scope array =
       end in
     let bound = Instr.bound_vars instr in
     VarSet.union bound constr_set in
-  let res = Analysis.forward_analysis [init_state] instructions merge update in
+  let res = Analysis.forward_analysis VarSet.empty instructions merge update in
   let finish pc preset =
     let annotation = annotations.(pc) in
     let instr = instructions.(pc) in
