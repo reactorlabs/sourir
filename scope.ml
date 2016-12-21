@@ -33,7 +33,7 @@ let infer (program : annotated_program) : inferred_scope array =
       end in
     let bound = Instr.bound_vars instr in
     VarSet.union bound constr_set in
-  let res = Analysis.forward_analysis init_state merge update instructions in
+  let res = Analysis.forward_analysis [init_state] instructions merge update in
   let finish pc preset =
     let annotation = annotations.(pc) in
     let instr = instructions.(pc) in

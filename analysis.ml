@@ -26,21 +26,12 @@ let predecessors program =
   done;
   preds
 
-(* Perform forward analysis on some code
- *
- * init_state : list of (Initial input state, first instruction)
- * merge      : current state -> input state -> merge state if changed
- * update     : instruction -> input state -> output state
- * program    : array of instructions
- *
- * Returns an array of states for every instruction of the program.
- * Bottom is represented as None *)
-
-let forward_analysis (init_state : ('a * pc))
-                     (merge : 'a -> 'a -> 'a option)
-                     (update : pc -> 'a -> 'a)
-                     (program : program)
-                     : 'a option array =
+let do_analysis (successors : pc -> pc list)
+                (init_state : ('a * pc) list)
+                (program : program)
+                (merge : 'a -> 'a -> 'a option)
+                (update : pc -> 'a -> 'a)
+                : 'a option array =
   let program_state = Array.map (fun _ -> ref None) program in
   let rec work = function
     | [] -> ()
@@ -55,12 +46,12 @@ let forward_analysis (init_state : ('a * pc))
         | Some merged ->
             cell := Some merged;
             let updated = update pc merged in
-            let succs = successors program pc in
+            let succs = successors pc in
             let new_work = List.map (fun pc -> (updated, pc)) succs in
             work (new_work @ rest)
         end
   in
-  work [init_state];
+  work init_state;
   Array.map (!) program_state
 
 let exits program =
@@ -71,35 +62,6 @@ let exits program =
         @ exits (pc + 1)) in
   exits 0
 
-let do_backwards_analysis (init_state : ('a * pc) list)
-                          (merge : 'a -> 'a -> 'a option)
-                          (update : pc -> 'a -> 'a)
-                          (program : program)
-                          : 'a option array =
-  let program_state = Array.map (fun _ -> ref None) program in
-  let predecessors = predecessors program in
-  let rec work = function
-    | [] -> ()
-    | (in_state, pc) :: rest ->
-        let cell = program_state.(pc) in
-        let merged =
-          match !cell with
-          | None -> Some in_state
-          | Some cur_state -> merge cur_state in_state
-        in begin match merged with
-        | None -> work rest
-        | Some merged ->
-            cell := Some merged;
-            let updated = update pc merged in
-            let pred = predecessors.(pc) in
-            let new_work = List.map (fun pc -> (updated, pc)) pred in
-            work (new_work @ rest)
-        end
-  in
-  work init_state;
-  Array.map (!) program_state
-
-
 module InstrSet = Set.Make(Pc)
 module Def = struct
   type t = variable
@@ -107,13 +69,16 @@ module Def = struct
 end
 module Defs = Map.Make(Def)
 
-let backwards_analysis (merge : 'a -> 'a -> 'a option)
-                       (update : pc -> 'a -> 'a)
-                       (program : program)
-                       : 'a option array =
+let forward_analysis init_state program =
+  let successors pc = successors program pc in
+  do_analysis successors init_state program
+
+let backwards_analysis program =
   let exits = exits program in
   let init_state = List.map (fun pc -> (Defs.empty, pc)) exits in
-  do_backwards_analysis init_state merge update program
+  let preds = predecessors program in
+  let predecessors pc = preds.(pc) in
+  do_analysis predecessors init_state program
 
 let merge_defs =
   let do_merge _ a b : InstrSet.t option =
@@ -140,7 +105,7 @@ let reaching prog pc =
     match defined_vars instr with
     | None -> defs
     | Some x -> Defs.add x (InstrSet.singleton pc) defs in
-  let res = forward_analysis init_state merge update prog in
+  let res = forward_analysis [init_state] prog merge update in
   match res.(pc) with
   | None -> InstrSet.empty
   | Some res ->
@@ -169,7 +134,7 @@ let used prog pc =
       let insert = Defs.add var (InstrSet.singleton pc) Defs.empty in
       merge_defs insert acc in
     List.fold_left merge defined (consumed_vars instr) in
-  let res = backwards_analysis merge update prog in
+  let res = backwards_analysis prog merge update in
   match res.(pc) with
   | None -> InstrSet.empty
   | Some res ->
