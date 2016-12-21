@@ -1,12 +1,13 @@
 # sourir
 
-sourir is better than [RIR](https://github.com/reactorlabs/rir)
+sourir is cuter than [RIR](https://github.com/reactorlabs/rir)
 
 ## Howto
 
 Install [Opam](https://opam.ocaml.org/doc/Install.html)
 
     opam install ocaml.4.04.0
+    # FIXME: install dependencied
     git clone https://github.com/reactorlabs/sourir
     cd sourir
     make sourir
@@ -22,7 +23,7 @@ Eval.reduce for the operational semantics.
 
 Requirements
 
-    opam install utop ounit
+    # FIXME
 
 Add tests and run them with
 
