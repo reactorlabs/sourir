@@ -185,3 +185,4 @@ let used prog : pc -> InstrSet.t =
         let uses_of var = VariableMap.at var res in
         let all_uses = List.map uses_of defined in
         List.fold_left InstrSet.union InstrSet.empty all_uses
+
