@@ -10,6 +10,11 @@ let remove_empty_jmp prog =
       | (Goto l1, Label l2) when l1 = l2 && List.length pred.(pc') = 1 ->
           remove_empty_jmp (pc+2)
       | (Label _, _) when pred.(pc) = [pc-1] && succ (pc-1) = [pc] ->
+          (* A label is unused if the previous instruction is the only predecessor
+           * unless the previous instruction jumps to it. The later can happen
+           * if its a goto (then we already remove it -- see above) or if its a branch (which
+           * is excluded by the second tests "succ (pc-1) = [pc]")
+           * TODO: we should implement some generic api for instructions like, "Instr.is_jmp" *)
           remove_empty_jmp pc'
       | (_, _) ->
           prog.(pc) :: remove_empty_jmp pc'
