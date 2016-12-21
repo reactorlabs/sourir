@@ -8,11 +8,12 @@ let remove_empty_jmp prog =
       match (prog.(pc), prog.(pc')) with
       | (Goto l1, Label l2) when l1 = l2 && List.length pred.(pc') = 1 ->
           remove_empty_jmp (pc+2)
+      | (Label _, _) when pred.(pc') = [pc-1] ->
+          remove_empty_jmp pc'
       | (_, _) ->
           prog.(pc) :: remove_empty_jmp (pc')
   in
-  let cleaned = remove_empty_jmp 0 in
-  Array.of_list cleaned
+  remove_empty_jmp 0
 
 let remove_dead_code prog entry=
   let dead_code =
@@ -22,15 +23,24 @@ let remove_dead_code prog entry=
     Analysis.forward_analysis init_state merge update prog
   in
   let rec remove_dead_code pc =
+    let pc' = pc+1 in
     if pc = Array.length prog then [] else
       match dead_code.(pc), prog.(pc) with
-      | None, Comment c -> Comment c :: remove_dead_code (pc+1)
-      | None, _ -> remove_dead_code (pc+1)
-      | Some _, _ -> prog.(pc) :: remove_dead_code (pc+1)
+      (* Comments are considered live, if the next instruction is live.
+       * This prevents removing comments above jump labels *)
+      | None, Comment c ->
+          if pc' = Array.length prog then [] else
+            begin match dead_code.(pc') with
+            | None -> remove_dead_code pc'
+            | Some _ -> Comment c :: remove_dead_code pc'
+            end
+      | None, _ -> remove_dead_code pc'
+      | Some _, _ -> prog.(pc) :: remove_dead_code pc'
   in
-  Array.of_list (remove_dead_code 0)
+  remove_dead_code 0
 
-(* TODO: allow pruning of the true branch, but we need not expression for that *)
+(* TODO: allow pruning of the true branch
+ * we need to be able to negate expressions for that *)
 let branch_prune (prog, scope) =
   let deopt_label l = "%deopt_" ^ l in
   (* Convert "branch e l1 l2" to "invalidate e l1; goto l2" *)
@@ -71,12 +81,11 @@ let branch_prune (prog, scope) =
         | i ->
             i :: gen_landing_pad (pc+1)
     in
-    let instrs = Comment ("Landing pad for deopt " ^ entry) ::
-      gen_landing_pad 0 in
-    let copy = Array.of_list instrs in
+    let copy = Array.of_list (gen_landing_pad 0) in
     (* so far the landing pad is a copy of the original function. lets remove
      * the unreachable part of the prologue *)
-    remove_dead_code copy (resolve copy entry)
+    let continuation = remove_dead_code copy (resolve copy entry) in
+    Array.of_list (Comment ("Landing pad for deopt " ^ entry) :: continuation)
   in
   let rec gen_deopt_targets = function
     | Invalidate (exp, label, vars) :: rest ->
@@ -89,4 +98,5 @@ let branch_prune (prog, scope) =
   let landing_pads = gen_deopt_targets killed in
   let final = Array.of_list killed in
   let combined = Array.concat (final :: landing_pads) in
-  remove_empty_jmp (remove_dead_code combined 0)
+  let cleanup = Array.of_list (remove_dead_code combined 0) in
+  Array.of_list (remove_empty_jmp cleanup)

@@ -14,8 +14,8 @@ let disassemble_annotated (prog : Scope.annotated_program) =
     in
     let str_from_vars vars = String.concat ", " (Scope.VarSet.elements vars) in
     begin match annot with
-    | Some (Scope.Exact e)    -> pr buf "{%s} "      (str_from_vars e)
-    | Some (Scope.At_least e) -> pr buf "{%s, ...} " (str_from_vars e)
+    | Some (Scope.Exact e)    -> pr buf "{%s}"      (str_from_vars e)
+    | Some (Scope.At_least e) -> pr buf "{%s, ...}" (str_from_vars e)
     | None -> ()
     end;
     begin match instr with
