@@ -101,19 +101,18 @@ let test_eq a b =
 
 let test_sum limit_ =
   let open Assembler.OO in
-  let ax, i, sum, limit, one =
-    bool_var "ax", int_var "i", int_var "sum", int_var "limit", int_var "one" in
+  let ax, i, sum, limit =
+    bool_var "ax", int_var "i", int_var "sum", int_var "limit" in
   no_annotations [|
     mut i (int 0);
     mut sum (int 0);
     const limit (int limit_);
-    const one (int 1);
     label "loop";
     eq ax limit i;
     branch ax "continue" "loop_body";
     label "loop_body";
     add sum sum i;
-    add i i one;
+    add i i (int 1);
     goto "loop";
     label "continue";
     stop;
@@ -269,7 +268,6 @@ let test_double_loop = Parse.parse_string
 "mut i = 0
  mut sum = 0
  const limit = 4
- const one = 1
 loop1:
   branch (i != limit) loop_body1 continue
 loop_body1:
@@ -280,11 +278,11 @@ loop2:
 loop_body2:
      print i2
      sum2 <- (sum + i2)
-     i2 <- (i2 + one)
+     i2 <- (i2 + 1)
     goto loop2
 continue2:
    sum <- (sum + sum2)
-   i <- (i + one)
+   i <- (i + 1)
  goto loop1
 continue:
  print sum

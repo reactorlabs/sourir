@@ -13,18 +13,21 @@ module OO = struct
     eval : 'a;
     litteral : Instr.litteral;
     value : value;
+    simple_expression : simple_expression;
     expression : expression;
   >
 
   type 'a value = <
     eval : 'a;
     value : Instr.value;
+    simple_expression : simple_expression;
     expression : expression;
   >
 
   type 'a variable = <
     eval : Eval.heap -> Eval.environment -> 'a;
     variable : Instr.variable;
+    simple_expression : simple_expression;
     expression : expression;
   >
 
@@ -36,7 +39,8 @@ module OO = struct
   let var of_value v : 'a variable = object
     method eval heap env = of_value (lookup heap env v)
     method variable = v
-    method expression = Var v
+    method simple_expression = Var v
+    method expression = Simple (Var v)
   end
 
   let bool_var = var get_bool
@@ -46,22 +50,24 @@ module OO = struct
     method eval = n
     method litteral : Instr.litteral = Int n
     method value : Instr.value = Lit (Int n)
-    method expression : Instr.expression = Lit (Int n)
+    method simple_expression : Instr.simple_expression = Lit (Int n)
+    method expression : Instr.expression = Simple (Lit (Int n))
   end
 
   let bool b : bool litteral = object
     method eval = b
     method litteral : Instr.litteral = Bool b
     method value : Instr.value = Lit (Bool b)
-    method expression : Instr.expression = Lit (Bool b)
+    method simple_expression : Instr.simple_expression = Lit (Bool b)
+    method expression : Instr.expression = Simple (Lit (Bool b))
   end
 
   let op_add x1 x2 = object
-    method expression = (Op (Plus, [x1#variable; x2#variable]))
+    method expression = (Op (Plus, [x1#simple_expression; x2#simple_expression]))
   end
 
   let op_eq x1 x2 = object
-    method expression = (Op (Eq, [x1#variable; x2#variable]))
+    method expression = (Op (Eq, [x1#simple_expression; x2#simple_expression]))
   end
 
   let const x e = Decl_const (x#variable, e#expression)

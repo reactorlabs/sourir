@@ -3,13 +3,16 @@ open Instr
 let disassemble_annotated (prog : Scope.annotated_program) =
   let dump_instr buf instr annot =
     let pr = Printf.bprintf in
-    let dump_expr exp =
-      match exp with
+    let simple buf = function
       | Var v             -> pr buf "%s" v
       | Lit lit           -> pr buf "%s" (string_of_litteral lit)
-      | Op (Plus, [a; b]) -> pr buf "(%s + %s)" a b
-      | Op (Neq,  [a; b]) -> pr buf "(%s != %s)" a b
-      | Op (Eq,   [a; b]) -> pr buf "(%s == %s)" a b
+    in
+    let dump_expr exp =
+      match exp with
+      | Simple e          -> simple buf e
+      | Op (Plus, [a; b]) -> pr buf "(%a + %a)" simple a simple b
+      | Op (Neq,  [a; b]) -> pr buf "(%a != %a)" simple a simple b
+      | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
       | Op (_, _)         -> assert(false)
     in
     let str_from_vars vars = String.concat ", " (Instr.VarSet.elements vars) in

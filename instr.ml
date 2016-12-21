@@ -43,9 +43,11 @@ and instruction =
   | Stop
   | Comment of string
 and expression =
+  | Simple of simple_expression
+  | Op of primop * simple_expression list
+and simple_expression =
   | Lit of litteral
   | Var of variable
-  | Op of primop * variable list
 and litteral =
   | Nil
   | Bool of bool
@@ -104,10 +106,15 @@ let bound_vars = function
     | Comment _
     | Stop) -> VarSet.empty
 
-let expr_vars = function
+let simple_expr_vars = function
   | Var x -> VarSet.singleton x
   | Lit _ -> VarSet.empty
-  | Op (_op, xs) -> VarSet.of_list xs
+
+let expr_vars = function
+  | Simple e -> simple_expr_vars e
+  | Op (_op, xs) ->
+    List.map simple_expr_vars xs
+    |> List.fold_left VarSet.union VarSet.empty
 
 let free_vars = function
   | Decl_const (_x, e) -> expr_vars e

@@ -65,10 +65,14 @@ instruction:
 | s=COMMENT
   { Comment s }
 
-expression:
+simple_expression:
   | lit=lit { Lit lit }
   | x=variable { Var x }
-  | LPAREN x=variable op=infixop y=variable RPAREN  { Op (op, [x;y]) }
+
+expression:
+  | e = simple_expression { Simple e }
+  | LPAREN e1=simple_expression op=infixop e2=simple_expression RPAREN
+    { Op (op, [e1;e2]) }
 
 label: id=IDENTIFIER { (id : Label.t) }
 variable: id=IDENTIFIER { (id : Variable.t) }
