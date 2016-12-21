@@ -11,7 +11,7 @@ Install [Opam](https://opam.ocaml.org/doc/Install.html)
     git clone https://github.com/reactorlabs/sourir
     cd sourir
     make sourir
-    ./sourir test.sou
+    ./sourir examples/sum.sou
 
 ## Syntax / Semantics
 
