@@ -1,4 +1,3 @@
-
 OCAMLBUILD=ocamlbuild -use-ocamlfind -use-menhir -no-links
 # -use-ocamlfind: use the ocamlfind library manager
 # -use-menhir: use the Menhir parser generator

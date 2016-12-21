@@ -16,9 +16,9 @@ package manager, and then:
 
 ## Syntax / Semantics
 
-The language is still in flux. See [parser.mly](parser.mly) to get an
-idea of the syntax, and [eval.ml](eval.ml), in particular
-`Eval.reduce`, for the operational semantics.
+The language is still in flux. See [parser.mly](parser.mly) to get an idea of
+the syntax or the files in `examples/`, and [eval.ml](eval.ml) (in particular
+`Eval.reduce`) for the operational semantics.
 
 ## Hacking
 
