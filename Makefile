@@ -26,5 +26,9 @@ run: sourir
 clean:
 	ocamlbuild -clean
 
+install-deps:
+	opam pin add sourir . --no-action # tell opam about a local "sourir" package
+	opam install --deps-only sourir # then install its dependencies
+
 .PHONY: all run tests clean sourir
 

@@ -26,24 +26,12 @@ let predecessors program =
   done;
   preds
 
-module VarSet = Set.Make(Variable)
-
-(* Perform forward analysis on some code
- *
- * init_state : Initial input state and first instruction
- * merge      : current state -> input state -> merge state if changed
- * update     : abstract instruction -> input state -> output state
- * program    : array of abstract instructions
- * prog_at    : program -> index -> instruction at index
- *
- * Returns an array of states for every instruction of the program.
- * Bottom is represented as None *)
-
-let forward_analysis (init_state : ('a * pc))
-                     (merge : 'a -> 'a -> 'a option)
-                     (update : pc -> 'a -> 'a)
-                     (program : program)
-                     : 'a option array =
+let dataflow_analysis (next : pc -> pc list)
+                      (init_state : ('a * pc) list)
+                      (program : program)
+                      (merge : 'a -> 'a -> 'a option)
+                      (update : pc -> 'a -> 'a)
+                      : 'a option array =
   let program_state = Array.map (fun _ -> ref None) program in
   let rec work = function
     | [] -> ()
@@ -58,10 +46,129 @@ let forward_analysis (init_state : ('a * pc))
         | Some merged ->
             cell := Some merged;
             let updated = update pc merged in
-            let succs = successors program pc in
-            let new_work = List.map (fun pc -> (updated, pc)) succs in
+            let cont = next pc in
+            let new_work = List.map (fun pc -> (updated, pc)) cont in
             work (new_work @ rest)
         end
   in
-  work [init_state];
+  work init_state;
   Array.map (!) program_state
+
+let exits program =
+  let rec exits pc : Pc.t list =
+    if Array.length program = pc then []
+    else
+      let is_exit = successors program pc = [] in
+      if is_exit then pc :: exits (pc + 1) else exits (pc + 1)
+  in
+  exits 0
+
+let forward_analysis_from init_pos init_state program =
+  let successors pc = successors program pc in
+  dataflow_analysis successors [(init_state, init_pos)] program
+
+let forward_analysis init_state program =
+  forward_analysis_from 0 init_state program
+
+let backwards_analysis init_state program =
+  let exits = exits program in
+  let init_state = List.map (fun pc -> (init_state, pc)) exits in
+  let preds = predecessors program in
+  let predecessors pc = preds.(pc) in
+  dataflow_analysis predecessors init_state program
+
+
+
+(* Use - Def style analysis *)
+
+(* a set of instructions *)
+module InstrSet = Set.Make(Pc)
+
+(* [Analysis result] Map: variable -> pc set
+ *
+ * Is used to represent the eg. the set of instructions
+ * defining a certain variable *)
+module VariableMap = struct
+  include Map.Make(Variable)
+
+  (* merge is defined as the union of their equally named sets *)
+  let merge =
+    let merge_one _ a b : InstrSet.t option =
+      match a, b with
+      | None, None -> None
+      | Some a, None -> Some a
+      | None, Some b -> Some b
+      | Some a, Some b -> Some (InstrSet.union a b) in
+    merge merge_one
+
+  let equal =
+    let is_equal a b = InstrSet.equal a b in
+    equal is_equal
+
+  let at var this =
+    match find var this with
+    | v -> v
+    | exception Not_found -> InstrSet.empty
+end
+
+exception DeadCode of pc
+
+(* returns a 'pc -> pc set' computing reaching definitions *)
+let reaching prog : pc -> InstrSet.t =
+  let merge cur_defs in_defs =
+    let merged = VariableMap.merge cur_defs in_defs in
+    if VariableMap.equal cur_defs merged then None else Some merged
+  in
+  let update pc defs =
+    let instr = prog.(pc) in
+    (* add or override defined vars in one go*)
+    let kill = defined_vars instr in
+    let loc = InstrSet.singleton pc in
+    let replace acc var = VariableMap.add var loc acc in
+    List.fold_left replace defs kill
+  in
+  let res = forward_analysis VariableMap.empty prog merge update in
+  function pc ->
+  let instr = prog.(pc) in
+  match res.(pc) with
+  | None -> raise (DeadCode pc)
+  | Some res ->
+      let used = consumed_vars instr in
+      let definitions_of var = VariableMap.find var res in
+      let all_definitions = List.map definitions_of used in
+      List.fold_left InstrSet.union InstrSet.empty all_definitions
+
+
+(* returns a 'pc -> pc set' computing uses of a definition *)
+let used prog : pc -> InstrSet.t =
+  let merge cur_uses in_uses =
+    let merged = VariableMap.merge cur_uses in_uses in
+    if VariableMap.equal cur_uses merged then None else Some merged
+  in
+  let update pc uses =
+    let instr = prog.(pc) in
+    (* First remove defined vars *)
+    let kill = defined_vars instr in
+    let remove acc var = VariableMap.remove var acc in
+    let uses = List.fold_left remove uses kill in
+    (* Then add used vars *)
+    let used = consumed_vars instr in
+    let loc = InstrSet.singleton pc in
+    let merge acc var =
+      (* TODO: creates a new singleton map and merges it with existing uses
+       * this seems inefficient, but I dont see a better way. *)
+      let insert = VariableMap.add var loc VariableMap.empty in
+      VariableMap.merge insert acc
+    in
+    List.fold_left merge uses used
+  in
+  let res = backwards_analysis VariableMap.empty prog merge update in
+  function pc ->
+  let instr = prog.(pc) in
+  match res.(pc) with
+  | None -> raise (DeadCode pc)
+  | Some res ->
+      let defined = defined_vars instr in
+      let uses_of var = VariableMap.at var res in
+      let all_uses = List.map uses_of defined in
+      List.fold_left InstrSet.union InstrSet.empty all_uses

@@ -331,6 +331,51 @@ let do_test_pred = function () ->
   assert_equal_sorted (pred 6) [];
   assert_equal_sorted (pred 7) []
 
+let test_df = fst (Parse.parse_string
+"mut a = 1
+ mut b = 2
+ mut d = (a+b)
+ b <- 3
+ mut z = (a+b)
+l:
+ mut y = (a+b)
+ b <- 4
+ branch b l l2
+l2:
+ mut y = (y+b)
+ branch b l l3
+l3:
+")
+
+let do_test_used = function () ->
+  let open Analysis in
+  let used = used test_df in
+  assert_equal_sorted (InstrSet.elements (used 0)) [2;4;6];
+  assert_equal_sorted (InstrSet.elements (used 1)) [2];
+  assert_equal_sorted (InstrSet.elements (used 2)) [];
+  assert_equal_sorted (InstrSet.elements (used 3)) [4;6];
+  assert_equal_sorted (InstrSet.elements (used 4)) [];
+  assert_equal_sorted (InstrSet.elements (used 6)) [10];
+  assert_equal_sorted (InstrSet.elements (used 7)) [6;8;10;11];
+  assert_equal_sorted (InstrSet.elements (used 8)) [];
+  assert_equal_sorted (InstrSet.elements (used 9)) [];
+  assert_equal_sorted (InstrSet.elements (used 10)) [];
+  assert_equal_sorted (InstrSet.elements (used 11)) [];
+  assert_equal_sorted (InstrSet.elements (used 5)) []
+
+
+let do_test_reaching = function () ->
+  let open Analysis in
+  let reaching = reaching test_df in
+  assert_equal_sorted (InstrSet.elements (reaching 0)) [];
+  assert_equal_sorted (InstrSet.elements (reaching 1)) [];
+  assert_equal_sorted (InstrSet.elements (reaching 2)) [0;1];
+  assert_equal_sorted (InstrSet.elements (reaching 4)) [0;3];
+  assert_equal_sorted (InstrSet.elements (reaching 6)) [7;0;3];
+  assert_equal_sorted (InstrSet.elements (reaching 10)) [7;6];
+  assert_equal_sorted (InstrSet.elements (reaching 0)) []
+
+
 let suite =
   let open Assembler in
   "suite">:::
@@ -392,6 +437,8 @@ let suite =
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch "%deopt_l2");
    "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) "%deopt_loop_body");
    "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop "%deopt_continue2");
+   "reaching">:: do_test_reaching;
+   "used">:: do_test_used;
    ]
 ;;
 
