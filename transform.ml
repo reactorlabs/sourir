@@ -16,10 +16,9 @@ let remove_empty_jmp prog =
 
 let remove_dead_code prog entry=
   let dead_code =
-    let init_state = ((), entry) in
     let merge _ _ = None in
     let update _ _ = () in
-    Analysis.forward_analysis init_state merge update prog
+    Analysis.forward_analysis_from entry () prog merge update
   in
   let rec remove_dead_code pc =
     if pc = Array.length prog then [] else
@@ -41,7 +40,7 @@ let branch_prune (prog, scope) =
     | Scope.Scope scope ->
         begin match prog.(pc) with
         | Branch (exp, l1, l2) ->
-            let vars = Scope.VarSet.elements scope in
+            let vars = Instr.VarSet.elements scope in
             Invalidate (exp, deopt_label l2, vars) ::
               Goto l1 ::
                 kill_branch (pc+1)
@@ -90,3 +89,5 @@ let branch_prune (prog, scope) =
   let final = Array.of_list killed in
   let combined = Array.concat (final :: landing_pads) in
   remove_empty_jmp (remove_dead_code combined 0)
+
+

@@ -21,7 +21,13 @@ end
 
 type variable = Variable.t
 type label = Label.t
-type pc = int
+
+module Pc = struct
+  type t = int
+  let compare (x : int) y = Pervasives.compare x y
+end
+
+type pc = Pc.t
 
 type program = instruction array
 and instruction =
@@ -82,3 +88,61 @@ let resolve (code : program) (label : string) =
     else if code.(i) = Label label then i
     else loop (i + 1)
   in loop 0
+
+module VarSet = Set.Make(Variable)
+
+let bound_vars = function
+  | Decl_const (x, _)
+  | Decl_mut (x, _) -> VarSet.singleton x
+  | (Assign _
+    | Branch _
+    | Label _
+    | Goto _
+    | Read _
+    | Print _
+    | Invalidate _
+    | Comment _
+    | Stop) -> VarSet.empty
+
+let expr_vars = function
+  | Var x -> VarSet.singleton x
+  | Lit _ -> VarSet.empty
+  | Op (_op, xs) -> VarSet.of_list xs
+
+let free_vars = function
+  | Decl_const (_x, e) -> expr_vars e
+  | Decl_mut (_x, e) -> expr_vars e
+  | Assign (x, e) -> VarSet.union (VarSet.singleton x) (expr_vars e)
+  | Branch (e, _l1, _l2) -> expr_vars e
+  | Label _l | Goto _l -> VarSet.empty
+  | Comment _ -> VarSet.empty
+  | Read x -> VarSet.singleton x
+  | Print e -> expr_vars e
+  | Invalidate (e, _l, xs) ->
+    VarSet.union (VarSet.of_list xs) (expr_vars e)
+  | Stop -> VarSet.empty
+
+let defined_vars = function
+  | Decl_const (x, _)
+  | Decl_mut (x, _)
+  | Assign (x ,_) -> [x]
+  | _ -> []
+
+let consumed_vars exp =
+  let res = match exp with
+  | Decl_const (_x, e) -> expr_vars e
+  | Decl_mut (_x, e) -> expr_vars e
+  (* In Scope.free_vars the assignee is considered free as well *)
+  | Assign (x, e) -> expr_vars e
+  | Branch (e, _l1, _l2) -> expr_vars e
+  | Label _l | Goto _l -> VarSet.empty
+  | Comment _ -> VarSet.empty
+  | Read x -> VarSet.singleton x
+  | Print e -> expr_vars e
+  | Invalidate (e, _l, xs) ->
+    VarSet.union (VarSet.of_list xs) (expr_vars e)
+  | Stop -> VarSet.empty
+  in
+  VarSet.elements res
+
+

@@ -10,7 +10,7 @@ let () =
     let annotated_program = Parse.parse_file path in
     begin match Scope.infer annotated_program with
       | exception Scope.UndefinedVariable xs ->
-        begin match Scope.VarSet.elements xs with
+        begin match Instr.VarSet.elements xs with
           | [x] -> Printf.eprintf "Error: Variable %s undefined.\n%!" x
           | xs -> Printf.eprintf "Error: Variables {%s} undefined.\n%!"
                     (String.concat ", " xs)
