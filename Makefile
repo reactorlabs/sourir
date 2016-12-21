@@ -1,3 +1,4 @@
+
 OCAMLBUILD=ocamlbuild -use-ocamlfind -use-menhir -no-links
 # -use-ocamlfind: use the ocamlfind library manager
 # -use-menhir: use the Menhir parser generator
@@ -23,6 +24,9 @@ runtop: lib
 run: sourir
 	./sourir examples/sum.sou
 
+test_examples: sourir
+	for f in examples/*.sou; do yes 0 | ./sourir $$f > /dev/null; done
+
 clean:
 	ocamlbuild -clean
 
@@ -30,5 +34,5 @@ install-deps:
 	opam pin add sourir . --no-action # tell opam about a local "sourir" package
 	opam install --deps-only sourir # then install its dependencies
 
-.PHONY: all run tests clean sourir
+.PHONY: all run tests clean sourir test_examples
 
