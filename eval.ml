@@ -84,22 +84,19 @@ let value_eq (Lit lit1) (Lit lit2) = litteral_eq lit1 lit2
 let value_neq (Lit lit1) (Lit lit2) = not (litteral_eq lit1 lit2)
 let value_plus (Lit lit1) (Lit lit2) = litteral_plus lit1 lit2
 
-let rec eval heap env = function
+let eval_simple heap env = function
   | Var x -> lookup heap env x
   | Lit lit -> Lit lit
-  | Op (Eq, [x1; x2]) ->
-    let v1 = eval heap env (Var x1) in
-    let v2 = eval heap env (Var x2) in
-    Lit (Bool (value_eq v1 v2))
-  | Op (Neq, [x1; x2]) ->
-    let v1 = eval heap env (Var x1) in
-    let v2 = eval heap env (Var x2) in
-    Lit (Bool (value_neq v1 v2))
-  | Op (Plus, [x1; x2]) ->
-    let v1 = eval heap env (Var x1) in
-    let v2 = eval heap env (Var x2) in
-    Lit (Int (value_plus v1 v2))
-  | Op (primop, _) -> raise (Arity_error Eq)
+
+let rec eval heap env = function
+  | Simple e -> eval_simple heap env e
+  | Op (op, es) ->
+    begin match op, List.map (eval_simple heap env) es with
+    | Eq, [v1; v2] -> Lit (Bool (value_eq v1 v2))
+    | Neq, [v1; v2] -> Lit (Bool (value_neq v1 v2))
+    | Plus, [v1; v2] -> Lit (Int (value_plus v1 v2))
+    | op, _vs -> raise (Arity_error op)
+    end
 
 let get_int (Lit lit : value) =
   match lit with
