@@ -2,16 +2,17 @@ open Instr
 
 let remove_empty_jmp prog =
   let pred = Analysis.predecessors prog in
+  let succ = Analysis.successors prog in
   let rec remove_empty_jmp pc =
     let pc' = pc + 1 in
     if pc' = Array.length prog then [prog.(pc)] else
       match (prog.(pc), prog.(pc')) with
       | (Goto l1, Label l2) when l1 = l2 && List.length pred.(pc') = 1 ->
           remove_empty_jmp (pc+2)
-      | (Label _, _) when pred.(pc') = [pc-1] ->
+      | (Label _, _) when pred.(pc) = [pc-1] && succ (pc-1) = [pc] ->
           remove_empty_jmp pc'
       | (_, _) ->
-          prog.(pc) :: remove_empty_jmp (pc')
+          prog.(pc) :: remove_empty_jmp pc'
   in
   remove_empty_jmp 0
 
