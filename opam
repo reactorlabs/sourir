@@ -12,8 +12,10 @@ build: [
   [make "sourir"]
 ]
 depends: [
+  "ocamlfind" {build}
+  "menhir" {build & >= "20161115"}
   "ounit" {>= "2.0.0"}
-  "menhir" {>= "20161115"}
+  "utop"
 ]
 available: [
   ocaml-version >= "4.03.0"
