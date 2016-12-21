@@ -21,7 +21,10 @@ runtop: lib
 	utop -I _build sourir.cma
 
 run: sourir
-	./sourir test.sou
+	./sourir examples/sum.sou
+
+test_examples: sourir
+	for f in examples/*.sou; do yes 0 | ./sourir $$f > /dev/null; done
 
 clean:
 	ocamlbuild -clean
@@ -30,5 +33,5 @@ install-deps:
 	opam pin add sourir . --no-action # tell opam about a local "sourir" package
 	opam install --deps-only sourir # then install its dependencies
 
-.PHONY: all run tests clean sourir
+.PHONY: all run tests clean sourir test_examples
 

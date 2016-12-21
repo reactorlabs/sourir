@@ -1,0 +1,21 @@
+# Moving a loop invariant
+# AFTER
+  const one = 1
+  mut x = 3
+  mut y = 7
+  mut z = 0
+  mut i = 0
+  mut acc = 0
+  mut limit = 10
+  read limit
+  print z
+  # This assignment was moved
+  z <- (x + y)
+loop:
+  branch (i == limit) continue loop_body
+loop_body:
+  acc <- (acc + z)
+  i <- (i + one)
+  goto loop
+continue:
+print acc

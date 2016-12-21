@@ -3,7 +3,7 @@ let () =
   | exception _ ->
     Printf.eprintf
       "You should provide a Sourir file to parse as command-line argument.\n\
-       Example: %s test.sou\n%!"
+       Example: %s examples/sum.sou\n%!"
       Sys.executable_name;
     exit 1
   | path ->
