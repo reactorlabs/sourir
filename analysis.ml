@@ -103,8 +103,7 @@ let equal_defs =
   Defs.equal do_equal
 
 
-let reaching prog pc =
-  let instr = prog.(pc) in
+let reaching prog =
   let merge cur_def in_def =
     let merged = merge_defs cur_def in_def in
     if equal_defs cur_def merged then None else Some merged in
@@ -114,6 +113,8 @@ let reaching prog pc =
     | None -> defs
     | Some x -> Defs.add x (InstrSet.singleton pc) defs in
   let res = forward_analysis Defs.empty prog merge update in
+  function pc ->
+  let instr = prog.(pc) in
   match res.(pc) with
   | None -> InstrSet.empty
   | Some res ->
@@ -127,8 +128,7 @@ let reaching prog pc =
       let all_definitions = List.map definitions_of consumed_vars in
       union all_definitions
 
-let used prog pc =
-  let instr = prog.(pc) in
+let used prog =
   let merge cur_def in_def =
     let merged = merge_defs cur_def in_def in
     if equal_defs cur_def merged then None else Some merged in
@@ -143,6 +143,8 @@ let used prog pc =
       merge_defs insert acc in
     List.fold_left merge defined (consumed_vars instr) in
   let res = backwards_analysis Defs.empty prog merge update in
+  function pc ->
+  let instr = prog.(pc) in
   match res.(pc) with
   | None -> InstrSet.empty
   | Some res ->
