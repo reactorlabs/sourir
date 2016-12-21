@@ -125,8 +125,8 @@ let free_vars = function
 let defined_vars = function
   | Decl_const (x, _)
   | Decl_mut (x, _)
-  | Assign (x ,_) -> Some x
-  | _ -> None
+  | Assign (x ,_) -> [x]
+  | _ -> []
 
 let consumed_vars exp =
   let res = match exp with
