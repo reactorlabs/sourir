@@ -15,7 +15,7 @@
 %{ open Instr
 
 let scope_annotation (mode, xs) =
-  let xs = Scope.VarSet.of_list xs in
+  let xs = Instr.VarSet.of_list xs in
   match mode with
   | `Exact -> Scope.Exact xs
   | `At_least -> Scope.At_least xs

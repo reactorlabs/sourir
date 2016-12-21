@@ -12,7 +12,7 @@ let disassemble_annotated (prog : Scope.annotated_program) =
       | Op (Eq,   [a; b]) -> pr buf "(%s == %s)" a b
       | Op (_, _)         -> assert(false)
     in
-    let str_from_vars vars = String.concat ", " (Scope.VarSet.elements vars) in
+    let str_from_vars vars = String.concat ", " (Instr.VarSet.elements vars) in
     begin match annot with
     | Some (Scope.Exact e)    -> pr buf "{%s} "      (str_from_vars e)
     | Some (Scope.At_least e) -> pr buf "{%s, ...} " (str_from_vars e)
