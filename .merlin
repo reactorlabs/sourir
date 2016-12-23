@@ -2,4 +2,4 @@ S .
 B _build
 B _build/src/sourir
 B _build/tests
-PKG oUnit
+PKG oUnit menhirLib

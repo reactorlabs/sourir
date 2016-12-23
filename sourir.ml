@@ -7,7 +7,12 @@ let () =
       Sys.executable_name;
     exit 1
   | path ->
-    let annotated_program = Parse.parse_file path in
+    let annotated_program =
+      try Parse.parse_file path
+      with Parse.Error error ->
+        Parse.report_error error;
+        exit 2
+    in
     begin match Scope.infer annotated_program with
       | exception Scope.UndefinedVariable xs ->
         begin match Instr.VarSet.elements xs with

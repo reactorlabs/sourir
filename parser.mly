@@ -10,7 +10,7 @@
 %token NEWLINE
 %token EOF
 
-%start<(Scope.scope_annotation option * Instr.instruction) array> program
+%start<Scope.annotated_program> program
 
 %{ open Instr
 
@@ -25,7 +25,12 @@ let scope_annotation (mode, xs) =
 %%
 
 program:
-| prog=list(instruction_line) EOF { Array.of_list prog }
+| prog=list(instruction_line) EOF
+  {
+    let annotations, instructions = List.split prog in
+    (Array.of_list instructions,
+     Array.of_list annotations)
+  }
 
 instruction_line:
 | a=scope_annotation i=instruction NEWLINE { (a, i) }

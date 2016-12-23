@@ -1,8 +1,7 @@
 {
-open Lexing
 open Parser
 
-exception Lexing_error of string
+exception Error of string * Lexing.position
 
 let keyword_table = [
   "const", CONST;
@@ -31,7 +30,7 @@ let comment_of_string str =
 
 let lexing_error lexbuf =
   let invalid_input = String.make 1 (Lexing.lexeme_char lexbuf 0) in
-  raise (Lexing_error invalid_input)
+  raise (Error (invalid_input, lexbuf.Lexing.lex_curr_p))
 }
 
 let int_literal = '-'? ['0'-'9'] ['0'-'9']*
