@@ -1,15 +1,11 @@
-let position {Lexing.pos_fname; pos_lnum; pos_cnum; pos_bol} =
-  let file = pos_fname in
-  let line = pos_lnum in
-  let character = pos_cnum - pos_bol in
-  (file, line, character)
+(** Parsing functions *)
 
-let split_annotations program =
-  let annotations = Array.map fst program in
-  let instructions = Array.map snd program in
-  (instructions, annotations)
+type parse_error =
+  | Lexing of string * Lexing.position
+  | Parsing of message option * Lexing.position * Lexing.position
+and message = string
 
-exception Parse_error of string option * Lexing.position * Lexing.position
+exception Error of parse_error
 
 let parse lexbuf =
   (* see the Menhir manual for the description of
@@ -17,7 +13,7 @@ let parse lexbuf =
   let open MenhirLib.General in
   let module Interp = Parser.MenhirInterpreter in
   let input = Interp.lexer_lexbuf_to_supplier Lexer.token lexbuf in
-  let success prog = split_annotations prog in
+  let success prog = prog in
   let failure error_state =
     let env = match error_state with
       | Interp.HandlingError env -> env
@@ -28,27 +24,18 @@ let parse lexbuf =
       let message =
         try Some (Parser_messages.message (Interp.number state)) with
         | Not_found -> None in
-      raise (Parse_error (message, start_pos, end_pos))
+      raise (Error (Parsing (message, start_pos, end_pos)))
   in
-  Interp.loop_handle success failure input
-    (Parser.Incremental.program lexbuf.Lexing.lex_curr_p)
+  try
+    Interp.loop_handle success failure input
+      (Parser.Incremental.program lexbuf.Lexing.lex_curr_p)
+  with Lexer.Error (input, pos) -> raise (Error (Lexing (input, pos)))
 
 let parse_string str =
   let lexbuf = Lexing.from_string str in
   parse lexbuf
 
-let nth_line file line =
-  try
-    let input = open_in file in
-    for i = 1 to line - 1 do
-      ignore (input_line input)
-    done;
-    let result = input_line input in
-    close_in input;
-    Some result
-  with _ -> None
-
-let parse_file path : Scope.annotated_program =
+let parse_file path =
   let chan = open_in path in
   let lexbuf =
     let open Lexing in
@@ -62,8 +49,29 @@ let parse_file path : Scope.annotated_program =
     lexbuf.lex_curr_p <- lexbuf.lex_start_p;
     lexbuf
   in
-  try parse lexbuf with
-  | Parse_error (message, start_pos, end_pos) ->
+  parse lexbuf
+
+(** Parsing error reporting *)
+
+let position {Lexing.pos_fname; pos_lnum; pos_cnum; pos_bol} =
+  let file = pos_fname in
+  let line = pos_lnum in
+  let character = pos_cnum - pos_bol in
+  (file, line, character)
+
+let nth_line file line =
+  try
+    let input = open_in file in
+    for i = 1 to line - 1 do
+      ignore (input_line input)
+    done;
+    let result = input_line input in
+    close_in input;
+    Some result
+  with _ -> None
+
+let report_error = function
+  | Parsing (message, start_pos, end_pos) ->
     let file, start_line, start_character = position start_pos in
     let _, curr_line, curr_character = position end_pos in
     let open Printf in
@@ -84,15 +92,13 @@ let parse_file path : Scope.annotated_program =
     begin match message with
     | None -> ()
     | Some error_message -> prerr_endline error_message
-    end;
-    exit 2
-  | Lexer.Lexing_error invalid_input ->
-    let file, line, character = position lexbuf.Lexing.lex_curr_p in
+    end
+  | Lexing (invalid_input, err_pos) ->
+    let file, line, character = position err_pos in
     Printf.eprintf
       "File %S, line %d, character %d, lexing error:\n" file line character;
     begin match nth_line file line with
       | None -> ()
       | Some line -> Printf.eprintf "> %s\n" line;
     end;
-    Printf.eprintf "Invalid input %S\n%!" invalid_input;
-    exit 1
+    Printf.eprintf "Invalid input %S\n%!" invalid_input

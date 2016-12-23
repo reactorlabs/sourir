@@ -160,21 +160,27 @@ let test_broken_scope_3 =
     print x;
   |]
 
-let test_broken_scope_4 = Parse.parse_string
+let parse_test str =
+  try Parse.parse_string str
+  with Parse.Error error ->
+    Parse.report_error error;
+    exit 2
+
+let test_broken_scope_4 = parse_test
 "mut x = 0
 mut y = 0
 {x} mut z = false
 z <- (x == y)
 "
 
-let test_broken_scope_4_fixed = Parse.parse_string
+let test_broken_scope_4_fixed = parse_test
 "mut x = 0
 mut y = 0
 {x, ...} mut z = false
 z <- (x == y)
 "
 
-let test_broken_scope_5 = Parse.parse_string
+let test_broken_scope_5 = parse_test
 "mut x = 0
 mut y = 0
 {w, ...} mut z = false
@@ -235,7 +241,7 @@ let test_disasm_parse prog = function() ->
   let prog2 = Parse.parse_string disasm1 in
   assert_equal prog prog2
 
-let test_branch = Parse.parse_string
+let test_branch = parse_test
 "mut x = 9
  mut y = 10
  mut r = 1
@@ -264,7 +270,7 @@ let test_branch_pruned = " mut x = 9
  stop
 "
 
-let test_double_loop = Parse.parse_string
+let test_double_loop = parse_test
 "mut i = 0
  mut sum = 0
  const limit = 4
@@ -307,7 +313,7 @@ let test_branch_pruning prog deopt =
 let assert_equal_sorted li1 li2 =
   assert_equal (List.sort compare li1) (List.sort compare li2)
 
-let test_pred = fst (Parse.parse_string
+let test_pred = fst (parse_test
 "l1:
   goto l2
  l3:
@@ -329,7 +335,7 @@ let do_test_pred = function () ->
   assert_equal_sorted (pred 6) [];
   assert_equal_sorted (pred 7) []
 
-let test_df = fst (Parse.parse_string
+let test_df = fst (parse_test
 "mut a = 1
  mut b = 2
  mut d = (a+b)
