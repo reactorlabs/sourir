@@ -1,6 +1,6 @@
 program: BRANCH NIL IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 53.
+## Ends in an error in state: 54.
 ##
 ## instruction -> BRANCH expression label . label [ NEWLINE ]
 ##
@@ -15,7 +15,7 @@ instruction
 
 program: BRANCH NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 52.
+## Ends in an error in state: 53.
 ##
 ## instruction -> BRANCH expression . label label [ NEWLINE ]
 ##
@@ -29,7 +29,7 @@ example "foo", is now expected to construct a branch instruction
 
 program: BRANCH TRIPLE_DOT 
 ##
-## Ends in an error in state: 51.
+## Ends in an error in state: 52.
 ##
 ## instruction -> BRANCH . expression label label [ NEWLINE ]
 ##
@@ -43,7 +43,7 @@ example "(x == 2)", is now expected to construct a branch instruction
 
 program: CONST IDENTIFIER EQUAL TRIPLE_DOT 
 ##
-## Ends in an error in state: 48.
+## Ends in an error in state: 49.
 ##
 ## instruction -> CONST variable EQUAL . expression [ NEWLINE ]
 ##
@@ -57,7 +57,7 @@ example "(x + 1)", is now expected to construct a constant declaration
 
 program: CONST IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 47.
+## Ends in an error in state: 48.
 ##
 ## instruction -> CONST variable . EQUAL expression [ NEWLINE ]
 ##
@@ -71,7 +71,7 @@ Parsing an instruction, we parsed "const <var>" so far; the equal sign
 
 program: CONST TRIPLE_DOT 
 ##
-## Ends in an error in state: 46.
+## Ends in an error in state: 47.
 ##
 ## instruction -> CONST . variable EQUAL expression [ NEWLINE ]
 ##
@@ -85,7 +85,7 @@ example "x", is now expected to construct a constant declaration
 
 program: GOTO TRIPLE_DOT 
 ##
-## Ends in an error in state: 44.
+## Ends in an error in state: 45.
 ##
 ## instruction -> GOTO . label [ NEWLINE ]
 ##
@@ -99,7 +99,7 @@ Parsing an instruction, we parsed "goto" so far; a label, for example
 
 program: IDENTIFIER LEFTARROW TRIPLE_DOT 
 ##
-## Ends in an error in state: 56.
+## Ends in an error in state: 57.
 ##
 ## instruction -> variable LEFTARROW . expression [ NEWLINE ]
 ##
@@ -113,7 +113,7 @@ for example "(x + 1)", is now expected to construct an assignment
 
 program: IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 43.
+## Ends in an error in state: 44.
 ##
 ## label -> IDENTIFIER . [ COLON ]
 ## variable -> IDENTIFIER . [ LEFTARROW ]
@@ -128,7 +128,7 @@ Parsing an instruction, we parsed an identifier so far (variable or label).
 
 program: INVALIDATE NIL IDENTIFIER LBRACKET IDENTIFIER COMMA TRIPLE_DOT 
 ##
-## Ends in an error in state: 38.
+## Ends in an error in state: 39.
 ##
 ## separated_nonempty_list(COMMA,variable) -> variable COMMA . separated_nonempty_list(COMMA,variable) [ RBRACKET ]
 ##
@@ -143,7 +143,7 @@ example "[x, y, z]".
 
 program: INVALIDATE NIL IDENTIFIER LBRACKET IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 37.
+## Ends in an error in state: 38.
 ##
 ## separated_nonempty_list(COMMA,variable) -> variable . [ RBRACKET ]
 ## separated_nonempty_list(COMMA,variable) -> variable . COMMA separated_nonempty_list(COMMA,variable) [ RBRACKET ]
@@ -159,7 +159,7 @@ example "[x, y, z]".
 
 program: INVALIDATE NIL IDENTIFIER LBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 36.
+## Ends in an error in state: 37.
 ##
 ## instruction -> INVALIDATE expression label LBRACKET . loption(separated_nonempty_list(COMMA,variable)) RBRACKET [ NEWLINE ]
 ##
@@ -174,7 +174,7 @@ example "[x, y, z]".
 
 program: INVALIDATE NIL IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 35.
+## Ends in an error in state: 36.
 ##
 ## instruction -> INVALIDATE expression label . LBRACKET loption(separated_nonempty_list(COMMA,variable)) RBRACKET [ NEWLINE ]
 ##
@@ -189,7 +189,7 @@ example "[x, y, z]".
 
 program: INVALIDATE NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 33.
+## Ends in an error in state: 34.
 ##
 ## instruction -> INVALIDATE expression . label LBRACKET loption(separated_nonempty_list(COMMA,variable)) RBRACKET [ NEWLINE ]
 ##
@@ -205,7 +205,7 @@ example "[x, y, z]".
 
 program: INVALIDATE TRIPLE_DOT 
 ##
-## Ends in an error in state: 32.
+## Ends in an error in state: 33.
 ##
 ## instruction -> INVALIDATE . expression label LBRACKET loption(separated_nonempty_list(COMMA,variable)) RBRACKET [ NEWLINE ]
 ##
@@ -299,7 +299,7 @@ In a scope annotation, "..." should be the last item. "{ x, ... }" or
 
 program: MUT IDENTIFIER EQUAL TRIPLE_DOT 
 ##
-## Ends in an error in state: 30.
+## Ends in an error in state: 31.
 ##
 ## instruction -> MUT variable EQUAL . expression [ NEWLINE ]
 ##
@@ -313,7 +313,7 @@ construct a constant mutable instruction "mut <var> = <expr>".
 
 program: MUT IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 29.
+## Ends in an error in state: 30.
 ##
 ## instruction -> MUT variable . EQUAL expression [ NEWLINE ]
 ##
@@ -327,7 +327,7 @@ instruction "mut <var> = <expr>".
 
 program: MUT TRIPLE_DOT 
 ##
-## Ends in an error in state: 28.
+## Ends in an error in state: 29.
 ##
 ## instruction -> MUT . variable EQUAL expression [ NEWLINE ]
 ##
@@ -342,12 +342,12 @@ declaration
 
 program: PRINT LPAREN IDENTIFIER PLUS IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 21.
+## Ends in an error in state: 24.
 ##
-## expression -> LPAREN variable infixop variable . RPAREN [ NEWLINE IDENTIFIER ]
+## expression -> LPAREN simple_expression infixop simple_expression . RPAREN [ NEWLINE IDENTIFIER ]
 ##
 ## The known suffix of the stack is as follows:
-## LPAREN variable infixop variable 
+## LPAREN simple_expression infixop simple_expression 
 ##
 
 Parsing an expression, we parsed "( <arg> <op> <arg>" so far;
@@ -355,12 +355,12 @@ a closing parenthesis ")" is now expected.
 
 program: PRINT LPAREN IDENTIFIER PLUS TRIPLE_DOT 
 ##
-## Ends in an error in state: 20.
+## Ends in an error in state: 23.
 ##
-## expression -> LPAREN variable infixop . variable RPAREN [ NEWLINE IDENTIFIER ]
+## expression -> LPAREN simple_expression infixop . simple_expression RPAREN [ NEWLINE IDENTIFIER ]
 ##
 ## The known suffix of the stack is as follows:
-## LPAREN variable infixop 
+## LPAREN simple_expression infixop 
 ##
 
 Parsing an expression, we parsed "( <arg> <op>" so far; an argument
@@ -369,12 +369,12 @@ Parsing an expression, we parsed "( <arg> <op>" so far; an argument
 
 program: PRINT LPAREN IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 16.
+## Ends in an error in state: 19.
 ##
-## expression -> LPAREN variable . infixop variable RPAREN [ NEWLINE IDENTIFIER ]
+## expression -> LPAREN simple_expression . infixop simple_expression RPAREN [ NEWLINE IDENTIFIER ]
 ##
 ## The known suffix of the stack is as follows:
-## LPAREN variable 
+## LPAREN simple_expression 
 ##
 
 Parsing an expression, we parsed "( <arg>" so far; an operator such as
@@ -385,7 +385,7 @@ program: PRINT LPAREN TRIPLE_DOT
 ##
 ## Ends in an error in state: 15.
 ##
-## expression -> LPAREN . variable infixop variable RPAREN [ NEWLINE IDENTIFIER ]
+## expression -> LPAREN . simple_expression infixop simple_expression RPAREN [ NEWLINE IDENTIFIER ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAREN 
@@ -428,7 +428,7 @@ Note that the variable needs to have been declared as mutable first.
 
 program: STOP NEWLINE TRIPLE_DOT 
 ##
-## Ends in an error in state: 65.
+## Ends in an error in state: 66.
 ##
 ## list(instruction_line) -> instruction_line . list(instruction_line) [ EOF ]
 ##
@@ -441,7 +441,7 @@ instruction on the next line, or the end of the file.
 
 program: STOP TRIPLE_DOT 
 ##
-## Ends in an error in state: 60.
+## Ends in an error in state: 61.
 ##
 ## instruction_line -> scope_annotation instruction . NEWLINE [ STOP READ PRINT MUT LBRACE INVALIDATE IDENTIFIER GOTO EOF CONST COMMENT BRANCH ]
 ##
