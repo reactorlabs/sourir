@@ -1,6 +1,7 @@
   mut i = 0
   mut sum = 0
   const limit = 10
+
 loop:
   branch (i == limit) continue loop_body
 loop_body:
@@ -8,5 +9,7 @@ loop_body:
   sum <- (sum + i)
   i <- (i + 1)
   goto loop
+
+{sum}
 continue:
   print sum

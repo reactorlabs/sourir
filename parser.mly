@@ -25,7 +25,7 @@ let scope_annotation (mode, xs) =
 %%
 
 program:
-| prog=list(instruction_line) EOF
+| optional_newlines prog=list(instruction_line) EOF
   {
     let annotations, instructions = List.split prog in
     (Array.of_list instructions,
@@ -33,11 +33,13 @@ program:
   }
 
 instruction_line:
-| a=scope_annotation i=instruction NEWLINE { (a, i) }
+| a=scope_annotation i=instruction NEWLINE optional_newlines { (a, i) }
 
 scope_annotation:
 | { None }
-| annot=delimited(LBRACE, scope, RBRACE) { Some (scope_annotation annot) }
+| annot=delimited(LBRACE, scope, RBRACE) optional_newlines { Some (scope_annotation annot) }
+
+optional_newlines: list(NEWLINE) { () }
 
 scope:
 | x=variable COMMA sc=scope { let (mode, xs) = sc in (mode, x::xs) }
