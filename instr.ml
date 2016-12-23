@@ -132,8 +132,15 @@ let free_vars = function
 let defined_vars = function
   | Decl_const (x, _)
   | Decl_mut (x, _)
-  | Assign (x ,_) -> [x]
-  | _ -> []
+  | Assign (x ,_)
+  | Read x -> [x]
+  | Branch _
+  | Label _
+  | Goto _
+  | Comment _
+  | Print _
+  | Invalidate _
+  | Stop -> []
 
 let consumed_vars exp =
   let res = match exp with
@@ -144,7 +151,7 @@ let consumed_vars exp =
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
-  | Read x -> VarSet.singleton x
+  | Read _ -> VarSet.empty
   | Print e -> expr_vars e
   | Invalidate (e, _l, xs) ->
     VarSet.union (VarSet.of_list xs) (expr_vars e)
