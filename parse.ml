@@ -37,6 +37,17 @@ let parse_string str =
   let lexbuf = Lexing.from_string str in
   parse lexbuf
 
+let nth_line file line =
+  try
+    let input = open_in file in
+    for i = 1 to line - 1 do
+      ignore (input_line input)
+    done;
+    let result = input_line input in
+    close_in input;
+    Some result
+  with _ -> None
+
 let parse_file path : Scope.annotated_program =
   let chan = open_in path in
   let lexbuf =
@@ -66,6 +77,10 @@ let parse_file path : Scope.annotated_program =
       else sprintf "character %d" start_character in
     Printf.eprintf "File %S, %s, %s, parsing error:\n%!"
       file lines characters;
+    begin match nth_line file curr_line with
+      | None -> ()
+      | Some line -> Printf.eprintf "> %s\n" line;
+    end;
     begin match message with
     | None -> ()
     | Some error_message -> prerr_endline error_message
@@ -74,6 +89,10 @@ let parse_file path : Scope.annotated_program =
   | Lexer.Lexing_error invalid_input ->
     let file, line, character = position lexbuf.Lexing.lex_curr_p in
     Printf.eprintf
-      "File %S, line %d, character %d, lexing error:\nInvalid input %S\n%!"
-      file line character invalid_input;
+      "File %S, line %d, character %d, lexing error:\n" file line character;
+    begin match nth_line file line with
+      | None -> ()
+      | Some line -> Printf.eprintf "> %s\n" line;
+    end;
+    Printf.eprintf "Invalid input %S\n%!" invalid_input;
     exit 1
