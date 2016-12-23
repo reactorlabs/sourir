@@ -74,7 +74,7 @@ let litteral_eq (lit1 : litteral) (lit2 : litteral) =
 let litteral_plus (lit1 : litteral) (lit2 : litteral) =
   match lit1, lit2 with
   | Int n1, Int n2 -> n1 + n2
-  | x1, x2 ->
+  | (Int _ | Nil | Bool _) as x1, x2 ->
       let expected = (Int, Int) in
       let received = litteral_type x1, litteral_type x2 in
       raise (ProductType_error { expected; received })
@@ -95,20 +95,20 @@ let rec eval heap env = function
     | Eq, [v1; v2] -> Lit (Bool (value_eq v1 v2))
     | Neq, [v1; v2] -> Lit (Bool (value_neq v1 v2))
     | Plus, [v1; v2] -> Lit (Int (value_plus v1 v2))
-    | op, _vs -> raise (Arity_error op)
+    | (Eq | Neq | Plus), _vs -> raise (Arity_error op)
     end
 
 let get_int (Lit lit : value) =
   match lit with
   | Int n -> n
-  | other ->
+  | (Nil | Bool _) as other ->
      let expected, received = Int, litteral_type other in
      raise (Type_error { expected; received })
 
 let get_bool (Lit lit : value) =
   match lit with
   | Bool b -> b
-  | other ->
+  | (Nil | Int _) as other ->
      let expected, received = Bool, litteral_type other in
      raise (Type_error { expected; received })
 

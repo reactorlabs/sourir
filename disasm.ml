@@ -13,7 +13,7 @@ let disassemble_annotated (prog : Scope.annotated_program) =
       | Op (Plus, [a; b]) -> pr buf "(%a + %a)" simple a simple b
       | Op (Neq,  [a; b]) -> pr buf "(%a != %a)" simple a simple b
       | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
-      | Op (_, _)         -> assert(false)
+      | Op ((Plus | Neq | Eq), _)         -> assert(false)
     in
     let str_from_vars vars = String.concat ", " (Instr.VarSet.elements vars) in
     begin match annot with
