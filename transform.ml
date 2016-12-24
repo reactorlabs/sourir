@@ -6,7 +6,7 @@ let remove_empty_jmp prog =
   let rec remove_empty_jmp pc =
     let pc' = pc + 1 in
     if pc' = Array.length prog then [prog.(pc)] else
-      match (prog.(pc), prog.(pc')) with
+      match[@warning "-4"] (prog.(pc), prog.(pc')) with
       | (Goto l1, Label l2) when l1 = l2 && List.length pred.(pc') = 1 ->
           remove_empty_jmp (pc+2)
       | (Label _, _) when pred.(pc) = [pc-1] && succ (pc-1) = [pc] ->
@@ -30,7 +30,7 @@ let remove_dead_code prog entry=
   let rec remove_dead_code pc =
     let pc' = pc+1 in
     if pc = Array.length prog then [] else
-      match dead_code.(pc), prog.(pc) with
+      match[@warning "-4"] dead_code.(pc), prog.(pc) with
       (* Comments are considered live, if the next instruction is live.
        * This prevents removing comments above jump labels *)
       | None, Comment c ->
@@ -54,7 +54,7 @@ let branch_prune (prog, scope) =
     match scope.(pc) with
     | Scope.Dead -> assert(false)
     | Scope.Scope scope ->
-        begin match prog.(pc) with
+        begin match[@warning "-4"] prog.(pc) with
         | Branch (exp, l1, l2) ->
             let vars = Instr.VarSet.elements scope in
             Invalidate (exp, deopt_label l2, vars) ::
@@ -74,7 +74,7 @@ let branch_prune (prog, scope) =
         | Label l when (deopt_label l) = entry ->
             Label (fresh_label l) ::
               Label entry :: gen_landing_pad (pc+1)
-        (* we need to rename lables since they might clash with main function
+        (* we need to rename labels since they might clash with main function
          * TODO: this is ugly! what else should we do? *)
         | Label l ->
             Label (fresh_label l) :: gen_landing_pad (pc+1)
@@ -83,7 +83,8 @@ let branch_prune (prog, scope) =
         | Branch (exp, l1, l2) ->
             Branch (exp, (fresh_label l1), (fresh_label l2)) :: gen_landing_pad (pc+1)
         | Invalidate _ -> assert(false)
-        | i ->
+        | (Decl_const _ | Decl_mut _ | Assign _
+           | Read _ | Print _ | Stop | Comment _) as i ->
             i :: gen_landing_pad (pc+1)
     in
     let copy = Array.of_list (gen_landing_pad 0) in
@@ -92,7 +93,7 @@ let branch_prune (prog, scope) =
     let continuation = remove_dead_code copy (resolve copy entry) in
     Array.of_list (Comment ("Landing pad for deopt " ^ entry) :: continuation)
   in
-  let rec gen_deopt_targets = function
+  let rec gen_deopt_targets = function[@warning "-4"]
     | Invalidate (exp, label, vars) :: rest ->
         gen_landing_pad label :: gen_deopt_targets rest
     | _ :: rest ->

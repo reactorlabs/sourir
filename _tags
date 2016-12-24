@@ -3,3 +3,10 @@ true: package(menhirLib)
 <parser.*>: menhir_table
 
 true: debug
+
+# fragile pattern matching
+true: warn(+4)
+
+# the code produced from parser.mly by the parser generator may
+# contain fragile pattern matches, we just disable the warning for them.
+<parser.*>: -warn(+4)
