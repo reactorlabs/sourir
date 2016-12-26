@@ -2,6 +2,7 @@ Instr
 Scope
 Lexer
 Parser
+Parser_messages
 Parse
 Eval
 Disasm
