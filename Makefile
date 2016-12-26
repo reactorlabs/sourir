@@ -29,6 +29,16 @@ test_examples: sourir
 clean:
 	ocamlbuild -clean
 
+# The parser.messages file is maintained semi-automatically: a human
+# should maintain the error messages, but the parser generators update
+# the error state numbers and the example of token inputs that lead to
+# those. After changing the parser you should manually build this
+# target and inspect the change to the .messages file; if a new error
+# state appears, you should add an error message for it.
+update-parser-messages:
+	ocamlbuild parser.messages.update
+	cp _build/parser.messages parser.messages
+
 install-deps:
 	opam pin add sourir . --no-action # tell opam about a local "sourir" package
 	opam install --deps-only sourir # then install its dependencies

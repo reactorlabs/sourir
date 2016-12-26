@@ -30,7 +30,7 @@ let menhir_update_messages env build =
     Cmd(S[menhir (); T (menhir_tags mly); P mly;
           A "--update-errors"; P messages;
           Sh ">"; P tmp]);
-    Cmd(S[A "mv"; P tmp; P (Pathname.concat Pathname.pwd messages)]);
+    Cmd(S[A "mv"; P tmp; P messages]);
   ]
 
 let _ = dispatch begin function
