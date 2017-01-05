@@ -14,10 +14,24 @@ let () =
         exit 2
     in
     begin match Scope.infer annotated_program with
-      | exception Scope.UndefinedVariable xs ->
+      | exception Scope.UndeclaredVariable xs ->
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "Error: Variable %s undefined.\n%!" x
-          | xs -> Printf.eprintf "Error: Variables {%s} undefined.\n%!"
+          | [x] -> Printf.eprintf "Error: Variable %s is not declared.\n%!" x
+          | xs -> Printf.eprintf "Error: Variables {%s} are not declared.\n%!"
+                    (String.concat ", " xs)
+        end;
+        exit 1
+      | exception Scope.UninitializedVariable xs ->
+        begin match Instr.VarSet.elements xs with
+          | [x] -> Printf.eprintf "Error: Variable %s might be uninitialized.\n%!" x
+          | xs -> Printf.eprintf "Error: Variables {%s} might be uninitialized.\n%!"
+                    (String.concat ", " xs)
+        end;
+        exit 1
+      | exception Scope.DuplicateVariable xs ->
+        begin match Instr.VarSet.elements xs with
+          | [x] -> Printf.eprintf "Error: Variable %s is declared more than once.\n%!" x
+          | xs -> Printf.eprintf "Error: Variables {%s} are declared more than once.\n%!"
                     (String.concat ", " xs)
         end;
         exit 1

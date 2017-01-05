@@ -32,7 +32,7 @@ type pc = Pc.t
 type program = instruction array
 and instruction =
   | Decl_const of variable * expression
-  | Decl_mut of variable * expression
+  | Decl_mut of variable * (expression option)
   | Assign of variable * expression
   | Branch of expression * label * label
   | Label of label
@@ -59,6 +59,10 @@ and primop =
 
 type value =
   | Lit of litteral
+
+type heap_value =
+  | Undefined
+  | Value of value
 
 type address = Address.t
 
@@ -93,7 +97,17 @@ let resolve (code : program) (label : string) =
 
 module VarSet = Set.Make(Variable)
 
-let bound_vars = function
+let simple_expr_vars = function
+  | Var x -> VarSet.singleton x
+  | Lit _ -> VarSet.empty
+
+let expr_vars = function
+  | Simple e -> simple_expr_vars e
+  | Op (_op, xs) ->
+    List.map simple_expr_vars xs
+    |> List.fold_left VarSet.union VarSet.empty
+
+let declared_vars = function
   | Decl_const (x, _)
   | Decl_mut (x, _) -> VarSet.singleton x
   | (Assign _
@@ -106,19 +120,12 @@ let bound_vars = function
     | Comment _
     | Stop) -> VarSet.empty
 
-let simple_expr_vars = function
-  | Var x -> VarSet.singleton x
-  | Lit _ -> VarSet.empty
-
-let expr_vars = function
-  | Simple e -> simple_expr_vars e
-  | Op (_op, xs) ->
-    List.map simple_expr_vars xs
-    |> List.fold_left VarSet.union VarSet.empty
-
-let free_vars = function
+(* Which variables need to be in scope
+ * Producer: declared_vars *)
+let required_vars = function
   | Decl_const (_x, e) -> expr_vars e
-  | Decl_mut (_x, e) -> expr_vars e
+  | Decl_mut (_x, Some e) -> expr_vars e
+  | Decl_mut (_x, None) -> VarSet.empty
   | Assign (x, e) -> VarSet.union (VarSet.singleton x) (expr_vars e)
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
@@ -131,22 +138,25 @@ let free_vars = function
 
 let defined_vars = function
   | Decl_const (x, _)
-  | Decl_mut (x, _)
+  | Decl_mut (x, Some _)
   | Assign (x ,_)
-  | Read x -> [x]
+  | Read x -> VarSet.singleton x
+  | Decl_mut (_, None)
   | Branch _
   | Label _
   | Goto _
   | Comment _
   | Print _
   | Invalidate _
-  | Stop -> []
+  | Stop -> VarSet.empty
 
-let consumed_vars exp =
-  let res = match exp with
+(* Which variables need to be defined
+ * Producer: defined_vars *)
+let used_vars = function
   | Decl_const (_x, e) -> expr_vars e
-  | Decl_mut (_x, e) -> expr_vars e
-  (* In Scope.free_vars the assignee is considered free as well *)
+  | Decl_mut (_x, Some e) -> expr_vars e
+  | Decl_mut (_x, None) -> VarSet.empty
+  (* the assignee is only required to be in scope, but not used! *)
   | Assign (x, e) -> expr_vars e
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
@@ -156,7 +166,5 @@ let consumed_vars exp =
   | Invalidate (e, _l, xs) ->
     VarSet.union (VarSet.of_list xs) (expr_vars e)
   | Stop -> VarSet.empty
-  in
-  VarSet.elements res
 
 

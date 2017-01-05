@@ -15,7 +15,7 @@ let parse lexbuf =
   let input = Interp.lexer_lexbuf_to_supplier Lexer.token lexbuf in
   let success prog = prog in
   let failure error_state =
-    let env = match error_state with
+    let env = match[@warning "-4"] error_state with
       | Interp.HandlingError env -> env
       | _ -> assert false in
     match Interp.stack env with

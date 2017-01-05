@@ -6,7 +6,7 @@ module Heap = Map.Make(Address)
 type input = IO.input
 type trace = value list
 type environment = binding Env.t
-type heap = value Heap.t
+type heap = heap_value Heap.t
 
 type status = Running | Stopped
 
@@ -28,6 +28,7 @@ let litteral_type : litteral -> litteral_type = function
   | Int _ -> Int
 
 exception Unbound_variable of variable
+exception Undefined_variable of variable
 exception Invalid_heap
 exception Arity_error of primop
 exception Invalid_update
@@ -50,7 +51,8 @@ let lookup heap env x =
   | Mut a ->
     begin match Heap.find a heap with
     | exception Not_found -> raise Invalid_heap
-    | v -> v
+    | Undefined -> raise (Undefined_variable x)
+    | Value v -> v
     end
 
 let update heap env x v =
@@ -60,7 +62,7 @@ let update heap env x v =
   | Mut a ->
     begin match Heap.find a heap with
     | exception Not_found -> raise Invalid_heap
-    | _ -> Heap.add a v heap
+    | _ -> Heap.add a (Value v) heap
     end
 
 let litteral_eq (lit1 : litteral) (lit2 : litteral) =
@@ -133,11 +135,18 @@ let reduce conf =
        env = Env.add x (Const v) conf.env;
        pc = pc';
      }
-  | Decl_mut (x, e) ->
+  | Decl_mut (x, Some e) ->
      let a = Address.fresh () in
      let v = eval conf e in
      { conf with
-       heap = Heap.add a v conf.heap;
+       heap = Heap.add a (Value v) conf.heap;
+       env = Env.add x (Mut a) conf.env;
+       pc = pc';
+     }
+  | Decl_mut (x, None) ->
+     let a = Address.fresh () in
+     { conf with
+       heap = Heap.add a Undefined conf.heap;
        env = Env.add x (Mut a) conf.env;
        pc = pc';
      }
