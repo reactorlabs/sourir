@@ -93,7 +93,7 @@ module VariableMap = struct
   module KeySet = Set.Make(Variable)
 
   (* merge is defined as the union of their equally named sets *)
-  let merge =
+  let union =
     let merge_one _ a b : InstrSet.t option =
       match a, b with
       | None, None -> None
@@ -101,13 +101,6 @@ module VariableMap = struct
       | None, Some b -> Some b
       | Some a, Some b -> Some (InstrSet.union a b) in
     merge merge_one
-
-  let inter a b =
-    let keys_a = KeySet.of_list (List.map fst (bindings a)) in
-    let keys_b = KeySet.of_list (List.map fst (bindings b)) in
-    let intersection = KeySet.elements (KeySet.inter keys_a keys_b) in
-    let append cur var = add var (InstrSet.union (find var a) (find var b)) cur in
-    List.fold_left append empty intersection
 
   let singleton var loc =
       add var (InstrSet.singleton loc) empty
@@ -127,7 +120,7 @@ exception DeadCode of pc
 (* returns a 'pc -> pc set' computing reaching definitions *)
 let reaching prog : pc -> InstrSet.t =
   let merge cur_defs in_defs =
-    let merged = VariableMap.merge cur_defs in_defs in
+    let merged = VariableMap.union cur_defs in_defs in
     if VariableMap.equal cur_defs merged then None else Some merged
   in
   let update pc defs =
@@ -153,7 +146,7 @@ let reaching prog : pc -> InstrSet.t =
 (* returns a 'pc -> pc set' computing uses of a definition *)
 let used prog : pc -> InstrSet.t =
   let merge cur_uses in_uses =
-    let merged = VariableMap.merge cur_uses in_uses in
+    let merged = VariableMap.union cur_uses in_uses in
     if VariableMap.equal cur_uses merged then None else Some merged
   in
   let update pc uses =
@@ -164,7 +157,7 @@ let used prog : pc -> InstrSet.t =
     let uses = List.fold_left remove uses kill in
     (* Then add used vars *)
     let used = VarSet.elements (used_vars instr) in
-    let merge acc var = VariableMap.merge (VariableMap.singleton var pc) acc
+    let merge acc var = VariableMap.union (VariableMap.singleton var pc) acc
     in
     List.fold_left merge uses used
   in
