@@ -20,14 +20,23 @@ let run prog input pred () =
   assert (pred final_conf)
 
 let run_checked prog pred =
-  let () = ignore (Scope.infer prog) in
-  run prog pred
+  let rc (prog, pred) =
+    let () = ignore (Scope.infer prog) in
+    run prog pred in
+  rc (prog, pred)
 
 let exact vars = Some Scope.(Exact (VarSet.of_list vars))
 let at_least vars = Some Scope.(At_least (VarSet.of_list vars))
 
 let no_annotations program : Scope.annotated_program =
   (program, Array.map (fun _ -> None) program)
+
+let parse_test str =
+  try Parse.parse_string str
+  with Parse.Error error ->
+    Parse.report_error error;
+    exit 2
+
 
 let test_print =
   let open Assembler.OO in
@@ -90,34 +99,26 @@ let test_add a b =
     add z x y;
   |]
 
-let test_eq a b =
-  let open Assembler.OO in
-  let x, y, z = int_var "x", int_var "y", bool_var "z" in
-  no_annotations [|
-    mut x (int a);
-    mut y (int b);
-    eq z x y;
-  |]
+let test_eq a b = parse_test (
+" mut x = "^ string_of_int a ^"
+  mut y = "^ string_of_int b ^"
+  const z = (x==y)
+")
 
-let test_sum limit_ =
-  let open Assembler.OO in
-  let ax, i, sum, limit =
-    bool_var "ax", int_var "i", int_var "sum", int_var "limit" in
-  no_annotations [|
-    mut i (int 0);
-    mut sum (int 0);
-    const limit (int limit_);
-    label "loop";
-    eq ax limit i;
-    branch ax "continue" "loop_body";
-    label "loop_body";
-    add sum sum i;
-    add i i (int 1);
-    goto "loop";
-    label "continue";
-    stop;
-  |]
-
+let test_sum limit_ = parse_test (
+" mut i = 0
+  mut sum = 0
+  const limit = "^string_of_int limit_^"
+loop:
+  const ax = (i==limit)
+  branch ax continue loop_body
+loop_body:
+  sum <- (sum+i)
+  i <- (i+1)
+  goto loop
+continue:
+  stop
+")
 
 let test_broken_scope_1 =
   let open Assembler.OO in
@@ -160,12 +161,6 @@ let test_broken_scope_3 =
     print x;
   |]
 
-let parse_test str =
-  try Parse.parse_string str
-  with Parse.Error error ->
-    Parse.report_error error;
-    exit 2
-
 let test_broken_scope_4 = parse_test
 "mut x = 0
 mut y = 0
@@ -187,39 +182,46 @@ mut y = 0
 z <- (x == y)
 "
 
-let test_scope_1 test_var1 test_var2 =
-  let open Assembler.OO in
-  let a, b, c, t = int_var "a", int_var "b", int_var "c", bool_var "t" in
-  no_annotations [|
-    const t (bool false);
-    branch t "a" "b";
-    label "a";
-    const a (int 0);
-    const c (int 0);
-    goto "cont";
-    label "b";
-    const b (int 0);
-    const c (int 0);
-    goto "cont";
-    label "cont";
-    add c (int_var test_var1) (int_var test_var2);
-  |]
+let test_scope_1 test_var1 test_var2 = parse_test (
+" mut t = false
+  branch t a b
+a:
+  const a = 0
+  const c = 0
+  goto cont
+b:
+  const b = 0
+  const c = 0
+cont:
+  const res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
+")
 
-let test_read_print =
-  let open Assembler.OO in
-  let n, b = int_var "n", bool_var "b" in
-  no_annotations [|
-    mut n (int 0);
-    mut b (bool true);
-    read b;
-    read n;
-    print n;
-    print b;
-  |]
+let test_read_print = parse_test
+"   mut n
+    mut b
+    read b
+    read n
+    print n
+    print b
+"
+let test_read_print_err = parse_test
+"   mut n
+    read b
+    read n
+    print n
+    print b
+"
+let test_read_print_err_2 = parse_test
+"   mut n
+    mut b
+    read b
+    print n
+    print b
+"
 
 let infer_broken_scope program missing_vars = function() ->
      let test = function() -> ignore (Scope.infer program) in
-     let expected = Scope.(UndefinedVariable (VarSet.of_list missing_vars)) in
+     let expected = Scope.(UndeclaredVariable (VarSet.of_list missing_vars)) in
      assert_raises expected test
 
 let test_parse_disasm_file file = function() ->
@@ -271,7 +273,8 @@ let test_branch_pruned = " mut x = 9
 "
 
 let test_double_loop = parse_test
-"mut i = 0
+"mut i
+ i <- 0
  mut sum = 0
  const limit = 4
 loop1:
@@ -408,6 +411,14 @@ let suite =
      (has_var "sum" (Value.int 10));
    "read">:: run_checked test_read_print (input [Value.bool false; Value.int 1])
      (trace_is [Value.int 1; Value.bool false]);
+   "mut_undeclared">:: (fun () -> assert_raises (Eval.Unbound_variable "b")
+                           (run test_read_print_err (input [Value.bool false; Value.int 1]) ok));
+   "mut_undeclared2">:: (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
+                           (fun() -> run_checked test_read_print_err (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undefined">:: (fun () -> assert_raises (Eval.Undefined_variable "n")
+                           (run test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok));
+   "mut_undefined2">:: (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n"))
+                           (fun() -> run_checked test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok ()));
    "scope1">:: infer_broken_scope test_broken_scope_1 ["x"];
    "scope2">:: infer_broken_scope test_broken_scope_2 ["x"];
    "scope3">:: infer_broken_scope test_broken_scope_3 ["x"];

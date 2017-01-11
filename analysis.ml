@@ -89,9 +89,10 @@ module InstrSet = Set.Make(Pc)
  * defining a certain variable *)
 module VariableMap = struct
   include Map.Make(Variable)
+  module KeySet = Set.Make(Variable)
 
   (* merge is defined as the union of their equally named sets *)
-  let merge =
+  let union =
     let merge_one _ a b : InstrSet.t option =
       match a, b with
       | None, None -> None
@@ -99,6 +100,9 @@ module VariableMap = struct
       | None, Some b -> Some b
       | Some a, Some b -> Some (InstrSet.union a b) in
     merge merge_one
+
+  let singleton var loc =
+      add var (InstrSet.singleton loc) empty
 
   let equal =
     let is_equal a b = InstrSet.equal a b in
@@ -115,13 +119,13 @@ exception DeadCode of pc
 (* returns a 'pc -> pc set' computing reaching definitions *)
 let reaching prog : pc -> InstrSet.t =
   let merge cur_defs in_defs =
-    let merged = VariableMap.merge cur_defs in_defs in
+    let merged = VariableMap.union cur_defs in_defs in
     if VariableMap.equal cur_defs merged then None else Some merged
   in
   let update pc defs =
     let instr = prog.(pc) in
     (* add or override defined vars in one go*)
-    let kill = defined_vars instr in
+    let kill = VarSet.elements (defined_vars instr) in
     let loc = InstrSet.singleton pc in
     let replace acc var = VariableMap.add var loc acc in
     List.fold_left replace defs kill
@@ -132,7 +136,7 @@ let reaching prog : pc -> InstrSet.t =
   match res.(pc) with
   | None -> raise (DeadCode pc)
   | Some res ->
-      let used = consumed_vars instr in
+      let used = VarSet.elements (used_vars instr) in
       let definitions_of var = VariableMap.find var res in
       let all_definitions = List.map definitions_of used in
       List.fold_left InstrSet.union InstrSet.empty all_definitions
@@ -141,23 +145,18 @@ let reaching prog : pc -> InstrSet.t =
 (* returns a 'pc -> pc set' computing uses of a definition *)
 let used prog : pc -> InstrSet.t =
   let merge cur_uses in_uses =
-    let merged = VariableMap.merge cur_uses in_uses in
+    let merged = VariableMap.union cur_uses in_uses in
     if VariableMap.equal cur_uses merged then None else Some merged
   in
   let update pc uses =
     let instr = prog.(pc) in
     (* First remove defined vars *)
-    let kill = defined_vars instr in
+    let kill = VarSet.elements (defined_vars instr) in
     let remove acc var = VariableMap.remove var acc in
     let uses = List.fold_left remove uses kill in
     (* Then add used vars *)
-    let used = consumed_vars instr in
-    let loc = InstrSet.singleton pc in
-    let merge acc var =
-      (* TODO: creates a new singleton map and merges it with existing uses
-       * this seems inefficient, but I dont see a better way. *)
-      let insert = VariableMap.add var loc VariableMap.empty in
-      VariableMap.merge insert acc
+    let used = VarSet.elements (used_vars instr) in
+    let merge acc var = VariableMap.union (VariableMap.singleton var pc) acc
     in
     List.fold_left merge uses used
   in
@@ -167,7 +166,7 @@ let used prog : pc -> InstrSet.t =
   match res.(pc) with
   | None -> raise (DeadCode pc)
   | Some res ->
-      let defined = defined_vars instr in
+      let defined = VarSet.elements (defined_vars instr) in
       let uses_of var = VariableMap.at var res in
       let all_uses = List.map uses_of defined in
       List.fold_left InstrSet.union InstrSet.empty all_uses

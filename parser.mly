@@ -49,8 +49,10 @@ scope:
 instruction:
 | CONST x=variable EQUAL e=expression
   { Decl_const (x, e) }
+| MUT x=variable
+  { Decl_mut (x, None) }
 | MUT x=variable EQUAL e=expression
-  { Decl_mut (x, e) }
+  { Decl_mut (x, Some e) }
 | x=variable LEFTARROW e=expression
   { Assign (x, e) }
 | BRANCH e=expression l1=label l2=label
