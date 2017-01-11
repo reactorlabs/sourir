@@ -44,65 +44,107 @@ let remove_dead_code prog entry=
   in
   remove_dead_code 0
 
-(* TODO: allow pruning of the true branch
- * we need to be able to negate expressions for that *)
+module LabelSet = Set.Make(String)
+
+let collect_labels prog =
+  let rec labels pc =
+    if pc = Array.length prog then LabelSet.empty else
+      let pc' = pc + 1 in
+      match[@warning "-4"] prog.(pc) with
+      | Label l -> LabelSet.union (LabelSet.singleton l) (labels pc')
+      | _ -> labels pc' in
+  labels 0
+
+let next_fresh_label used hint =
+  let is_fresh l = match LabelSet.find l used with
+    | exception Not_found -> true
+    | x -> false
+  in
+  if is_fresh hint then hint else
+    let l i = hint ^ "." ^ (string_of_int i) in
+    let rec next_fresh i =
+      let cur = l i in
+      if is_fresh cur then cur else next_fresh (i+1) in
+    next_fresh 0
+
+module LabelMap = Map.Make(String)
+
+(* Takes a list of globally occurring labels and a program
+ * returns a copy of the program with all labels fresh and
+ * an updated list of all occurring labels *)
+let copy_fresh global_labels prog =
+  let prog_labels = collect_labels prog in
+  let rec freshened_labels labels todo =
+    match todo with
+    | [] -> LabelMap.empty
+    | l :: tl ->
+      let fresh = next_fresh_label labels l in
+      let labels = LabelSet.add fresh labels in
+      let rest = freshened_labels labels tl in
+      LabelMap.add l fresh rest
+  in
+  let all_labels = LabelSet.union global_labels prog_labels in
+  let prog_labels_map = freshened_labels all_labels (LabelSet.elements prog_labels) in
+  let map l = LabelMap.find l prog_labels_map in
+  let rec copy pc =
+    if pc = Array.length prog then [] else
+      let pc' = pc + 1 in
+      match prog.(pc) with
+      | Label l -> Label (map l) :: copy pc'
+      | Goto l -> Goto (map l) :: copy pc'
+      | Branch (exp, l1, l2) -> Branch (exp, map l1, map l2) :: copy pc'
+      | Invalidate (exp, l, sc) -> Invalidate (exp, map l, sc) :: copy pc'
+      | (Decl_const _ | Decl_mut _ | Assign _
+        | Read _ | Print _ | Stop | Comment _) as i -> i :: copy pc'
+  in
+  let new_labels = LabelSet.map map prog_labels in
+  let new_all_labels = LabelSet.union all_labels new_labels in
+  (new_all_labels, Array.of_list (copy 0))
+
 let branch_prune (prog, scope) =
-  let deopt_label l = "%deopt_" ^ l in
-  (* Convert "branch e l1 l2" to "invalidate e l1; goto l2" *)
-  let rec kill_branch pc =
-    if pc = Array.length prog then [Stop] else
+  let rec branch_prune pc used_labels pruned landing_pads =
+    if pc = Array.length prog then (pruned, landing_pads) else
     match scope.(pc) with
     | Dead -> assert(false)
     | Scope scope ->
-        begin match[@warning "-4"] prog.(pc) with
-        | Branch (exp, l1, l2) ->
-            let vars = Instr.VarSet.elements scope in
-            Invalidate (exp, deopt_label l2, vars) ::
-              Goto l1 ::
-                kill_branch (pc+1)
-        | i ->
-            i :: kill_branch (pc+1)
-        end
+      let pc' = pc + 1 in
+      begin match[@warning "-4"] prog.(pc) with
+      | Branch (exp, l1, l2) ->
+        (* 1. Copy the program with fresh labels for the landing pad *)
+        let used_labels, landing_pad = copy_fresh used_labels prog in
+        (* 2. Insert a deopt target label into the landing pad before the
+         *    original branch target. (Keep the original branch target
+         *    label since other instructions might jump there too) *)
+        let entry = resolve prog l2 in
+        let deopt_label = next_fresh_label used_labels ("deopt_" ^ l2) in
+        let used_labels = LabelSet.add deopt_label used_labels in
+        let landing_pad = Array.concat [
+          Array.sub landing_pad 0 entry;
+          [| Label deopt_label |];
+          Array.sub landing_pad entry ((Array.length landing_pad) - entry);
+          (* In case the landing pad does not end in a stop this is needed
+           * since we might fall through otherwise *)
+          [| Stop |]
+        ] in
+        (* 3. Trim the landing pad to contain only the continuation
+         *    part reachable from the entry label *)
+        let landing_pad = Array.of_list (
+            Comment ("Landing pad for " ^ deopt_label) ::
+            remove_dead_code landing_pad entry) in
+        (* 4. Replace the branch instruction by an invalidate *)
+        let in_scope = Instr.VarSet.elements scope in
+        let pruned = Invalidate (exp, deopt_label, in_scope) :: pruned in
+        let pruned = Goto l1 :: pruned in
+        let landing_pads = landing_pad :: landing_pads in
+        branch_prune pc' used_labels pruned landing_pads
+      | i -> branch_prune pc' used_labels (i :: pruned) landing_pads
+      end
   in
-  (* Scan the code and generate a landing-pad for all invalidates *)
-  let gen_landing_pad entry =
-    let rec gen_landing_pad pc =
-      if pc = Array.length prog then [Stop] else
-        let fresh_label l = l ^ "@" ^ entry in
-        match prog.(pc) with
-        (* this is the entry point, need to create the landing pad label *)
-        | Label l when (deopt_label l) = entry ->
-            Label (fresh_label l) ::
-              Label entry :: gen_landing_pad (pc+1)
-        (* we need to rename labels since they might clash with main function
-         * TODO: this is ugly! what else should we do? *)
-        | Label l ->
-            Label (fresh_label l) :: gen_landing_pad (pc+1)
-        | Goto l ->
-            Goto (fresh_label l) :: gen_landing_pad (pc+1)
-        | Branch (exp, l1, l2) ->
-            Branch (exp, (fresh_label l1), (fresh_label l2)) :: gen_landing_pad (pc+1)
-        | Invalidate _ -> assert(false)
-        | (Decl_const _ | Decl_mut _ | Assign _
-           | Read _ | Print _ | Stop | Comment _) as i ->
-            i :: gen_landing_pad (pc+1)
-    in
-    let copy = Array.of_list (gen_landing_pad 0) in
-    (* so far the landing pad is a copy of the original function. lets remove
-     * the unreachable part of the prologue *)
-    let continuation = remove_dead_code copy (resolve copy entry) in
-    Array.of_list (Comment ("Landing pad for deopt " ^ entry) :: continuation)
-  in
-  let rec gen_deopt_targets = function[@warning "-4"]
-    | Invalidate (exp, label, vars) :: rest ->
-        gen_landing_pad label :: gen_deopt_targets rest
-    | _ :: rest ->
-        gen_deopt_targets rest
-    | [] -> []
-  in
-  let killed = kill_branch 0 in
-  let landing_pads = gen_deopt_targets killed in
-  let final = Array.of_list killed in
+  let rev_pruned, landing_pads = branch_prune 0 LabelSet.empty [] [] in
+  (* In case the program does not end in a stop this is needed to not fall
+   * through into the landing pads *)
+  let rev_pruned = Stop :: rev_pruned in
+  let final = Array.of_list (List.rev rev_pruned) in
   let combined = Array.concat (final :: landing_pads) in
   let cleanup = Array.of_list (remove_dead_code combined 0) in
   Array.of_list (remove_empty_jmp cleanup)
