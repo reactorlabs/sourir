@@ -32,27 +32,26 @@ let dataflow_analysis (next : pc -> pc list)
                       (merge : 'a -> 'a -> 'a option)
                       (update : pc -> 'a -> 'a)
                       : 'a option array =
-  let program_state = Array.map (fun _ -> ref None) program in
+  let program_state = Array.map (fun _ -> None) program in
   let rec work = function
     | [] -> ()
     | (in_state, pc) :: rest ->
-        let cell = program_state.(pc) in
         let merged =
-          match !cell with
+          match program_state.(pc) with
           | None -> Some in_state
           | Some cur_state -> merge cur_state in_state
         in begin match merged with
         | None -> work rest
-        | Some merged ->
-            cell := Some merged;
-            let updated = update pc merged in
+        | Some new_state ->
+            program_state.(pc) <- merged;
+            let updated = update pc new_state in
             let cont = next pc in
             let new_work = List.map (fun pc -> (updated, pc)) cont in
             work (new_work @ rest)
         end
   in
   work init_state;
-  Array.map (!) program_state
+  program_state
 
 let exits program =
   let rec exits pc : Pc.t list =
