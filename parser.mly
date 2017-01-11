@@ -10,15 +10,15 @@
 %token NEWLINE
 %token EOF
 
-%start<Scope.annotated_program> program
+%start<Instr.annotated_program> program
 
 %{ open Instr
 
 let scope_annotation (mode, xs) =
   let xs = Instr.VarSet.of_list xs in
   match mode with
-  | `Exact -> Scope.Exact xs
-  | `At_least -> Scope.At_least xs
+  | `Exact -> Exact xs
+  | `At_least -> At_least xs
 %}
 
 

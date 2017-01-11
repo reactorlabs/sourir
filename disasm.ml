@@ -1,6 +1,6 @@
 open Instr
 
-let disassemble_annotated (prog : Scope.annotated_program) =
+let disassemble_annotated (prog : annotated_program) =
   let dump_instr buf instr annot =
     let pr = Printf.bprintf in
     let simple buf = function
@@ -17,8 +17,8 @@ let disassemble_annotated (prog : Scope.annotated_program) =
     in
     let str_from_vars vars = String.concat ", " (Instr.VarSet.elements vars) in
     begin match annot with
-    | Some (Scope.Exact e)    -> pr buf "{%s} "      (str_from_vars e)
-    | Some (Scope.At_least e) -> pr buf "{%s, ...} " (str_from_vars e)
+    | Some (Exact e)    -> pr buf "{%s} "      (str_from_vars e)
+    | Some (At_least e) -> pr buf "{%s, ...} " (str_from_vars e)
     | None -> ()
     end;
     begin match instr with
