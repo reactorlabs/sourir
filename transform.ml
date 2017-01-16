@@ -78,10 +78,10 @@ let copy_fresh global_labels prog =
     match todo with
     | [] -> LabelMap.empty
     | l :: tl ->
-      let fresh = next_fresh_label labels l in
-      let labels = LabelSet.add fresh labels in
-      let rest = freshened_labels labels tl in
-      LabelMap.add l fresh rest
+      let l_fresh = next_fresh_label labels l in
+      let labels_used = LabelSet.add l_fresh labels in
+      let mapping = freshened_labels labels_used tl in
+      LabelMap.add l l_fresh mapping
   in
   let all_labels = LabelSet.union global_labels prog_labels in
   let prog_labels_map = freshened_labels all_labels (LabelSet.elements prog_labels) in
