@@ -484,11 +484,11 @@ end:
 ")
 
 let do_test_dom prog = function () ->
-  let open Cfg in
   let cfg = Cfg.of_program prog in
-  let doms = dominators (prog, cfg) in
-  let c = common_dominator (test_df2, cfg, doms) [12; 19] in
+  let doms = Cfg.dominators (prog, cfg) in
+  let c = Cfg.common_dominator (test_df2, cfg, doms) [12; 19] in
   let expected = Cfg.node_at cfg 9 in
+  let open Cfg in
   assert_equal c.id expected.id
 
 let suite =
