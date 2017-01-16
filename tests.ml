@@ -261,12 +261,15 @@ c:
 let test_branch_pruned = " mut x = 9
  mut y = 10
  mut r = 1
- invalidate (x == y) deopt_l2 [r, x, y]
+ invalidate (x == y) deopt_l2 []
  r <- 2
  print r
  stop
  #Landing pad for deopt_l2
 deopt_l2:
+ mut r
+ mut x
+ mut y
  r <- 3
  print r
  stop

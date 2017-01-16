@@ -102,6 +102,7 @@ let copy_fresh global_labels prog =
   (new_all_labels, Array.of_list (copy 0))
 
 let branch_prune (prog, scope) =
+  let live_at = Analysis.live prog in
   let rec branch_prune pc used_labels pruned landing_pads =
     if pc = Array.length prog then (pruned, landing_pads) else
     match scope.(pc) with
@@ -112,30 +113,36 @@ let branch_prune (prog, scope) =
       | Branch (exp, l1, l2) ->
         (* 1. Copy the program with fresh labels for the landing pad *)
         let used_labels, landing_pad = copy_fresh used_labels prog in
-        (* 2. Insert a deopt target label into the landing pad before the
-         *    original branch target. (Keep the original branch target
-         *    label since other instructions might jump there too) *)
         let entry = resolve prog l2 in
         let deopt_label = next_fresh_label used_labels ("deopt_" ^ l2) in
         let used_labels = LabelSet.add deopt_label used_labels in
+        (* 2. Get the scoping information for the deopt:
+         *    Live variables need to be captured
+         *    The rest of the scope needs to be declared to create a valid frame *)
+        let live = live_at entry in
+        let dead = Instr.VarSet.elements (Instr.VarSet.diff scope (Instr.VarSet.of_list live)) in
+        let create_frame = Array.of_list (List.map (fun x -> Instr.Decl_mut (x, None)) dead) in
+        (* 3. Create the actual landing pad *)
         let landing_pad = Array.concat [
+          (* program before entry point *)
           Array.sub landing_pad 0 entry;
-          [| Label deopt_label |];
+          (* deoptimization target label *)
+          [| Comment ("Landing pad for " ^ deopt_label);
+             Label deopt_label |];
+          (* recreate the frame: dead variables might be assigned in the continuation *)
+          create_frame;
+          (* rest of the program *)
           Array.sub landing_pad entry ((Array.length landing_pad) - entry);
-          (* In case the landing pad does not end in a stop this is needed
-           * since we might fall through otherwise *)
+          (* explicit stop since we might fall through the next landing pad otherwise *)
           [| Stop |]
         ] in
-        (* 3. Trim the landing pad to contain only the continuation
+        (* 4. Trim the landing pad to contain only the continuation
          *    part reachable from the entry label *)
-        let landing_pad = Array.of_list (
-            Comment ("Landing pad for " ^ deopt_label) ::
-            remove_dead_code landing_pad entry) in
-        (* 4. Replace the branch instruction by an invalidate *)
-        let in_scope = Instr.VarSet.elements scope in
-        let pruned = Invalidate (exp, deopt_label, in_scope) :: pruned in
+        let cont = Array.of_list (remove_dead_code landing_pad entry) in
+        (* 5. Replace the branch instruction by an invalidate *)
+        let pruned = Invalidate (exp, deopt_label, live) :: pruned in
         let pruned = Goto l1 :: pruned in
-        let landing_pads = landing_pad :: landing_pads in
+        let landing_pads = cont :: landing_pads in
         branch_prune pc' used_labels pruned landing_pads
       | i -> branch_prune pc' used_labels (i :: pruned) landing_pads
       end
