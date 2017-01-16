@@ -261,12 +261,12 @@ c:
 let test_branch_pruned = " mut x = 9
  mut y = 10
  mut r = 1
- invalidate (x == y) %deopt_l2 [r, x, y]
+ invalidate (x == y) deopt_l2 [r, x, y]
  r <- 2
  print r
  stop
- #Landing pad for deopt %deopt_l2
-%deopt_l2:
+ #Landing pad for deopt_l2
+deopt_l2:
  r <- 3
  print r
  stop
@@ -469,9 +469,9 @@ let suite =
    "parser_scope1">:: test_parse_disasm "{a, b} print x\n{a,x,...} #asdf\n";
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
    "predecessors">:: do_test_pred;
-   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch "%deopt_l2");
-   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) "%deopt_loop_body");
-   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop "%deopt_continue2");
+   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch "deopt_l2");
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) "deopt_loop_body");
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop "deopt_continue2");
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
