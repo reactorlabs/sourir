@@ -17,7 +17,11 @@ i ::=    instructions
 | branch x l₁ l₂            conditional
 | goto l                    goto
 | print x                   print
-| osr(e, v, l, (x = exp)*)  osr : (can be used for osr-in and osr-out)
+| osr(e, v, l, (x = ee)*)   osr : (can be used for osr-in and osr-out)
+
+ee ::=   extended expression
+| e
+| ⊥
 
 e ::=    (simple) expressions
 | lit                   literals
