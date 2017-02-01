@@ -117,7 +117,8 @@ reach_decl P l x =
 
 valid_at_l P l =
   ∀ x ∈ requires P(l) :
-    reach_decl P l x
+    ∀ l' ∈ pred P l :
+      reach_decl P l' x
 
 valid_at P =
   ∀ l ∈ P : valid_at_l P l
