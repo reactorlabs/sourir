@@ -104,11 +104,15 @@ requires i =
   | print x         -> [x]
   | _               -> []
 
+succ P l =
+ | goto l'          -> [l']
+ | branch _ l' l''  -> [l', l'']
+ | _                ->
+     l'
+     when P = {..., l -> _, l' -> _, ...}
+
 pred P l =
-  l' :: { l'' : (l'' ↦ goto l       ∈ P  ∨
-                 l'' ↦ branch _ l _ ∈ P  ∨
-                 l'' ↦ branch _ _ l ∈ P ) }
-  when P = {..., l' ↦ _, l ↦ _, ...}
+  { l' ∈ P : succ P l' = l }
 
 reach_decl P l x =
   (x ∈ declares P(l)) ∨
