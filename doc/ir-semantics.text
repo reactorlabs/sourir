@@ -188,19 +188,19 @@ reach_decl_check_osr P l x l_osr scope_osr seen =
     ⊨ P
 
 
-    P, l ⊨ x
-    --------   ∀ x ∈ requires P(l)
+    P, l, ∅ ⊨ x
+    -----------   ∀ x ∈ requires P(l)
     P ⊨ l
 
 
 
-    --------  x ∈ declares P(l)
-    P, l ⊨ x
+    -----------  x ∈ declares P(l)
+    P, l, S ⊨ x
 
 
-    P, l' ⊨ x
-    ---------   ∀ l' ∈ pred (P, l)
-    P, l ⊨ x
+    P, l', S ∪ l ⊨ x
+    ----------------   ∀ l' ∈ pred (P, l) \ S
+    P, l, S ⊨ x
 
 
 
@@ -209,16 +209,16 @@ reach_decl_check_osr P l x l_osr scope_osr seen =
     C ⊨(osr) P
 
 
-    P, l', requires P(l), x̄ ⊨(osr) l
-    --------------------------------   ∀ l ∈ succ* (P, l')
+    P, l', requires P(l), x̄, ∅ ⊨(osr) l
+    -----------------------------------   ∀ l ∈ succ* (P, l')
     P, x̄ ⊨(osr) l'
 
 
 
-    -------------------
-    P, l', x̄, x̄ ⊨(osr) l'
+    ------------------------
+    P, l', x̄, x̄, S ⊨(osr) l'
 
 
-    P, l', R \ declares P(l) ∪ requires P(l), x̄ ⊨(osr) l*
-    -----------------------------------------------------   ∀ l* ∈ pred (P, l)
-    P, l', R, x̄ ⊨(osr) l
+    P, l', R \ declares P(l) ∪ requires P(l), x̄, S ∪ l ⊨(osr) l*
+    ------------------------------------------------------------   ∀ l* ∈ pred (P, l) \ S
+    P, l', R, x̄, S ⊨(osr) l
