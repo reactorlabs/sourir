@@ -108,30 +108,65 @@ requires i =
   | print x         -> [x]
   | _               -> []
 
+
+# Compilation unit has a valid scope if every program version
+# has a valid scope. Program has a valid scope if every
+# instruction has a valid scope
+
+valid C =
+  ∀ v ∈ C :
+    valid_at_v C v  ∧  valid_osr C v
+
+valid_at_v C v =
+  ∀ l ∈ C(v) :
+    valid_at_l C(v) l
+
+# An instruction has a valid scope if every required variable
+# is declared in the transitive closure of every predecessor.
+
+valid_at_l P l =
+  ∀ x ∈ requires P(l) :
+    reach_decl P l x []
+
+reach_decl P l x seen =
+  ∀ l' ∈ pred P l \ seen :
+    x ∈ declares P(l')  ∨
+    (∃ l'' ∈ pred* P l' :
+       x ∈ declares P(l'')
+     ∧
+     reach_decl P l' x (l' :: seen))
+
+# Successors are either the targets of jumps or the
+# next instruction in the stream (if it exists)
+
 succ P l =
- | goto l'          -> [l']
- | branch _ l' l''  -> [l', l'']
- | _                ->
-     l'
-     when P = {..., l -> _, l' -> _, ...}
+ | goto l'                                -> [l']
+ | branch _ l' l''                        -> [l', l'']
+ | when P = {..., l -> _, l' -> _, ...}   -> l'
+ | _                                      -> []
 
 pred P l =
   { l' ∈ P : succ P l' = l }
 
-reach_decl P l x seen =
-  (x ∈ declares P(l)) ∨
-  ∀ l' ∈ pred P l :
-    (l' ∉ seen) ∧
-    (reach_decl P l' x (l' :: seen))
+# Osr instructions create a valid environment if it
+# contains all variables which are in scope at the osr
+# entry point
 
-valid_at_l P l =
+valid_osr C v =
+  ∀ osr(e, v', l', (x = ee)*) ∈ C(v) :
+    valid_osr_at_v C v' l' x̄
+
+valid_osr_at_v C v l_osr scope_osr =
+  ∀ l ∈ succ* C(v) l_osr :
+    valid_osr_at_l C(v) l l_osr scope_osr
+
+valid_osr_at_l P l l_osr scope_osr =
   ∀ x ∈ requires P(l) :
-    ∀ l' ∈ pred P l :
-      reach_decl P l' x []
+    reach_decl_check_osr P l x l_osr scope_osr []
 
-valid_at P =
-  ∀ l ∈ P : valid_at_l P l
-
-valid C =
-  ∀ v ∈ C :
-    valid_at C(v)
+reach_decl_check_osr P l x l_osr scope_osr seen =
+  ∀ l' ∈ pred P l \ seen :
+    x ∈ declares P(l')  ∨
+    (l' = l_osr ⇒ x ∈ scope_osr
+     ∧
+     reach_decl P l' x (l' :: seen))
