@@ -3,21 +3,21 @@
 x        variables
 
 l        labels
+v        optimization version
 
 a        addresses
 
+C ::= (v ↦ P)*          compilation unit
 P ::= (l ↦ i)*          program
 
 i ::=    instructions
-| const x = e           constant variable
-| mut x = e             mutable variable
-| x <- e                assignment
-| branch x l₁ l₂        conditional
-| goto l                goto
-| print x               print
-| invalidate(e, l, x̄)   invalidate
-
-x̄        list of variables
+| const x = e               constant variable
+| mut x = e                 mutable variable
+| x <- e                    assignment
+| branch x l₁ l₂            conditional
+| goto l                    goto
+| print x                   print
+| osr(e, v, l, (x = exp)*)  osr : (can be used for osr-in and osr-out)
 
 e ::=    (simple) expressions
 | lit                   literals
@@ -40,7 +40,7 @@ E ::= (x ↦const v | x ↦var a)*  lexical environment
 H ::= (l ↦ v)                   mutable heap
 
 T ::= (lit)*                    output trace
-Configuration: (T, H, E, P, l)
+Configuration: (T, H, E, C, P, l)
 
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
@@ -58,30 +58,69 @@ Evaluation of simple expressions:
   eval H E primop(x₁, ..., xₙ) = 〚primop〛((H,E)[x₁], ..., (H,E)[xₙ])
 
 Reduction relation
-  (T, H, E, P, l) -> ((T, (H,E)[x]), H, E, P, l + 1)
+  (T, H, E, C, P, l) -> ((T, (H,E)[x]), H, E, C, P, l + 1)
     when P(l) = print x
 
-  (T, H, E, P, l) -> (T, H, E, P, l')
+  (T, H, E, C, P, l) -> (T, H, E, C, P, l')
     where P(l) = branch x l₁ l₂
       and l' := if (H,E)[x] then l₁ else l₂
 
-  (T, H, E, P, l) -> (T, H, (E, x ↦ v), P, l+1)
+  (T, H, E, C, P, l) -> (T, H, (E, x ↦ v), C, P, l+1)
     when P(l) = (const x = e)
      and v := eval H E x
 
-  (T, H, E, P, l) -> (T, (H, a ↦ v), (E, x ↦ a), P, l+1)
+  (T, H, E, C, P, l) -> (T, (H, a ↦ v), (E, x ↦ a), C, P, l+1)
     when P(l) = (mut x = e)
      and v := eval H E e
      and a fresh
 
-  (T, H, E, P, l) -> (T, (H,E)[x] := v, E, P, l+1)
+  (T, H, E, C, P, l) -> (T, (H,E)[x] := v, E, C, P, l+1)
     when P(l) = (x ← e)
      and v := eval H E x
 
-  (T, H, E, P, l) -> (T, H, E, P, l+1)
-    when P(l) = invalidate(e, l', x̄)
-     and (eval H E e) is (true)
-
-  (T, H, E, P, l) -> (T, H, E|x̄, P, l')
-    when P(l) = invalidate(e, l', x̄)
+  (T, H, E, C, P, l) -> (T, H, E, C, P, l+1)
+    when P(l) = osr(e, _, _)
      and (eval H E e) is not (true)
+
+  (T, H, E, C, P, l) -> (T, H, E', C, P', l')
+    when P(l) = osr(e, v, l', (x = exp)*)
+     and (eval H E e) is (true)
+     and P' := C(v)
+     and E' := (x ↦ (eval H E exp))*
+
+# scoping rules
+
+declares i =
+  | mut x _         -> [x]
+  | const x _       -> [x]
+  | _               -> []
+
+requires i =
+  | mut x = e
+  | const x = e
+  | osr e, _        -> vars(e)
+  | x <- e          -> x :: vars(e)
+  | branch x _
+  | print x         -> [x]
+  | _               -> []
+
+pred P l =
+  l' :: { l'' : (l'' ↦ goto l       ∈ P  ∨
+                 l'' ↦ branch _ l _ ∈ P  ∨
+                 l'' ↦ branch _ _ l ∈ P ) }
+  when P = {..., l' ↦ _, l ↦ _, ...}
+
+reach_decl P l x =
+  (x ∈ declares P(l)) ∨
+  ∀ l' ∈ pred P l :
+    reach_decl P l' x
+
+valid_at_l P l =
+  ∀ x ∈ requires P(l) :
+    reach_decl P l x
+
+valid_at P =
+  ∀ l ∈ P : valid_at_l P l
+
+valid C =
+  ∀ v ∈ C : valid_at C(v)
