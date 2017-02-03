@@ -53,10 +53,11 @@ succ I l =
 pred I l =
   { l' ∈ I : succ I l' = l }
 
-E ::= (x ↦const v | x ↦var a | x ↦⊥)*  lexical environment
-H ::= (l ↦ v)                          mutable heap
+E ::= (x ↦ const v | x ↦ var a | x ↦ ⊥)*  lexical environment
+H ::= (l ↦ v)                             mutable heap
 
 T ::= (lit)*                    output trace
+
 Configuration: (T, H, E, P, I, l)
 
 Lookup (partial) function, returns a v:
@@ -73,6 +74,11 @@ Evaluation of simple expressions:
   eval H E x = (H,E)[x]
   eval H E lit = lit
   eval H E primop(x₁, ..., xₙ) = 〚primop〛((H,E)[x₁], ..., (H,E)[xₙ])
+
+Evaluation of extended expressions
+
+  eeval H E ⊥ = ⊥
+  eeval H E e = eval H E e
 
 Reduction relation
   (T, H, E, P, I, l) -> ((T, (H,E)[x]), H, E, P, I, l + 1)
@@ -103,7 +109,7 @@ Reduction relation
     when I(l) = osr(e, v, l', (x = ee)*)
      and (eval H E e) is (true)
      and I' := P(v)
-     and E' := (x ↦ ⊥ | (eval H E ee))*
+     and E' := (x ↦ (eeval H E ee))*
 
 # Scopes
 
