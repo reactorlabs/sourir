@@ -5,12 +5,14 @@ x        variables
 l        labels
 v        optimization version
 
-s ∉ l    start label
+s ∈ l    start label
 
 a        addresses
 
-C ::= (v ↦ P)*             compilation unit
-P ::= s ↦ i, (l ↦ i)*      program
+P ::= (v ↦ M)*             program
+M ::= (s ↦ i), I
+      s ∉ I                module
+I ::= (l ↦ i)*             instruction stream
 
 i ::=    instructions
 | const x = e               constant variable
@@ -42,20 +44,20 @@ v :=     values
 
 # Natural operational semantics
 
-succ P l =
+succ I l =
  | goto l'                                -> [l']
  | branch _ l' l''                        -> [l', l'']
- | when P = {..., l -> _, l' -> _, ...}   -> [l']
+ | when I = {..., l -> _, l' -> _, ...}   -> [l']
  | _                                      -> []
 
-pred P l =
-  { l' ∈ P : succ P l' = l }
+pred I l =
+  { l' ∈ I : succ I l' = l }
 
 E ::= (x ↦const v | x ↦var a | x ↦⊥)*  lexical environment
 H ::= (l ↦ v)                          mutable heap
 
 T ::= (lit)*                    output trace
-Configuration: (T, H, E, C, P, l)
+Configuration: (T, H, E, P, I, l)
 
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
@@ -73,34 +75,34 @@ Evaluation of simple expressions:
   eval H E primop(x₁, ..., xₙ) = 〚primop〛((H,E)[x₁], ..., (H,E)[xₙ])
 
 Reduction relation
-  (T, H, E, C, P, l) -> ((T, (H,E)[x]), H, E, C, P, l + 1)
-    when P(l) = print x
+  (T, H, E, P, I, l) -> ((T, (H,E)[x]), H, E, P, I, l + 1)
+    when I(l) = print x
 
-  (T, H, E, C, P, l) -> (T, H, E, C, P, l')
-    where P(l) = branch x l₁ l₂
-      and l' := if (H,E)[x] then l₁ else l₂
+  (T, H, E, P, I, l) -> (T, H, E, P, I, l')
+    when I(l) = branch x l₁ l₂
+     and l' := if (H,E)[x] then l₁ else l₂
 
-  (T, H, E, C, P, l) -> (T, H, (E, x ↦ v), C, P, succ l)
-    when P(l) = (const x = e)
+  (T, H, E, P, I, l) -> (T, H, (E, x ↦ v), P, I, succ I l)
+    when I(l) = (const x = e)
      and v := eval H E x
 
-  (T, H, E, C, P, l) -> (T, (H, a ↦ v), (E, x ↦ a), C, P, succ l)
-    when P(l) = (mut x = e)
+  (T, H, E, P, I, l) -> (T, (H, a ↦ v), (E, x ↦ a), P, I, succ I l)
+    when I(l) = (mut x = e)
      and v := eval H E e
      and a fresh
 
-  (T, H, E, C, P, l) -> (T, (H,E)[x] := v, E, C, P, succ l)
-    when P(l) = (x ← e)
+  (T, H, E, P, I, l) -> (T, (H,E)[x] := v, E, P, I, succ I l)
+    when I(l) = (x ← e)
      and v := eval H E x
 
-  (T, H, E, C, P, l) -> (T, H, E, C, P, succ l)
-    when P(l) = osr(e, _, _)
+  (T, H, E, P, I, l) -> (T, H, E, P, I, succ I l)
+    when I(l) = osr(e, _, _)
      and (eval H E e) is not (true)
 
-  (T, H, E, C, P, l) -> (T, H, E', C, P', l')
-    when P(l) = osr(e, v, l', (x = ee)*)
+  (T, H, E, P, I, l) -> (T, H, E', P, I', l')
+    when I(l) = osr(e, v, l', (x = ee)*)
      and (eval H E e) is (true)
-     and P' := C(v)
+     and I' := P(v)
      and E' := (x ↦ ⊥ | (eval H E ee))*
 
 # Scopes
@@ -121,41 +123,41 @@ requires i =
 
 update S i = S \ declares i ∪ requires i
 
-## Well-scoped program
+## Well-scoped module
 
-P, S ⊨(scp) l
--------------   ∀ l ∈ P : ∃ S
+M, S ⊨(scp) l
+-------------   ∀ l ∈ M : ∃ S
      ⊨(scp) P
 
-P, S_l* ⊨(scp) l*
------------------   ∀ l* ∈ pred (P, l) : ∃ S_l* ⊂ update S
-   P, S ⊨(scp) l
+M, S_l* ⊨(scp) l*
+-----------------   ∀ l* ∈ pred (M, l) : ∃ S_l* ⊂ update S
+   M, S ⊨(scp) l
 
 
 -------------
-P, ∅ ⊨(scp) s
+M, ∅ ⊨(scp) s
 
 
 ## Frame construction
 
-⊨(fra) P    C ⊨(osr) P
-----------------------   ∀ P ∈ C
-       ⊨(fra) C
+⊨(fra) M    P ⊨(osr) M
+----------------------   ∀ M ∈ P
+       ⊨(fra) P
 
 
-P, S ⊨(fra) l
--------------   ∀ l ∈ P : ∃ S
+M, S ⊨(fra) l
+-------------   ∀ l ∈ M : ∃ S
      ⊨(fra) P
 
-P, update S ⊨(fra) l*
----------------------   ∀ l* ∈ pred (P, l)
-       P, S ⊨(fra) l
+M, update S ⊨(fra) l*
+---------------------   ∀ l* ∈ pred (M, l)
+       M, S ⊨(fra) l
 
 
 -------------
-P, ∅ ⊨(fra) s
+M, ∅ ⊨(fra) s
 
 
-C(v), x̄ ⊨(fra) l
-----------------   ∀ osr(e, v, l, (x = ee)*) ∈ P
-      C ⊨(osr) P
+P(v), x̄ ⊨(fra) l
+----------------   ∀ osr(e, v, l, (x = ee)*) ∈ M
+      P ⊨(osr) M
