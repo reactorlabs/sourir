@@ -103,7 +103,7 @@ Reduction relation
      and P' := C(v)
      and E' := (x ↦ ⊥ | (eval H E ee))*
 
-# scoping rules
+# Scopes
 
 declares i =
   | mut x _         -> [x]
@@ -119,25 +119,43 @@ requires i =
   | print x         -> [x]
   | _               -> []
 
+update S i = S \ declares i ∪ requires i
 
-⊨(scp) P    C ⊨(osr) P
-----------------------   ∀ P ∈ C
-         ⊨ C
-
+## Well-scoped program
 
 P, S ⊨(scp) l
 -------------   ∀ l ∈ P : ∃ S
      ⊨(scp) P
 
-P, S \ declares P(l) ∪ requires P(l) ⊨(scp) l*
----------------------------------------------   ∀ l* ∈ pred (P, l)
-                                P, S ⊨(scp) l
+P, S_l* ⊨(scp) l*
+-----------------   ∀ l* ∈ pred (P, l) : ∃ S_l* ⊂ update S
+   P, S ⊨(scp) l
 
 
 -------------
 P, ∅ ⊨(scp) s
 
 
-C(v), x̄ ⊨(scp) l
+## Frame construction
+
+⊨(fra) P    C ⊨(osr) P
+----------------------   ∀ P ∈ C
+       ⊨(fra) C
+
+
+P, S ⊨(fra) l
+-------------   ∀ l ∈ P : ∃ S
+     ⊨(fra) P
+
+P, update S ⊨(fra) l*
+---------------------   ∀ l* ∈ pred (P, l)
+       P, S ⊨(fra) l
+
+
+-------------
+P, ∅ ⊨(fra) s
+
+
+C(v), x̄ ⊨(fra) l
 ----------------   ∀ osr(e, v, l, (x = ee)*) ∈ P
       C ⊨(osr) P
