@@ -5,10 +5,12 @@ x        variables
 l        labels
 v        optimization version
 
+s ∉ l    start label
+
 a        addresses
 
-C ::= (v ↦ P)*          compilation unit
-P ::= (l ↦ i)*          program
+C ::= (v ↦ P)*             compilation unit
+P ::= s ↦ i, (l ↦ i)*      program
 
 i ::=    instructions
 | const x = e               constant variable
@@ -40,6 +42,15 @@ v :=     values
 
 # Natural operational semantics
 
+succ P l =
+ | goto l'                                -> [l']
+ | branch _ l' l''                        -> [l', l'']
+ | when P = {..., l -> _, l' -> _, ...}   -> [l']
+ | _                                      -> []
+
+pred P l =
+  { l' ∈ P : succ P l' = l }
+
 E ::= (x ↦const v | x ↦var a | x ↦⊥)*  lexical environment
 H ::= (l ↦ v)                          mutable heap
 
@@ -69,20 +80,20 @@ Reduction relation
     where P(l) = branch x l₁ l₂
       and l' := if (H,E)[x] then l₁ else l₂
 
-  (T, H, E, C, P, l) -> (T, H, (E, x ↦ v), C, P, l+1)
+  (T, H, E, C, P, l) -> (T, H, (E, x ↦ v), C, P, succ l)
     when P(l) = (const x = e)
      and v := eval H E x
 
-  (T, H, E, C, P, l) -> (T, (H, a ↦ v), (E, x ↦ a), C, P, l+1)
+  (T, H, E, C, P, l) -> (T, (H, a ↦ v), (E, x ↦ a), C, P, succ l)
     when P(l) = (mut x = e)
      and v := eval H E e
      and a fresh
 
-  (T, H, E, C, P, l) -> (T, (H,E)[x] := v, E, C, P, l+1)
+  (T, H, E, C, P, l) -> (T, (H,E)[x] := v, E, C, P, succ l)
     when P(l) = (x ← e)
      and v := eval H E x
 
-  (T, H, E, C, P, l) -> (T, H, E, C, P, l+1)
+  (T, H, E, C, P, l) -> (T, H, E, C, P, succ l)
     when P(l) = osr(e, _, _)
      and (eval H E e) is not (true)
 
@@ -109,116 +120,24 @@ requires i =
   | _               -> []
 
 
-# Compilation unit has a valid scope if every program version
-# has a valid scope. Program has a valid scope if every
-# instruction has a valid scope
-
-valid C =
-  ∀ v ∈ C :
-    valid_at_v C v  ∧  valid_osr C v
-
-valid_at_v C v =
-  ∀ l ∈ C(v) :
-    valid_at_l C(v) l
-
-# An instruction has a valid scope if every required variable
-# is declared in the transitive closure of every predecessor.
-
-valid_at_l P l =
-  ∀ x ∈ requires P(l) :
-    reach_decl P l x []
-
-reach_decl P l x seen =
-  ∀ l' ∈ pred P l \ seen :
-    x ∈ declares P(l')  ∨
-    (∃ l'' ∈ pred* P l' :
-       x ∈ declares P(l'')
-     ∧
-     reach_decl P l' x (l' :: seen))
-
-# Successors are either the targets of jumps or the
-# next instruction in the stream (if it exists)
-
-succ P l =
- | goto l'                                -> [l']
- | branch _ l' l''                        -> [l', l'']
- | when P = {..., l -> _, l' -> _, ...}   -> l'
- | _                                      -> []
-
-pred P l =
-  { l' ∈ P : succ P l' = l }
-
-# Osr instructions create a valid environment if it
-# contains all variables which are in scope at the osr
-# entry point
-
-valid_osr C v =
-  ∀ osr(e, v', l', (x = ee)*) ∈ C(v) :
-    valid_osr_at_v C v' l' x̄
-
-valid_osr_at_v C v l_osr scope_osr =
-  ∀ l ∈ succ* C(v) l_osr :
-    valid_osr_at_l C(v) l l_osr scope_osr
-
-valid_osr_at_l P l l_osr scope_osr =
-  ∀ x ∈ requires P(l) :
-    reach_decl_check_osr P l x l_osr scope_osr []
-
-reach_decl_check_osr P l x l_osr scope_osr seen =
-  ∀ l' ∈ pred P l \ seen :
-    x ∈ declares P(l')  ∨
-    (l' = l_osr ⇒ x ∈ scope_osr
-     ∧
-     reach_decl P l' x (l' :: seen))
+⊨(scp) P    C ⊨(osr) P
+----------------------   ∀ P ∈ C
+         ⊨ C
 
 
+P, S ⊨(scp) l
+-------------   ∀ l ∈ P : ∃ S
+     ⊨(scp) P
+
+P, S \ declares P(l) ∪ requires P(l) ⊨(scp) l*
+---------------------------------------------   ∀ l* ∈ pred (P, l)
+                                P, S ⊨(scp) l
 
 
-
-# Scope typing rules
-
-
-    ⊨ P       C ⊨(osr) P
-    --------------------   ∀ P ∈ C
-           ⊨ C
+-------------
+P, ∅ ⊨(scp) s
 
 
-    P ⊨ l
-    -----   ∀ l ∈ P
-    ⊨ P
-
-
-    P, l, ∅ ⊨ x
-    -----------   ∀ x ∈ requires P(l)
-    P ⊨ l
-
-
-
-    -----------  x ∈ declares P(l)
-    P, l, S ⊨ x
-
-
-    P, l', S ∪ l ⊨ x
-    ----------------   ∀ l' ∈ pred (P, l) \ S
-    P, l, S ⊨ x
-
-
-
-    C(v), x̄ ⊨(osr) l
-    ----------------   ∀ osr(e, v, l, (x = ee)*) ∈ P
-    C ⊨(osr) P
-
-
-    P, l', requires P(l), x̄, ∅ ⊨(osr) l
-    -----------------------------------   ∀ l ∈ succ* (P, l')
-    P, x̄ ⊨(osr) l'
-
-
-
-    ------------------------
-    P, l', x̄, x̄, S ⊨(osr) l'
-
-
-    P, l', R \ declares P(l) ∪ requires P(l), x̄, S ∪ l ⊨(osr) l*
-    ------------------------------------------------------------   ∀ l* ∈ pred (P, l) \ S
-    P, l', R, x̄, S ⊨(osr) l
+C(v), x̄ ⊨(scp) l
+----------------   ∀ osr(e, v, l, (x = ee)*) ∈ P
+      C ⊨(osr) P
