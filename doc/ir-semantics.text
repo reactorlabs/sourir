@@ -3,21 +3,29 @@
 x        variables
 
 l        labels
+v        optimization version
+
+s ∈ l    start label
 
 a        addresses
 
-P ::= (l ↦ i)*          program
+P ::= (v ↦ M)*             program
+M ::= (s ↦ i), I
+      s ∉ I                module
+I ::= (l ↦ i)*             instruction stream
 
 i ::=    instructions
-| const x = e           constant variable
-| mut x = e             mutable variable
-| x <- e                assignment
-| branch x l₁ l₂        conditional
-| goto l                goto
-| print x               print
-| invalidate(e, l, x̄)   invalidate
+| const x = e               constant variable
+| mut x = e                 mutable variable
+| x <- e                    assignment
+| branch x l₁ l₂            conditional
+| goto l                    goto
+| print x                   print
+| osr(e, v, l, (x = ee)*)   osr : (can be used for osr-in and osr-out)
 
-x̄        list of variables
+ee ::=   extended expression
+| e
+| ⊥
 
 e ::=    (simple) expressions
 | lit                   literals
@@ -36,11 +44,21 @@ v :=     values
 
 # Natural operational semantics
 
-E ::= (x ↦const v | x ↦var a)*  lexical environment
-H ::= (l ↦ v)                   mutable heap
+succ I l =
+ | goto l'                                -> [l']
+ | branch _ l' l''                        -> [l', l'']
+ | when I = {..., l -> _, l' -> _, ...}   -> [l']
+ | _                                      -> []
+
+pred I l =
+  { l' ∈ I : succ I l' = l }
+
+E ::= (x ↦ const v | x ↦ var a | x ↦ ⊥)*  lexical environment
+H ::= (l ↦ v)                             mutable heap
 
 T ::= (lit)*                    output trace
-Configuration: (T, H, E, P, l)
+
+Configuration: (T, H, E, P, I, l)
 
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
@@ -57,31 +75,95 @@ Evaluation of simple expressions:
   eval H E lit = lit
   eval H E primop(x₁, ..., xₙ) = 〚primop〛((H,E)[x₁], ..., (H,E)[xₙ])
 
+Evaluation of extended expressions
+
+  eeval H E ⊥ = ⊥
+  eeval H E e = eval H E e
+
 Reduction relation
-  (T, H, E, P, l) -> ((T, (H,E)[x]), H, E, P, l + 1)
-    when P(l) = print x
+  (T, H, E, P, I, l) -> ((T, (H,E)[x]), H, E, P, I, l + 1)
+    when I(l) = print x
 
-  (T, H, E, P, l) -> (T, H, E, P, l')
-    where P(l) = branch x l₁ l₂
-      and l' := if (H,E)[x] then l₁ else l₂
+  (T, H, E, P, I, l) -> (T, H, E, P, I, l')
+    when I(l) = branch x l₁ l₂
+     and l' := if (H,E)[x] then l₁ else l₂
 
-  (T, H, E, P, l) -> (T, H, (E, x ↦ v), P, l+1)
-    when P(l) = (const x = e)
+  (T, H, E, P, I, l) -> (T, H, (E, x ↦ v), P, I, succ I l)
+    when I(l) = (const x = e)
      and v := eval H E x
 
-  (T, H, E, P, l) -> (T, (H, a ↦ v), (E, x ↦ a), P, l+1)
-    when P(l) = (mut x = e)
+  (T, H, E, P, I, l) -> (T, (H, a ↦ v), (E, x ↦ a), P, I, succ I l)
+    when I(l) = (mut x = e)
      and v := eval H E e
      and a fresh
 
-  (T, H, E, P, l) -> (T, (H,E)[x] := v, E, P, l+1)
-    when P(l) = (x ← e)
+  (T, H, E, P, I, l) -> (T, (H,E)[x] := v, E, P, I, succ I l)
+    when I(l) = (x ← e)
      and v := eval H E x
 
-  (T, H, E, P, l) -> (T, H, E, P, l+1)
-    when P(l) = invalidate(e, l', x̄)
-     and (eval H E e) is (true)
-
-  (T, H, E, P, l) -> (T, H, E|x̄, P, l')
-    when P(l) = invalidate(e, l', x̄)
+  (T, H, E, P, I, l) -> (T, H, E, P, I, succ I l)
+    when I(l) = osr(e, _, _)
      and (eval H E e) is not (true)
+
+  (T, H, E, P, I, l) -> (T, H, E', P, I', l')
+    when I(l) = osr(e, v, l', (x = ee)*)
+     and (eval H E e) is (true)
+     and I' := P(v)
+     and E' := (x ↦ (eeval H E ee))*
+
+# Scopes
+
+declares i =
+  | mut x _         -> [x]
+  | const x _       -> [x]
+  | _               -> []
+
+requires i =
+  | mut x = e
+  | const x = e
+  | osr e, _        -> vars(e)
+  | x <- e          -> x :: vars(e)
+  | branch x _
+  | print x         -> [x]
+  | _               -> []
+
+update S i = S \ declares i ∪ requires i
+
+## Well-scoped module
+
+M, S ⊨(scp) l
+-------------   ∀ l ∈ M : ∃ S
+     ⊨(scp) P
+
+M, S_l* ⊨(scp) l*
+-----------------   ∀ l* ∈ pred (M, l) : ∃ S_l* ⊂ update S
+   M, S ⊨(scp) l
+
+
+-------------
+M, ∅ ⊨(scp) s
+
+
+## Frame construction
+
+⊨(fra) M    P ⊨(osr) M
+----------------------   ∀ M ∈ P
+       ⊨(fra) P
+
+
+M, S ⊨(fra) l
+-------------   ∀ l ∈ M : ∃ S
+     ⊨(fra) P
+
+M, update S ⊨(fra) l*
+---------------------   ∀ l* ∈ pred (M, l)
+       M, S ⊨(fra) l
+
+
+-------------
+M, ∅ ⊨(fra) s
+
+
+P(v), x̄ ⊨(fra) l
+----------------   ∀ osr(e, v, l, (x = ee)*) ∈ M
+      P ⊨(osr) M
