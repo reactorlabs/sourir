@@ -183,24 +183,41 @@ generic requires/declares handling.
 scoping judgment. Only (A, P ⊨a v, l → i) differs.
 
   S := A(v,l) \ declares i
-  ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ S ∪ requires i
+  (⋂_{l* ∈ pred(P(v),l)} A(v,l*)) = S ∪ requires i
   A, P ⊨a i : S
-  ----------------------------------------
+  ------------------------------------------------
   A, P ⊨a v, l → i
 
 There is a fundamental difference in the role of the scope assignment
 A between the declarative and algorithmic judgments.
 
-In the declarative judgment, A(v,l) points to the *ingoing* scope
-of the instruction at location (v,l): the scope that is available when
-arriving to the instruction from a predecessor. The scope available to
-the successors is computed from this value as (A(v,l) ∪ declares i).
+In the declarative judgment, A(v,l) points to the variables
+*available* in the *ingoing* scope of the instruction at location
+(v,l): the scope that is available when arriving to the instruction
+from a predecessor. The variables that are available in the outgoing
+scope can be computed from this value as (A(v,l) ∪ declares i).
 
-In the algorithmic judgment, S := A(v,l) points to the *outgoing*
-scope of the instruction at location (v,l): the scope that is avaiable
-when leaving the instruction to a successor. By asking that the scope
-visible on entering the instruction be (A(v,l) \ declares i), we force
-variables to be dropped before they are re-declared: shadowing is
-technically possible, but inserting `drop` instructions (on each (⊃)
-link where scopes are not (=)) would clarify that no shadowing
-actually happens.
+In the algorithmic judgment, A(v,l) points to the variables that are
+*required* in the *outgoing* scope of the instruction at location
+(v,l): the scope that is required when leaving the instruction to
+a successor. The variables required in the ingoing scope can be
+computed from this value as (A(v,l) \ declares i).
+
+In the declarative judgment, the relation between an instruction scope
+and its neighbors is under-specified: a predecessor's outgoing scope
+may have more variables than our ingoing scope, and any successor's
+ingoing scope may have less variable than our outgoing scope.
+
+In the algorithmic judgment, the relation between the scopes of an
+instruction and its neighbors is deterministic: an instruction's
+ingoing scope is exactly the variables that are common among all its
+predecessors. Implicitly dropping a variable that will never be used
+again is possible: this is done by choosing a A(v,l) that is smaller
+than the instruction's ingoing set plus (declares i).
+
+Problem: I think there is a problem with the notion of outgoing scope
+as it is currently defined for multi-successor instructions, as it
+forces all successors to see the same set of required
+variables. I think that introducing `drop` instructions would be the
+cleanest way to work around these issues – by removing any
+underspecification from the declarative specification.
