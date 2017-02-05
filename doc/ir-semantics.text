@@ -121,49 +121,83 @@ declares i =
 requires i =
   | mut x = e
   | const x = e
-  | osr e, _        -> vars(e)
+  | osr (e, v, l, (x = ee)*)
+                    -> vars(e) ∪ vars(ee)*
   | x <- e          -> x :: vars(e)
   | branch x _
   | print x         -> [x]
   | _               -> []
 
-update S i = S \ declares i ∪ requires i
+scope S ::= x*
+scope assignment A ::= ((v, l) → S)*
 
-## Well-scoped module
+## Declarative scoping judgment
 
-M, S ⊨(scp) l
--------------   ∀ l ∈ M : ∃ S
-     ⊨(scp) P
+This judgment just classifies "possible" scope assignments A for
+a program P. It does not characterize the tightest possible
+assignment¹, as it allows to implicitly drop variables from scope on
+each transition (the ⊇ relations in the (v, l → i) rule). In
+particular, it cannot forbid shadowing, as it is always possible to
+drop all same-named bindings before a declaration.
 
-M, S_l* ⊨(scp) l*
------------------   ∀ l* ∈ pred (M, l) : ∃ S_l* ⊂ update S
-   M, S ⊨(scp) l
+¹: the tightest possible assignment can be defined impredicatively as
+the pointwise intersection of all valid judgments, which is
+well-defined given that valid scopes are bounded by the set of
+variables defined in the program.
+
+  ∀(v → M) ∈ P,   A, P ⊨ v → M
+  ----------------------------
+            A, P ⊨
+
+  ∀(l → i) ∈ M,   A, P ⊨ v, l → i
+  -------------------------------
+         A, P ⊨ v → M
+
+  S := A(v,l)
+  requires i ⊆ S
+  ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ S
+  ∀l' ∈ succ(P(v),l), S ∪ declares i ⊇ A(v,l')
+  A, P ⊨ i : S
+  ----------------------------------------
+  A, P ⊨ v, l → i
+
+The judgment (A, P ⊢ i : S) below is the instruction-specific judgment
+that checks the scope restrictions that are specific to each
+instruction, rather than the general control-flow constraints and the
+generic requires/declares handling.
+
+  ----------------
+  A, P ⊨ start : ∅
+
+              A(v, l) = x*
+  ----------------------------------
+  A, P ⊨ osr(e, v, l, (x = ee*)) : S
+
+  ---------------
+  A, P ⊨ stop : ∅
 
 
--------------
-M, ∅ ⊨(scp) s
+## Algorithmic scoping judgment
 
+(A, P ⊨), (A, P ⊨ v → M), (A, P ⊢ i : S): as in the declarative
+scoping judgment. Only (A, P ⊨ v, l → i) differs.
 
-## Frame construction
+  S := A(v,l) \ declares i
+  ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ S ∪ requires i
+  A, P ⊨ i : S
+  --------------------------------------------
+  A, P ⊨ v, l → i
 
-⊨(fra) M    P ⊨(osr) M
-----------------------   ∀ M ∈ P
-       ⊨(fra) P
+There is a fundamental difference in the role of the scope assignment
+A between the declarative and algorithmic judgments.
 
+In the declarative judgment, A(v,l) points to the *ingoing* scope
+of the instruction at location (v,l): the scope that is available when
+arriving to the instruction from a predecessor. The scope available to
+the successors is computed from this value as (A(v,l) ∪ declares i).
 
-M, S ⊨(fra) l
--------------   ∀ l ∈ M : ∃ S
-     ⊨(fra) P
-
-M, update S ⊨(fra) l*
----------------------   ∀ l* ∈ pred (M, l)
-       M, S ⊨(fra) l
-
-
--------------
-M, ∅ ⊨(fra) s
-
-
-P(v), x̄ ⊨(fra) l
-----------------   ∀ osr(e, v, l, (x = ee)*) ∈ M
-      P ⊨(osr) M
+In the algorithmic judgment, S := A(v,l) points to the *outgoing*
+scope of the instruction at location (v,l): the scope that is avaiable
+when leaving the instruction to a successor. The scope visible on
+entering the instruction is (A(v,l) \ declares i) *if* shadowing is
+forbidden (otherwise it may contain any subset of the (declares i)).
