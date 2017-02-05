@@ -198,6 +198,9 @@ the successors is computed from this value as (A(v,l) ∪ declares i).
 
 In the algorithmic judgment, S := A(v,l) points to the *outgoing*
 scope of the instruction at location (v,l): the scope that is avaiable
-when leaving the instruction to a successor. The scope visible on
-entering the instruction is (A(v,l) \ declares i) *if* shadowing is
-forbidden (otherwise it may contain any subset of the (declares i)).
+when leaving the instruction to a successor. By asking that the scope
+visible on entering the instruction be (A(v,l) \ declares i), we force
+variables to be dropped before they are re-declared: shadowing is
+technically possible, but inserting `drop` instructions (on each (⊃)
+link where scopes are not (=)) would clarify that no shadowing
+actually happens.
