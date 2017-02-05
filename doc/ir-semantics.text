@@ -145,21 +145,21 @@ the pointwise intersection of all valid judgments, which is
 well-defined given that valid scopes are bounded by the set of
 variables defined in the program.
 
-  ∀(v → M) ∈ P,   A, P ⊨ v → M
+  ∀(v → M) ∈ P,   A, P ⊨d v → M
   ----------------------------
-            A, P ⊨
+            A, P ⊨d
 
-  ∀(l → i) ∈ M,   A, P ⊨ v, l → i
+  ∀(l → i) ∈ M,   A, P ⊨d v, l → i
   -------------------------------
-         A, P ⊨ v → M
+         A, P ⊨d v → M
 
   S := A(v,l)
   requires i ⊆ S
   ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ S
   ∀l' ∈ succ(P(v),l), S ∪ declares i ⊇ A(v,l')
-  A, P ⊨ i : S
+  A, P ⊨d i : S
   ----------------------------------------
-  A, P ⊨ v, l → i
+  A, P ⊨d v, l → i
 
 The judgment (A, P ⊢ i : S) below is the instruction-specific judgment
 that checks the scope restrictions that are specific to each
@@ -167,26 +167,26 @@ instruction, rather than the general control-flow constraints and the
 generic requires/declares handling.
 
   ----------------
-  A, P ⊨ start : ∅
+  A, P ⊨d start : ∅
 
               A(v, l) = x*
   ----------------------------------
-  A, P ⊨ osr(e, v, l, (x = ee*)) : S
+  A, P ⊨d osr(e, v, l, (x = ee*)) : S
 
   ---------------
-  A, P ⊨ stop : ∅
+  A, P ⊨d stop : ∅
 
 
 ## Algorithmic scoping judgment
 
-(A, P ⊨), (A, P ⊨ v → M), (A, P ⊢ i : S): as in the declarative
-scoping judgment. Only (A, P ⊨ v, l → i) differs.
+(A, P ⊨a), (A, P ⊨a v → M), (A, P ⊨a i : S): as in the declarative
+scoping judgment. Only (A, P ⊨a v, l → i) differs.
 
   S := A(v,l) \ declares i
   ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ S ∪ requires i
-  A, P ⊨ i : S
-  --------------------------------------------
-  A, P ⊨ v, l → i
+  A, P ⊨a i : S
+  ----------------------------------------
+  A, P ⊨a v, l → i
 
 There is a fundamental difference in the role of the scope assignment
 A between the declarative and algorithmic judgments.
