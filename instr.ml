@@ -35,6 +35,7 @@ and instruction =
   | Decl_mut of variable * (expression option)
   | Drop of variable
   | Assign of variable * expression
+  | Clear of variable
   | Read of variable
   | Branch of expression * label * label
   | Label of label
@@ -113,6 +114,7 @@ let declared_vars = function
   | Decl_mut (x, _) -> VarSet.singleton x
   | (Assign _
     | Drop _
+    | Clear _
     | Branch _
     | Label _
     | Goto _
@@ -128,7 +130,7 @@ let required_vars = function
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
-  | Drop x | Read x -> VarSet.singleton x
+  | Drop x | Clear x | Read x -> VarSet.singleton x
   | Assign (x, e) -> VarSet.union (VarSet.singleton x) (expr_vars e)
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
@@ -145,6 +147,7 @@ let defined_vars = function
   | Read x -> VarSet.singleton x
   | Decl_mut (_, None)
   | Drop _
+  | Clear _
   | Branch _
   | Label _
   | Goto _
@@ -158,6 +161,22 @@ let dropped_vars = function
   | Decl_const _
   | Decl_mut _
   | Assign _
+  | Clear _
+  | Read _
+  | Branch _
+  | Label _
+  | Goto _
+  | Comment _
+  | Print _
+  | Invalidate _
+  | Stop -> VarSet.empty
+
+let cleared_vars = function
+  | Clear x -> VarSet.singleton x
+  | Decl_const _
+  | Decl_mut _
+  | Assign _
+  | Drop _
   | Read _
   | Branch _
   | Label _
@@ -178,6 +197,7 @@ let used_vars = function
   | Branch (e, _, _)
   | Print e -> expr_vars e
   | Drop _
+  | Clear _
   | Label _
   | Goto _
   | Comment _

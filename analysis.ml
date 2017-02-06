@@ -9,6 +9,7 @@ let successors program pc =
   | Decl_mut _
   | Assign _
   | Drop _
+  | Clear _
   | Read _
   | Label _
   | Comment _

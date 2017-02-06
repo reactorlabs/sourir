@@ -13,6 +13,7 @@ let keyword_table = [
   "stop", STOP;
   "read", READ;
   "drop", DROP;
+  "clear", CLEAR;
 ]
 
 let id_or_keyword id =

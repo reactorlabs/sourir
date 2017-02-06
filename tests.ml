@@ -258,6 +258,7 @@ l2:
  goto c
 c:
  print r
+ clear r
 "
 
 let test_branch_pruned = " mut x = 9
@@ -266,6 +267,7 @@ let test_branch_pruned = " mut x = 9
  invalidate (x == y) deopt_l2 []
  r <- 2
  print r
+ clear r
  stop
  #Landing pad for deopt_l2
 deopt_l2:
@@ -274,6 +276,7 @@ deopt_l2:
  mut y
  r <- 3
  print r
+ clear r
  stop
 "
 

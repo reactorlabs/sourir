@@ -32,6 +32,7 @@ exception Undefined_variable of variable
 exception Invalid_heap
 exception Arity_error of primop
 exception Invalid_update
+exception Invalid_clear
 
 type type_error = {
   expected : litteral_type;
@@ -70,6 +71,12 @@ let drop heap env x =
   | exception Not_found -> raise (Unbound_variable x)
   | Const _ -> (heap, Env.remove x env)
   | Mut a -> (Heap.remove a heap, Env.remove x env)
+
+let clear heap env x =
+  match Env.find x env with
+  | exception Not_found -> raise (Unbound_variable x)
+  | Const _ -> raise Invalid_clear
+  | Mut a -> Heap.add a Undefined heap
 
 let litteral_eq (lit1 : litteral) (lit2 : litteral) =
   match lit1, lit2 with
@@ -160,6 +167,12 @@ let reduce conf =
     let (heap, env) = drop conf.heap conf.env x in
     { conf with
       heap; env;
+      pc = pc';
+    }
+  | Clear x ->
+    let heap = clear conf.heap conf.env x in
+    { conf with
+      heap;
       pc = pc';
     }
   | Assign (x, e) ->
