@@ -94,7 +94,7 @@ let copy_fresh global_labels prog =
       | Goto l -> Goto (map l) :: copy pc'
       | Branch (exp, l1, l2) -> Branch (exp, map l1, map l2) :: copy pc'
       | Invalidate (exp, l, sc) -> Invalidate (exp, map l, sc) :: copy pc'
-      | (Decl_const _ | Decl_mut _ | Assign _
+      | (Decl_const _ | Decl_mut _ | Drop _ | Assign _
         | Read _ | Print _ | Stop | Comment _) as i -> i :: copy pc'
   in
   let new_labels = LabelSet.map map prog_labels in

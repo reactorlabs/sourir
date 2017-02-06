@@ -25,6 +25,7 @@ let disassemble_annotated (prog : annotated_program) =
     | Decl_const (var, exp)           -> pr buf " const %s = " var; dump_expr exp
     | Decl_mut (var, Some exp)        -> pr buf " mut %s = " var; dump_expr exp
     | Decl_mut (var, None)            -> pr buf " mut %s" var
+    | Drop var                        -> pr buf " drop %s" var
     | Assign (var, exp)               -> pr buf " %s <- " var; dump_expr exp
     | Branch (exp, l1, l2)            -> pr buf " branch "; dump_expr exp; pr buf " %s %s" l1 l2
     | Label label                     -> pr buf "%s:" label

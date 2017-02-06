@@ -202,7 +202,9 @@ let test_read_print = parse_test
     read b
     read n
     print n
+    drop n
     print b
+    drop b
 "
 let test_read_print_err = parse_test
 "   mut n

@@ -33,11 +33,12 @@ type program = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
+  | Drop of variable
   | Assign of variable * expression
+  | Read of variable
   | Branch of expression * label * label
   | Label of label
   | Goto of label
-  | Read of variable
   | Print of expression
   | Invalidate of expression * label * variable list
   | Stop
@@ -111,6 +112,7 @@ let declared_vars = function
   | Decl_const (x, _)
   | Decl_mut (x, _) -> VarSet.singleton x
   | (Assign _
+    | Drop _
     | Branch _
     | Label _
     | Goto _
@@ -126,11 +128,11 @@ let required_vars = function
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
+  | Drop x | Read x -> VarSet.singleton x
   | Assign (x, e) -> VarSet.union (VarSet.singleton x) (expr_vars e)
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
-  | Read x -> VarSet.singleton x
   | Print e -> expr_vars e
   | Invalidate (e, _l, xs) ->
     VarSet.union (VarSet.of_list xs) (expr_vars e)
@@ -142,6 +144,21 @@ let defined_vars = function
   | Assign (x ,_)
   | Read x -> VarSet.singleton x
   | Decl_mut (_, None)
+  | Drop _
+  | Branch _
+  | Label _
+  | Goto _
+  | Comment _
+  | Print _
+  | Invalidate _
+  | Stop -> VarSet.empty
+
+let dropped_vars = function
+  | Drop x -> VarSet.singleton x
+  | Decl_const _
+  | Decl_mut _
+  | Assign _
+  | Read _
   | Branch _
   | Label _
   | Goto _
@@ -157,15 +174,17 @@ let used_vars = function
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
   (* the assignee is only required to be in scope, but not used! *)
-  | Assign (x, e) -> expr_vars e
-  | Branch (e, _l1, _l2) -> expr_vars e
-  | Label _l | Goto _l -> VarSet.empty
-  | Comment _ -> VarSet.empty
-  | Read _ -> VarSet.empty
+  | Assign (_, e)
+  | Branch (e, _, _)
   | Print e -> expr_vars e
+  | Drop _
+  | Label _
+  | Goto _
+  | Comment _
+  | Read _
+  | Stop -> VarSet.empty
   | Invalidate (e, _l, xs) ->
     VarSet.union (VarSet.of_list xs) (expr_vars e)
-  | Stop -> VarSet.empty
 
 type scope_annotation =
   | Exact of VarSet.t

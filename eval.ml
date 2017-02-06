@@ -65,6 +65,12 @@ let update heap env x v =
     | _ -> Heap.add a (Value v) heap
     end
 
+let drop heap env x =
+  match Env.find x env with
+  | exception Not_found -> raise (Unbound_variable x)
+  | Const _ -> (heap, Env.remove x env)
+  | Mut a -> (Heap.remove a heap, Env.remove x env)
+
 let litteral_eq (lit1 : litteral) (lit2 : litteral) =
   match lit1, lit2 with
   | Nil, Nil -> true
@@ -150,6 +156,12 @@ let reduce conf =
        env = Env.add x (Mut a) conf.env;
        pc = pc';
      }
+  | Drop x ->
+    let (heap, env) = drop conf.heap conf.env x in
+    { conf with
+      heap; env;
+      pc = pc';
+    }
   | Assign (x, e) ->
      let v = eval conf e in
      { conf with
