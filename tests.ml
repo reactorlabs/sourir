@@ -527,14 +527,20 @@ let suite =
      (has_var "sum" (Value.int 10));
    "read">:: run_checked test_read_print (input [Value.bool false; Value.int 1])
      (trace_is [Value.int 1; Value.bool false]);
-   "mut_undeclared">:: (fun () -> assert_raises (Eval.Unbound_variable "b")
-                           (run test_read_print_err (input [Value.bool false; Value.int 1]) ok));
-   "mut_undeclared2">:: (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
-                           (fun() -> run_checked test_read_print_err (input [Value.bool false; Value.int 1]) ok ()));
-   "mut_undefined">:: (fun () -> assert_raises (Eval.Undefined_variable "n")
-                           (run test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok));
-   "mut_undefined2">:: (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n"))
-                           (fun() -> run_checked test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undeclared">::
+   (fun () -> assert_raises (Eval.Unbound_variable "b")
+       (run test_read_print_err (input [Value.bool false; Value.int 1]) ok));
+   "mut_undeclared2">::
+   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
+       (fun() -> run_checked test_read_print_err
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undefined">::
+   (fun () -> assert_raises (Eval.Undefined_variable "n")
+       (run test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok));
+   "mut_undefined2">::
+   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n"))
+       (fun() -> run_checked test_read_print_err_2
+           (input [Value.bool false; Value.int 1]) ok ()));
    "scope1">:: infer_broken_scope test_broken_scope_1 ["x"];
    "scope2">:: infer_broken_scope test_broken_scope_2 ["x"];
    "scope3">:: infer_broken_scope test_broken_scope_3 ["x"];
