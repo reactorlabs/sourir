@@ -15,6 +15,8 @@ module ScopeInfo = struct
                    defined = VarSet.inter a.defined b.defined}
   let union a b = {declared = VarSet.union a.declared b.declared;
                    defined = VarSet.union a.defined b.defined}
+  let diff a b = {declared = VarSet.diff a.declared b.declared;
+                   defined = VarSet.diff a.defined b.defined}
   let equal a b = VarSet.equal a.declared b.declared &&
                   VarSet.equal a.defined b.defined
 end
@@ -34,20 +36,25 @@ let infer (program : annotated_program) : inferred_scope array =
   let update pc cur =
     let annot = annotations.(pc) in
     let instr = instructions.(pc) in
-    let update = { declared = Instr.declared_vars instr;
-                   defined = Instr.defined_vars instr } in
-    let shadowed = VarSet.inter cur.declared update.declared in
-    if not (VarSet.is_empty shadowed) then raise (DuplicateVariable shadowed)
-    else
-      let cur =
-        { cur with
-          declared = begin match annot with
-            | None | Some (At_least _) -> cur.declared
-            | Some (Exact constraints) ->
-              VarSet.inter cur.declared constraints
-          end
-        } in
-      ScopeInfo.union cur update in
+    let added = {
+      declared = Instr.declared_vars instr;
+      defined = Instr.defined_vars instr;
+    } in
+    let removed = {
+      declared = Instr.dropped_vars instr;
+      defined = Instr.cleared_vars instr;
+    } in
+    let shadowed = VarSet.inter cur.declared added.declared in
+    if not (VarSet.is_empty shadowed) then raise (DuplicateVariable shadowed);
+    let cur =
+      { cur with
+        declared = begin match annot with
+          | None | Some (At_least _) -> cur.declared
+          | Some (Exact constraints) ->
+            VarSet.inter cur.declared constraints
+        end
+      } in
+    ScopeInfo.diff (ScopeInfo.union cur added) removed in
   let initial_state = {declared = VarSet.empty; defined = VarSet.empty} in
   let res = Analysis.forward_analysis initial_state instructions merge update in
   let finish pc res =
