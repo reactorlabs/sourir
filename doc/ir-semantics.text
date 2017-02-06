@@ -145,23 +145,22 @@ the pointwise intersection of all valid judgments, which is
 well-defined given that valid scopes are bounded by the set of
 variables defined in the program.
 
-  ∀(v → M) ∈ P,   A, P ⊨d v → M
+  ∀(v → M) ∈ P:   A, P ⊨d v → M
   ----------------------------
             A, P ⊨d
 
-  ∀(l → i) ∈ M,   A, P ⊨d v, l → i
+  ∀(l → i) ∈ M:   A, P ⊨d v, l → i
   -------------------------------
          A, P ⊨d v → M
 
-  S := A(v,l)
-  requires i ⊆ S
-  ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ S
-  ∀l' ∈ succ(P(v),l), S ∪ declares i ⊇ A(v,l')
-  A, P ⊨d i : S
-  ----------------------------------------
+  requires i ⊆ A(v,l)
+  ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ A(v,l)
+  ∀l' ∈ succ(P(v),l),  A(v,l) ∪ declares i ⊇ A(v,l')
+  A, P ⊨d i : A(v,l)
+  -----------------------------------------------------------
   A, P ⊨d v, l → i
 
-The judgment (A, P ⊢ i : S) below is the instruction-specific judgment
+The judgment (A, P ⊨d i : S) below is the instruction-specific judgment
 that checks the scope restrictions that are specific to each
 instruction, rather than the general control-flow constraints and the
 generic requires/declares handling.
@@ -169,9 +168,9 @@ generic requires/declares handling.
   ----------------
   A, P ⊨d start : ∅
 
-              A(v, l) = x*
-  ----------------------------------
-  A, P ⊨d osr(e, v, l, (x = ee*)) : S
+              A(v', l') = x*
+  -------------------------------------
+  A, P ⊨d osr(e, v', l', (x = ee*)) : S
 
   ---------------
   A, P ⊨d stop : ∅
