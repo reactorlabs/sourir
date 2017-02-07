@@ -29,7 +29,7 @@ end
 
 type pc = Pc.t
 
-type program = instruction array
+type instruction_stream = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
@@ -41,12 +41,18 @@ and instruction =
   | Label of label
   | Goto of label
   | Print of expression
-  | Invalidate of expression * label * variable list
+  | Osr of expression * label * label * osr_def list
   | Stop
   | Comment of string
+and osr_def =
+  | OsrConst of variable * expression
+  | OsrMut of variable * ext_expression
 and expression =
   | Simple of simple_expression
   | Op of primop * simple_expression list
+and ext_expression =
+  | OsrExp of expression
+  | OsrUndef
 and simple_expression =
   | Lit of litteral
   | Var of variable
@@ -90,7 +96,7 @@ let value_of_string str : value = Lit (litteral_of_string str)
 
 exception Unbound_label of label
 
-let resolve (code : program) (label : string) =
+let resolve (code : instruction_stream) (label : string) =
   let rec loop i =
     if i >= Array.length code then raise (Unbound_label label)
     else if code.(i) = Label label then i
@@ -175,7 +181,7 @@ let declared_vars = function
     | Goto _
     | Read _
     | Print _
-    | Invalidate _
+    | Osr _
     | Comment _
     | Stop) -> TypedVarSet.empty
 
@@ -191,8 +197,13 @@ let required_vars = function
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
   | Print e -> expr_vars e
-  | Invalidate (e, _l, xs) ->
-    VarSet.union (VarSet.of_list xs) (expr_vars e)
+  | Osr (e, _, _, osr) ->
+    let exps = List.map (function
+        | OsrConst (_, e) -> e
+        | OsrMut (_, OsrExp e) -> e
+        | OsrMut (_, OsrUndef) -> Simple (Lit Nil)) osr in
+    let exps_vars = List.map expr_vars exps in
+    List.fold_left VarSet.union (expr_vars e) exps_vars
   | Stop -> VarSet.empty
 
 let defined_vars = function
@@ -208,7 +219,7 @@ let defined_vars = function
   | Goto _
   | Comment _
   | Print _
-  | Invalidate _
+  | Osr _
   | Stop -> TypedVarSet.empty
 
 let dropped_vars = function
@@ -223,7 +234,7 @@ let dropped_vars = function
   | Goto _
   | Comment _
   | Print _
-  | Invalidate _
+  | Osr _
   | Stop -> VarSet.empty
 
 let cleared_vars = function
@@ -238,7 +249,7 @@ let cleared_vars = function
   | Goto _
   | Comment _
   | Print _
-  | Invalidate _
+  | Osr _
   | Stop -> VarSet.empty
 
 (* Which variables need to be defined
@@ -258,8 +269,13 @@ let used_vars = function
   | Comment _
   | Read _
   | Stop -> VarSet.empty
-  | Invalidate (e, _l, xs) ->
-    VarSet.union (VarSet.of_list xs) (expr_vars e)
+  | Osr (e, _, _, osr) ->
+    let exps = List.map (function
+        | OsrConst (_, e) -> e
+        | OsrMut (_, OsrExp e) -> e
+        | OsrMut (_, OsrUndef) -> Simple (Lit Nil)) osr in
+    let exps_vars = List.map expr_vars exps in
+    List.fold_left VarSet.union (expr_vars e) exps_vars
 
 type scope_annotation =
   | Exact of VarSet.t
@@ -269,7 +285,8 @@ type inferred_scope =
   | Dead
   | Scope of TypedVarSet.t
 
-type annotated_program = (program * scope_annotation option array)
+type segment = instruction_stream * scope_annotation option array
+type program_ = (string * segment) list
 
 
 module Value = struct

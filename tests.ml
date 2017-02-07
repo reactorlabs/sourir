@@ -16,12 +16,13 @@ let no_input = IO.no_input
 let input = IO.list_input
 
 let run prog input pred () =
-  let final_conf = Eval.run_forever input (drop_annots prog) in
+  let final_conf = Eval.run_forever input prog in
   assert (pred final_conf)
 
-let run_checked prog pred =
+let run_checked (prog : program_) pred =
   let rc (prog, pred) =
-    let () = ignore (Scope.infer prog) in
+    let () = List.iter (fun (_, seg) ->
+        ignore (Scope.infer seg)) prog in
     run prog pred in
   rc (prog, pred)
 
@@ -29,7 +30,7 @@ let exact vars = Some Scope.(Exact (VarSet.of_list vars))
 let at_least vars = Some Scope.(At_least (VarSet.of_list vars))
 
 let parse_test str =
-  try Parse.parse_string str
+  try Parse.parse_string ("segment main\n" ^ str)
   with Parse.Error error ->
     Parse.report_error error;
     exit 2
@@ -199,26 +200,27 @@ let test_read_print_err_4 = parse_test
 "
 
 let infer_broken_scope program missing_vars pos = function() ->
-     let test = function() -> ignore (Scope.infer program) in
-     let expected = Scope.(UndeclaredVariable (VarSet.of_list missing_vars, pos)) in
-     assert_raises expected test
+  let seg = List.assoc "main" program in
+  let test = function() -> ignore (Scope.infer seg) in
+  let expected = Scope.(UndeclaredVariable (VarSet.of_list missing_vars, pos)) in
+  assert_raises expected test
 
 let test_parse_disasm_file file = function() ->
   let prog1 = Parse.parse_file file in
-  let disasm1 = Disasm.disassemble_annotated prog1 in
+  let disasm1 = Disasm.disassemble prog1 in
   let prog2 = Parse.parse_string disasm1 in
-  let disasm2 = Disasm.disassemble_annotated prog2 in
+  let disasm2 = Disasm.disassemble prog2 in
   assert_equal disasm1 disasm2
 
 let test_parse_disasm str = function() ->
   let prog1 = Parse.parse_string str in
-  let disasm1 = Disasm.disassemble_annotated prog1 in
+  let disasm1 = Disasm.disassemble prog1 in
   let prog2 = Parse.parse_string disasm1 in
-  let disasm2 = Disasm.disassemble_annotated prog2 in
+  let disasm2 = Disasm.disassemble prog2 in
   assert_equal disasm1 disasm2
 
 let test_disasm_parse prog = function() ->
-  let disasm1 = Disasm.disassemble_annotated prog in
+  let disasm1 = Disasm.disassemble prog in
   let prog2 = Parse.parse_string disasm1 in
   assert_equal prog prog2
 
@@ -238,23 +240,28 @@ c:
  clear r
 "
 
-let test_branch_pruned = " mut x = 9
+let test_branch_pruned = "segment main
+ mut x = 9
  mut y = 10
  mut r = 1
- invalidate (x == y) deopt_l2 []
- r <- 2
- print r
- clear r
- stop
- #Landing pad for deopt_l2
-deopt_l2:
- mut r
- mut x
- mut y
+ osr (x == y) main_1 l1 [mut r = r, mut x = x, mut y = y]
  r <- 3
  print r
  clear r
- stop
+segment main_1
+ mut x = 9
+ mut y = 10
+ mut r = 1
+ branch (x == y) l1 l2
+l1:
+ r <- 2
+ goto c
+l2:
+ r <- 3
+ goto c
+c:
+ print r
+ clear r
 "
 
 let test_double_loop = parse_test
@@ -283,25 +290,21 @@ continue:
 "
 
 let test_branch_pruning_exp prog expected =
-  let scope = Scope.infer prog in
-  let instrs = (drop_annots prog) in
-  let prog2 = Transform.branch_prune (instrs, scope) in
+  let prog2 = Transform.branch_prune prog in
   assert_equal (Disasm.disassemble prog2) expected
 
 let test_branch_pruning prog deopt =
   let open Eval in
-  let scope = Scope.infer prog in
-  let instrs = (drop_annots prog) in
-  let prog2 = Transform.branch_prune (instrs, scope) in
-  let res1 = Eval.run_forever no_input instrs in
+  let prog2 = Transform.branch_prune prog in
+  let res1 = Eval.run_forever no_input prog in
   let res2 = Eval.run_forever no_input prog2 in
   assert_equal res1.trace res2.trace;
-  assert_equal res2.deopt (Some deopt)
+  assert_equal res2.deopt deopt
 
 let assert_equal_sorted li1 li2 =
   assert_equal (List.sort compare li1) (List.sort compare li2)
 
-let test_pred = fst (parse_test
+let test_pred = parse_test
 "l1:
   goto l2
  l3:
@@ -310,9 +313,10 @@ let test_pred = fst (parse_test
   branch x l1 l3
   stop
   goto l1
-")
+"
+
 let do_test_pred = function () ->
-  let pred = Analysis.predecessors test_pred in
+  let pred = Analysis.predecessors (fst (List.assoc "main" test_pred)) in
   let pred pc = pred.(pc) in
   assert_equal_sorted (pred 0) [3; 5; 7];
   assert_equal_sorted (pred 1) [0];
@@ -323,7 +327,7 @@ let do_test_pred = function () ->
   assert_equal_sorted (pred 6) [];
   assert_equal_sorted (pred 7) []
 
-let test_df = fst (parse_test
+let test_df = parse_test
 "mut a = 1
  mut b = 2
  mut d = (a+b)
@@ -339,11 +343,12 @@ l2:
  mut y = (y+b)
  branch b l l3
 l3:
-")
+"
 
 let do_test_dom1 = function () ->
   let open Cfg in
-  let cfg = Cfg.of_program test_df in
+  let instrs = fst (List.assoc "main" test_df) in
+  let cfg = Cfg.of_program instrs in
   let doms = dominators (test_df, cfg) in
   let expected = [| []; [0]; [0;1]; [0;1;2]; |] in
   let got = Array.map (fun s ->
@@ -376,7 +381,8 @@ let compare_cfg (cfg : Cfg.cfg) (cfg_blueprint : bb_blueprint array) =
 
 let do_test_cfg = function () ->
   let open Cfg in
-  let cfg = Cfg.of_program test_df in
+  let instrs = fst (List.assoc "main" test_df) in
+  let cfg = Cfg.of_program instrs in
   let expected = [|
       {entry=0; exit=5; succ=[1]};
       {entry=6; exit=9; succ=[1;2]};
@@ -385,8 +391,9 @@ let do_test_cfg = function () ->
   compare_cfg cfg expected
 
 let do_test_liveness = function () ->
+  let seg = List.assoc "main" test_df in
   let open Analysis in
-  let live = live test_df in
+  let live = live seg in
   assert_equal_sorted (live 0) ["a"];
   assert_equal_sorted (live 1) ["a";"b"];
   assert_equal_sorted (live 2) ["a"];
@@ -404,8 +411,9 @@ let do_test_liveness = function () ->
 
 
 let do_test_used = function () ->
+  let seg = List.assoc "main" test_df in
   let open Analysis in
-  let used = used test_df in
+  let used = used seg in
   assert_equal_sorted (InstrSet.elements (used 0)) [2;5;7];
   assert_equal_sorted (InstrSet.elements (used 1)) [2];
   assert_equal_sorted (InstrSet.elements (used 2)) [];
@@ -421,8 +429,9 @@ let do_test_used = function () ->
 
 
 let do_test_reaching = function () ->
+  let seg = List.assoc "main" test_df in
   let open Analysis in
-  let reaching = reaching test_df in
+  let reaching = reaching seg in
   assert_equal_sorted (InstrSet.elements (reaching 0)) [];
   assert_equal_sorted (InstrSet.elements (reaching 1)) [];
   assert_equal_sorted (InstrSet.elements (reaching 2)) [0;1];
@@ -431,7 +440,7 @@ let do_test_reaching = function () ->
   assert_equal_sorted (InstrSet.elements (reaching 12)) [8;7];
   assert_equal_sorted (InstrSet.elements (reaching 0)) []
 
-let test_df2 = fst (Parse.parse_string
+let test_df2 = parse_test
 " goto jmp
 start:
   mut i = 1
@@ -466,7 +475,7 @@ loop_end:
 jmp:
   branch true start end
 end:
-")
+"
 
 let do_test_dom prog = function () ->
   let cfg = Cfg.of_program prog in
@@ -537,33 +546,33 @@ let suite =
      (has_var "c" (Value.int 0));
    "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"] 10;
    "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"] 10;
-   "parser">:: test_parse_disasm ("stop\n");
-   "parser1">:: test_parse_disasm ("const x = 3\nprint x\nstop\n");
-   "parser2">:: test_parse_disasm ("goto l\nx <- 3\nl:\n");
-   "parser3">:: test_parse_disasm ("const x = (y + x)\n");
-   "parser4">:: test_parse_disasm ("x <- (x == y)\n");
-   "parser5">:: test_parse_disasm ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("invalidate (x == y) l [x, y, z]\nl:\n");
-   "parser6">:: test_parse_disasm ("branch (x == y) as fd\n");
-   "parser7">:: test_parse_disasm ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser">:: test_parse_disasm ("segment main\nstop\n");
+   "parser1">:: test_parse_disasm ("segment asdf\nconst x = 3\nprint x\nstop\n");
+   "parser2">:: test_parse_disasm ("segment asdf\ngoto l\nx <- 3\nl:\n");
+   "parser3">:: test_parse_disasm ("segment asdf\nconst x = (y + x)\n");
+   "parser4">:: test_parse_disasm ("segment asdf\nx <- (x == y)\n");
+   "parser5">:: test_parse_disasm ("segment asdf\n# asdfasdf\n");
+   "parser5b">:: test_parse_disasm ("segment as\nosr (x == y) v l [const x = x, mut y = 1, mut v, const x = (1+2)]\nl:\n");
+   "parser6">:: test_parse_disasm ("segment s\nbranch (x == y) as fd\n");
+   "parser7">:: test_parse_disasm ("segment x\nconst x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
    "disasm1">:: test_disasm_parse (test_sum 10);
    "disasm2">:: test_disasm_parse (test_add "1" "0");
    "disasm_scope1">:: test_disasm_parse test_broken_scope_4;
    "disasm_scope2">:: test_disasm_parse test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
-   "parser_scope1">:: test_parse_disasm "{a, b} print x\n{a,x,...} #asdf\n";
+   "parser_scope1">:: test_parse_disasm "segment x\n{a, b} print x\n{a,x,...} #asdf\n";
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
    "predecessors">:: do_test_pred;
-   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch "deopt_l2");
-   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) "deopt_loop_body");
-   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop "deopt_continue2");
+   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "continue"));
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "loop_body1"));
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
    "cfg">:: do_test_cfg;
    "dom">:: do_test_dom1;
-   "dom2">:: do_test_dom test_df2;
+   "dom2">:: do_test_dom (fst (List.assoc "main" test_df2));
    ]
 ;;
 

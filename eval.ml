@@ -15,7 +15,8 @@ type configuration = {
   trace : trace;
   heap : heap;
   env : environment;
-  program : program;
+  program : program_;
+  instrs : instruction_stream;
   pc : pc;
   status : status;
   deopt : string option;
@@ -128,13 +129,13 @@ let get_bool (Lit lit : value) =
      raise (Type_error { expected; received })
 
 let instruction conf =
-  if conf.pc >= Array.length conf.program
+  if conf.pc >= Array.length conf.instrs
   then Stop
-  else conf.program.(conf.pc)
+  else conf.instrs.(conf.pc)
 
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
-  let resolve label = Instr.resolve conf.program label in
+  let resolve instrs label = Instr.resolve instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
   match instruction conf with
@@ -183,9 +184,9 @@ let reduce conf =
      }
   | Branch (e, l1, l2) ->
      let b = get_bool (eval conf e) in
-     { conf with pc = resolve (if b then l1 else l2) }
+     { conf with pc = resolve conf.instrs (if b then l1 else l2) }
   | Label _ -> { conf with pc = pc' }
-  | Goto label -> { conf with pc = resolve label }
+  | Goto label -> { conf with pc = resolve conf.instrs label }
   | Read x ->
     let (IO.Next (v, input')) = conf.input () in
     { conf with
@@ -199,34 +200,46 @@ let reduce conf =
        trace = v :: conf.trace;
        pc = pc';
      }
-  | Invalidate (e, l, xs) ->
+  | Osr (e, v, l, osr) ->
      let b = get_bool (eval conf e) in
-     if b then
+     if not b then
        { conf with
          pc = pc';
        }
      else begin
-       let add env x =
-         match Env.find x conf.env with
-         | exception Not_found -> raise (Unbound_variable x)
-         | v -> Env.add x v env
+       let add (env, heap) = function
+         | OsrConst (x, e) ->
+           (Env.add x (Const (eval conf e)) env,
+            heap)
+         | OsrMut (x, OsrExp e) ->
+           let a = Address.fresh () in
+           (Env.add x (Mut a) env,
+            Heap.add a (Value (eval conf e)) heap)
+         | OsrMut (x, OsrUndef) ->
+           let a = Address.fresh () in
+           (Env.add x (Mut a) env,
+            Heap.add a Undefined conf.heap)
        in
-       let new_env = List.fold_left add Env.empty xs in
+       let (env', heap') = List.fold_left add (Env.empty, conf.heap) osr in
+       let instrs = fst (List.assoc v conf.program) in
        { conf with
-         pc = resolve l;
-         env = new_env;
+         pc = resolve instrs l;
+         env = env';
+         heap = heap';
+         instrs = instrs;
          deopt = Some l;
        }
      end
 
-let start program input pc = {
+let start program input pc : configuration = {
   input;
   trace = [];
   heap = Heap.empty;
   env = Env.empty;
   status = Running;
   deopt = None;
-  program;
+  program = program;
+  instrs = fst (List.assoc "main" program);
   pc;
 }
 
@@ -246,7 +259,7 @@ let rec reduce_forever conf =
   if stop conf then conf
   else reduce_forever (reduce conf)
 
-let run_forever input program =
+let run_forever input (program : program_) =
   reduce_forever (start program input 0)
 
 let read_trace conf = List.rev conf.trace

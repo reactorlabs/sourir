@@ -5,12 +5,12 @@
 %token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
-%token CONST MUT BRANCH GOTO PRINT INVALIDATE STOP READ DROP CLEAR
+%token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR SEGMENT
 %token<string> COMMENT
 %token NEWLINE
 %token EOF
 
-%start<Instr.annotated_program> program
+%start<Instr.program_> program
 
 %{ open Instr
 
@@ -24,12 +24,26 @@ let scope_annotation (mode, xs) =
 
 %%
 
-program:
-| optional_newlines prog=list(instruction_line) EOF
+program: optional_newlines prog=program_code EOF { prog }
+
+program_code:
+| prog=list(instruction_line)
   {
     let annotations, instructions = List.split prog in
-    (Array.of_list instructions,
-     Array.of_list annotations)
+    [("main",
+      (Array.of_list instructions,
+       Array.of_list annotations))]
+  }
+| s1=segment segs=list(segment)
+  { s1 :: segs }
+
+segment:
+| SEGMENT segment=variable NEWLINE optional_newlines prog=list(instruction_line)
+  {
+    let annotations, instructions = List.split prog in
+    (segment,
+     (Array.of_list instructions,
+      Array.of_list annotations))
   }
 
 instruction_line:
@@ -45,6 +59,14 @@ scope:
 | x=variable COMMA sc=scope { let (mode, xs) = sc in (mode, x::xs) }
 | x=variable { (`Exact, [x]) }
 | TRIPLE_DOT { (`At_least, []) }
+
+osr_def:
+| CONST x=variable EQUAL e=expression
+    { OsrConst (x, e) }
+| MUT x=variable
+    { OsrMut (x, OsrUndef) }
+| MUT x=variable EQUAL e=expression
+    { OsrMut (x, OsrExp e) }
 
 instruction:
 | CONST x=variable EQUAL e=expression
@@ -69,10 +91,9 @@ instruction:
   { Clear x }
 | PRINT e=expression
   { Print e }
-| INVALIDATE
-  e=expression l=label
-  xs=delimited(LBRACKET, separated_list(COMMA, variable), RBRACKET)
-  { Invalidate (e, l, xs) }
+| OSR
+  e=expression v=label l=label LBRACKET xs=separated_list(COMMA, osr_def) RBRACKET
+  { Osr (e, v, l, xs) }
 | STOP
   { Stop }
 | s=COMMENT
