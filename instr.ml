@@ -215,3 +215,9 @@ type inferred_scope =
   | Scope of VarSet.t
 
 type annotated_program = (program * scope_annotation option array)
+
+
+module Value = struct
+  let int n : value = Lit (Int n)
+  let bool b : value = Lit (Bool b)
+end
