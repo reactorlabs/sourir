@@ -154,9 +154,9 @@ variables defined in the program.
          A, P ⊨d v → M
 
   requires i ⊆ A(v,l)
-  ∀l* ∈ pred(P(v),l), A(v,l*) ⊇ A(v,l)
   ∀l' ∈ succ(P(v),l),  A(v,l) ∪ declares i ⊇ A(v,l')
   A, P ⊨d i : A(v,l)
+  pred(P(v), l) = ∅  ⇒  i = start
   -----------------------------------------------------------
   A, P ⊨d v, l → i
 
@@ -165,7 +165,7 @@ that checks the scope restrictions that are specific to each
 instruction, rather than the general control-flow constraints and the
 generic requires/declares handling.
 
-  ----------------
+  -----------------
   A, P ⊨d start : ∅
 
               A(v', l') = x*
@@ -175,6 +175,9 @@ generic requires/declares handling.
   ---------------
   A, P ⊨d stop : ∅
 
+  i ∉ {start, osr, stop}
+  ----------------------
+  A, P ⊨d i : S
 
 ## Algorithmic scoping judgment
 
