@@ -28,9 +28,6 @@ let run_checked prog pred =
 let exact vars = Some Scope.(Exact (VarSet.of_list vars))
 let at_least vars = Some Scope.(At_least (VarSet.of_list vars))
 
-let no_annotations program : annotated_program =
-  (program, Array.map (fun _ -> None) program)
-
 let parse_test str =
   try Parse.parse_string str
   with Parse.Error error ->
@@ -38,66 +35,49 @@ let parse_test str =
     exit 2
 
 
-let test_print =
-  let open Assembler.OO in
-  no_annotations [|
-    print (int 1);
-    print (int 2);
-    stop
-  |]
+let test_print = parse_test
+" print 1
+  print 2
+  stop
+"
 
-let test_decl_const =
-  let open Assembler.OO in
-  let x = int_var "x" in
-  no_annotations [|
-    const x (int 1);
-    print x;
-    stop;
-  |]
+let test_decl_const = parse_test
+" const x  = 1
+  print x
+  stop
+"
 
-let test_mut =
-  let open Assembler.OO in
-  let x = int_var "x" in
-  no_annotations [|
-    mut x (int 1);
-    print x;
-    assign x (int 2);
-    print x;
-    stop;
-  |]
+let test_mut = parse_test
+" mut x = 1
+  print x
+  x <- 2
+  print x
+  stop
+"
 
-let test_jump =
-  let open Assembler.OO in
-  let x = int_var "x" in
-  no_annotations [|
-    mut x (bool true);
-    goto "jump";
-    assign x (bool false);
-    label "jump";
-  |]
+let test_jump = parse_test
+" mut x = true
+  goto jmp
+  x <- false
+ jmp:
+"
 
-let test_overloading =
-  let open Assembler.OO in
-  let b, x, y = bool_var "b", int_var "x", int_var "y" in
-  no_annotations [|
-    mut b (bool true);
-    mut x (int 1);
-    const y x;
-    goto "jump";
-    assign b (bool false);
-    label "jump";
-    assign x (int 2);
-    stop;
-  |]
+let test_overloading = parse_test
+" mut b = true
+  mut x = 1
+  const y = x
+  goto jump
+  b <- false
+ jump:
+  x <- 2
+  stop
+"
 
-let test_add a b =
-  let open Assembler.OO in
-  let x, y, z = int_var "x", int_var "y", int_var "z" in
-  no_annotations [|
-    mut x (int a);
-    mut y (int b);
-    add z x y;
-  |]
+let test_add a b = parse_test (
+" mut x = "^a^"
+  mut y = "^b^"
+  mut z = (x + y)
+")
 
 let test_eq a b = parse_test (
 " mut x = "^ string_of_int a ^"
@@ -120,46 +100,25 @@ continue:
   stop
 ")
 
-let test_broken_scope_1 =
-  let open Assembler.OO in
-  let x = int_var "x" in
-  no_annotations [|
-    print x;
-  |]
+let test_broken_scope_1 = parse_test
+" print x
+"
 
-let test_broken_scope_2 =
-  let open Assembler.OO in
-  let x = int_var "x" in
-  no_annotations [|
-    goto "l";
-    const x (int 0);
-    label "l";
-    print x;
-  |]
+let test_broken_scope_2 = parse_test
+" goto l
+  const x = 0
+ l:
+  print x
+"
 
-let test_broken_scope_3 =
-  let open Assembler.OO in
-  let x, y = int_var "x", int_var "y" in
-  no_annotations [|
-    const y (bool false);
-    branch y "cont" "next";
-    label "next";
-    const x (int 0);
-    label "cont";
-    print x;
-  |]
-
-let test_broken_scope_3 =
-  let open Assembler.OO in
-  let x, y = int_var "x", bool_var "y" in
-  no_annotations [|
-    const y (bool false);
-    branch y "cont" "next";
-    label "next";
-    const x (int 0);
-    label "cont";
-    print x;
-  |]
+let test_broken_scope_3 = parse_test
+" const y = false
+  branch y cont next
+ next:
+  const x = 0
+ cont:
+  print x
+"
 
 let test_broken_scope_4 = parse_test
 "mut x = 0
@@ -518,7 +477,6 @@ let do_test_dom prog = function () ->
   assert_equal c.id expected.id
 
 let suite =
-  let open Assembler in
   "suite">:::
   ["mut">:: run_checked test_mut no_input
      (has_var "x" (Value.int 2)
@@ -533,9 +491,9 @@ let suite =
      (has_var "b" (Value.bool true)
       &&& has_var "x" (Value.int 2)
       &&& has_var "y" (Value.int 1));
-   "add">:: run_checked (test_add 1 2) no_input
+   "add">:: run_checked (test_add "1" "2") no_input
      (has_var "z" (Value.int 3));
-   "add2">:: run_checked (test_add 2 1) no_input
+   "add2">:: run_checked (test_add "2" "1") no_input
      (has_var "z" (Value.int 3));
    "eq">:: run_checked (test_eq 1 2) no_input
      (has_var "z" (Value.bool false));
@@ -590,7 +548,7 @@ let suite =
    "parser7">:: test_parse_disasm ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
    "disasm1">:: test_disasm_parse (test_sum 10);
-   "disasm2">:: test_disasm_parse (test_add 1 0);
+   "disasm2">:: test_disasm_parse (test_add "1" "0");
    "disasm_scope1">:: test_disasm_parse test_broken_scope_4;
    "disasm_scope2">:: test_disasm_parse test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
