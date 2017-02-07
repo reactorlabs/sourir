@@ -4,21 +4,21 @@ open Instr
     - keep track of const/mut status
 *)
 
-exception UndeclaredVariable of VarSet.t
-exception UninitializedVariable of VarSet.t
-exception DuplicateVariable of VarSet.t
+exception UndeclaredVariable of VarSet.t * pc
+exception UninitializedVariable of VarSet.t * pc
+exception DuplicateVariable of VarSet.t * pc
 
-type scope_info = { declared : VarSet.t; defined : VarSet.t }
+type scope_info = { declared : TypedVarSet.t; defined : TypedVarSet.t }
 module ScopeInfo = struct
   type t = scope_info
-  let inter a b = {declared = VarSet.inter a.declared b.declared;
-                   defined = VarSet.inter a.defined b.defined}
-  let union a b = {declared = VarSet.union a.declared b.declared;
-                   defined = VarSet.union a.defined b.defined}
-  let diff a b = {declared = VarSet.diff a.declared b.declared;
-                   defined = VarSet.diff a.defined b.defined}
-  let equal a b = VarSet.equal a.declared b.declared &&
-                  VarSet.equal a.defined b.defined
+  let inter a b = {declared = TypedVarSet.inter a.declared b.declared;
+                   defined  = TypedVarSet.inter a.defined b.defined}
+  let union a b = {declared = TypedVarSet.union a.declared b.declared;
+                   defined  = TypedVarSet.union a.defined b.defined}
+  let diff a b = {declared  = TypedVarSet.diff a.declared b.declared;
+                   defined  = TypedVarSet.diff a.defined b.defined}
+  let equal a b = TypedVarSet.equal a.declared b.declared &&
+                  TypedVarSet.equal a.defined b.defined
 end
 
 (* Internally we keep track of the declared and defined variables.
@@ -40,22 +40,23 @@ let infer (program : annotated_program) : inferred_scope array =
       declared = Instr.declared_vars instr;
       defined = Instr.defined_vars instr;
     } in
-    let removed = {
-      declared = Instr.dropped_vars instr;
-      defined = Instr.cleared_vars instr;
-    } in
-    let shadowed = VarSet.inter cur.declared added.declared in
-    if not (VarSet.is_empty shadowed) then raise (DuplicateVariable shadowed);
+    let shadowed = TypedVarSet.inter cur.declared added.declared in
+    if not (TypedVarSet.is_empty shadowed) then
+      raise (DuplicateVariable (TypedVarSet.untyped shadowed, pc));
     let cur =
       { cur with
         declared = begin match annot with
           | None | Some (At_least _) -> cur.declared
           | Some (Exact constraints) ->
-            VarSet.inter cur.declared constraints
+            TypedVarSet.inter_untyped cur.declared constraints
         end
       } in
-    ScopeInfo.diff (ScopeInfo.union cur added) removed in
-  let initial_state = {declared = VarSet.empty; defined = VarSet.empty} in
+    let updated = ScopeInfo.union cur added in
+    { declared = TypedVarSet.diff_untyped updated.declared (Instr.dropped_vars instr);
+      defined = TypedVarSet.diff_untyped updated.defined (Instr.cleared_vars instr)
+    }
+  in
+  let initial_state = {declared = TypedVarSet.empty; defined = TypedVarSet.empty} in
   let res = Analysis.forward_analysis initial_state instructions merge update in
   let finish pc res =
     let annotation = annotations.(pc) in
@@ -64,16 +65,18 @@ let infer (program : annotated_program) : inferred_scope array =
     | None -> Dead
     | Some res ->
       let must_have_declared vars =
-        if not (VarSet.subset vars res.declared)
-        then raise (UndeclaredVariable (VarSet.diff vars res.declared)) in
+        let declared = TypedVarSet.untyped res.declared in
+        if not (VarSet.subset vars declared)
+        then raise (UndeclaredVariable (VarSet.diff vars declared, pc)) in
       must_have_declared (Instr.required_vars instr);
       begin match annotation with
         | None -> ()
         | Some (At_least xs | Exact xs) -> must_have_declared xs;
       end;
       let must_have_defined vars =
-        if not (VarSet.subset vars res.defined)
-        then raise (UninitializedVariable (VarSet.diff vars res.defined)) in
+        let defined = TypedVarSet.untyped res.defined in
+        if not (VarSet.subset vars defined)
+        then raise (UninitializedVariable (VarSet.diff vars defined, pc)) in
       must_have_defined (Instr.used_vars instr);
       Scope res.declared
   in

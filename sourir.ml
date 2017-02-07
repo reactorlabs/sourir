@@ -14,25 +14,28 @@ let () =
         exit 2
     in
     begin match Scope.infer annotated_program with
-      | exception Scope.UndeclaredVariable xs ->
+      | exception Scope.UndeclaredVariable (xs, pc) ->
+        let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "Error: Variable %s is not declared.\n%!" x
-          | xs -> Printf.eprintf "Error: Variables {%s} are not declared.\n%!"
-                    (String.concat ", " xs)
+          | [x] -> Printf.eprintf "%d : Error: Variable %s is not declared.\n%!" l x
+          | xs -> Printf.eprintf "%d : Error: Variables {%s} are not declared.\n%!"
+                    l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.UninitializedVariable xs ->
+      | exception Scope.UninitializedVariable (xs, pc) ->
+        let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "Error: Variable %s might be uninitialized.\n%!" x
-          | xs -> Printf.eprintf "Error: Variables {%s} might be uninitialized.\n%!"
-                    (String.concat ", " xs)
+          | [x] -> Printf.eprintf "%d : Error: Variable %s might be uninitialized.\n%!" l x
+          | xs -> Printf.eprintf "%d : Error: Variables {%s} might be uninitialized.\n%!"
+                    l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.DuplicateVariable xs ->
+      | exception Scope.DuplicateVariable (xs, pc) ->
+        let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "Error: Variable %s is declared more than once.\n%!" x
-          | xs -> Printf.eprintf "Error: Variables {%s} are declared more than once.\n%!"
-                    (String.concat ", " xs)
+          | [x] -> Printf.eprintf "%d : Error: Variable %s is declared more than once.\n%!" l x
+          | xs -> Printf.eprintf "%d : Error: Variables {%s} are declared more than once.\n%!"
+                    l (String.concat ", " xs)
         end;
         exit 1
       | scopes ->

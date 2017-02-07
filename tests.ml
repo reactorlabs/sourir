@@ -198,9 +198,9 @@ let test_read_print_err_4 = parse_test
     print b
 "
 
-let infer_broken_scope program missing_vars = function() ->
+let infer_broken_scope program missing_vars pos = function() ->
      let test = function() -> ignore (Scope.infer program) in
-     let expected = Scope.(UndeclaredVariable (VarSet.of_list missing_vars)) in
+     let expected = Scope.(UndeclaredVariable (VarSet.of_list missing_vars, pos)) in
      assert_raises expected test
 
 let test_parse_disasm_file file = function() ->
@@ -507,36 +507,36 @@ let suite =
    (fun () -> assert_raises (Eval.Unbound_variable "b")
        (run test_read_print_err (input [Value.bool false; Value.int 1]) ok));
    "mut_undeclared2">::
-   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
+   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b", 1))
        (fun() -> run_checked test_read_print_err
            (input [Value.bool false; Value.int 1]) ok ()));
    "mut_undeclared3">::
-   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
+   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b", 6))
        (fun() -> run_checked test_read_print_err_3
            (input [Value.bool false; Value.int 1]) ok ()));
    "mut_undefined">::
    (fun () -> assert_raises (Eval.Undefined_variable "n")
        (run test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok));
    "mut_undefined2">::
-   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n"))
+   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n", 3))
        (fun() -> run_checked test_read_print_err_2
            (input [Value.bool false; Value.int 1]) ok ()));
    "mut_undefined3">::
-   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "b"))
+   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "b", 6))
        (fun() -> run_checked test_read_print_err_4
            (input [Value.bool false; Value.int 1]) ok ()));
-   "scope1">:: infer_broken_scope test_broken_scope_1 ["x"];
-   "scope2">:: infer_broken_scope test_broken_scope_2 ["x"];
-   "scope3">:: infer_broken_scope test_broken_scope_3 ["x"];
+   "scope1">:: infer_broken_scope test_broken_scope_1 ["x"] 0;
+   "scope2">:: infer_broken_scope test_broken_scope_2 ["x"] 3;
+   "scope3">:: infer_broken_scope test_broken_scope_3 ["x"] 5;
    "scope3run">:: run test_broken_scope_3 no_input
      (has_var "x" (Value.int 0));
-   "scope4">:: infer_broken_scope test_broken_scope_4 ["y"];
+   "scope4">:: infer_broken_scope test_broken_scope_4 ["y"] 3;
    "scope4fixed">:: run_checked test_broken_scope_4_fixed no_input ok;
-   "scope5">:: infer_broken_scope test_broken_scope_5 ["w"];
+   "scope5">:: infer_broken_scope test_broken_scope_5 ["w"] 2;
    "scope1ok">:: run_checked (test_scope_1 "c" "c") no_input
      (has_var "c" (Value.int 0));
-   "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"];
-   "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"];
+   "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"] 10;
+   "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"] 10;
    "parser">:: test_parse_disasm ("stop\n");
    "parser1">:: test_parse_disasm ("const x = 3\nprint x\nstop\n");
    "parser2">:: test_parse_disasm ("goto l\nx <- 3\nl:\n");
