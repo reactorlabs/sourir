@@ -5,7 +5,7 @@
 %token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
-%token CONST MUT BRANCH GOTO PRINT INVALIDATE STOP READ
+%token CONST MUT BRANCH GOTO PRINT INVALIDATE STOP READ DROP CLEAR
 %token<string> COMMENT
 %token NEWLINE
 %token EOF
@@ -63,6 +63,10 @@ instruction:
   { Goto l }
 | READ x=variable
   { Read x }
+| DROP x=variable
+  { Drop x }
+| CLEAR x=variable
+  { Clear x }
 | PRINT e=expression
   { Print e }
 | INVALIDATE

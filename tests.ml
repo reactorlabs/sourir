@@ -202,7 +202,9 @@ let test_read_print = parse_test
     read b
     read n
     print n
+    drop n
     print b
+    drop b
 "
 let test_read_print_err = parse_test
 "   mut n
@@ -215,6 +217,24 @@ let test_read_print_err_2 = parse_test
 "   mut n
     mut b
     read b
+    print n
+    print b
+"
+let test_read_print_err_3 = parse_test
+"   mut n
+    mut b
+    read b
+    read n
+    drop b
+    print n
+    print b
+"
+let test_read_print_err_4 = parse_test
+"   mut n
+    mut b
+    read b
+    read n
+    clear b
     print n
     print b
 "
@@ -256,6 +276,7 @@ l2:
  goto c
 c:
  print r
+ clear r
 "
 
 let test_branch_pruned = " mut x = 9
@@ -264,6 +285,7 @@ let test_branch_pruned = " mut x = 9
  invalidate (x == y) deopt_l2 []
  r <- 2
  print r
+ clear r
  stop
  #Landing pad for deopt_l2
 deopt_l2:
@@ -272,6 +294,7 @@ deopt_l2:
  mut y
  r <- 3
  print r
+ clear r
  stop
 "
 
@@ -522,14 +545,28 @@ let suite =
      (has_var "sum" (Value.int 10));
    "read">:: run_checked test_read_print (input [Value.bool false; Value.int 1])
      (trace_is [Value.int 1; Value.bool false]);
-   "mut_undeclared">:: (fun () -> assert_raises (Eval.Unbound_variable "b")
-                           (run test_read_print_err (input [Value.bool false; Value.int 1]) ok));
-   "mut_undeclared2">:: (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
-                           (fun() -> run_checked test_read_print_err (input [Value.bool false; Value.int 1]) ok ()));
-   "mut_undefined">:: (fun () -> assert_raises (Eval.Undefined_variable "n")
-                           (run test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok));
-   "mut_undefined2">:: (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n"))
-                           (fun() -> run_checked test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undeclared">::
+   (fun () -> assert_raises (Eval.Unbound_variable "b")
+       (run test_read_print_err (input [Value.bool false; Value.int 1]) ok));
+   "mut_undeclared2">::
+   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
+       (fun() -> run_checked test_read_print_err
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undeclared3">::
+   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b"))
+       (fun() -> run_checked test_read_print_err_3
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undefined">::
+   (fun () -> assert_raises (Eval.Undefined_variable "n")
+       (run test_read_print_err_2 (input [Value.bool false; Value.int 1]) ok));
+   "mut_undefined2">::
+   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n"))
+       (fun() -> run_checked test_read_print_err_2
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undefined3">::
+   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "b"))
+       (fun() -> run_checked test_read_print_err_4
+           (input [Value.bool false; Value.int 1]) ok ()));
    "scope1">:: infer_broken_scope test_broken_scope_1 ["x"];
    "scope2">:: infer_broken_scope test_broken_scope_2 ["x"];
    "scope3">:: infer_broken_scope test_broken_scope_3 ["x"];

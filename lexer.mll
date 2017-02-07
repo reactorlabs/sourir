@@ -12,6 +12,8 @@ let keyword_table = [
   "invalidate", INVALIDATE;
   "stop", STOP;
   "read", READ;
+  "drop", DROP;
+  "clear", CLEAR;
 ]
 
 let id_or_keyword id =

@@ -8,9 +8,11 @@ let successors program pc =
   | Decl_const _
   | Decl_mut _
   | Assign _
+  | Drop _
+  | Clear _
+  | Read _
   | Label _
   | Comment _
-  | Read _
   | Print _ -> next
   | Goto l -> [resolve l]
   | Invalidate (_, l, _) -> next @ [resolve l]
