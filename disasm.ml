@@ -40,8 +40,8 @@ let disassemble_segment b (prog : segment) =
       let rec dump_vars vs =
         let dump_var = function
           | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
-          | OsrMut (x, OsrExp e) -> pr buf "mut %s = " x; dump_expr e;
-          | OsrMut (x, OsrUndef) -> pr buf "mut %s" x
+          | OsrMut (x, y) -> pr buf "mut %s = %s" x y;
+          | OsrMutUndef x -> pr buf "mut %s" x
         in
         match vs with
           | [] -> ()

@@ -64,9 +64,9 @@ osr_def:
 | CONST x=variable EQUAL e=expression
     { OsrConst (x, e) }
 | MUT x=variable
-    { OsrMut (x, OsrUndef) }
-| MUT x=variable EQUAL e=expression
-    { OsrMut (x, OsrExp e) }
+    { OsrMutUndef x }
+| MUT x=variable EQUAL y=variable
+    { OsrMut (x, y) }
 
 instruction:
 | CONST x=variable EQUAL e=expression

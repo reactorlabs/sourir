@@ -552,7 +552,7 @@ let suite =
    "parser3">:: test_parse_disasm ("segment asdf\nconst x = (y + x)\n");
    "parser4">:: test_parse_disasm ("segment asdf\nx <- (x == y)\n");
    "parser5">:: test_parse_disasm ("segment asdf\n# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("segment as\nosr (x == y) v l [const x = x, mut y = 1, mut v, const x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("segment as\nosr (x == y) v l [const x = x, mut y = x, mut v, const x = (1+2)]\nl:\n");
    "parser6">:: test_parse_disasm ("segment s\nbranch (x == y) as fd\n");
    "parser7">:: test_parse_disasm ("segment x\nconst x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";

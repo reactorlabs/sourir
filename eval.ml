@@ -207,25 +207,24 @@ let reduce conf =
          pc = pc';
        }
      else begin
-       let add (env, heap) = function
-         | OsrConst (x, e) ->
-           (Env.add x (Const (eval conf e)) env,
-            heap)
-         | OsrMut (x, OsrExp e) ->
+       let add env' = function
+         | OsrConst (x', e) ->
+           Env.add x' (Const (eval conf e)) env'
+         | OsrMut (x', x) ->
+           begin match Env.find x conf.env with
+           | exception Not_found -> raise (Unbound_variable x)
+           | Const _ -> raise Invalid_heap
+           | Mut a -> Env.add x' (Mut a) env'
+           end
+         | OsrMutUndef x' ->
            let a = Address.fresh () in
-           (Env.add x (Mut a) env,
-            Heap.add a (Value (eval conf e)) heap)
-         | OsrMut (x, OsrUndef) ->
-           let a = Address.fresh () in
-           (Env.add x (Mut a) env,
-            Heap.add a Undefined conf.heap)
+           Env.add x' (Mut a) env'
        in
-       let (env', heap') = List.fold_left add (Env.empty, conf.heap) osr in
+       let env' = List.fold_left add Env.empty osr in
        let instrs = fst (List.assoc v conf.program) in
        { conf with
          pc = resolve instrs l;
          env = env';
-         heap = heap';
          instrs = instrs;
          deopt = Some l;
        }

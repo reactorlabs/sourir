@@ -63,9 +63,11 @@ let branch_prune (prog : program) : program =
         begin match[@warning "-4"] instrs.(pc), annots.(pc) with
         | Branch (exp, l1, l2), a ->
           let osr = List.map (function
-              | Mut_var x -> OsrMut (x, OsrExp (Simple (Var x)))
-              | Const_var x -> OsrConst (x, (Simple (Var x))))
-              (TypedVarSet.elements scope) in
+              | Const_var x ->
+                OsrConst (x, (Simple (Var x)))
+              | Mut_var x -> OsrMut (x, x))
+              (TypedVarSet.elements scope)
+          in
           branch_prune pc'
             (Goto l2 :: Osr (exp, deopt_label, l1, osr) :: acc_i)
             (None :: a :: acc_a)
