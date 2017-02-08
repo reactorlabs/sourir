@@ -37,15 +37,18 @@ let disassemble_segment b (prog : segment) =
       pr buf " osr ";
       dump_expr exp;
       pr buf " %s %s [" v l;
-      let last = (List.length vars) - 1 in
-      List.iteri (fun i x ->
-          begin match x with
-            | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
-            | OsrMut (x, OsrExp e) -> pr buf "mut %s = " x; dump_expr e;
-            | OsrMut (x, OsrUndef) -> pr buf "mut %s" x
-          end;
-          if (i < last) then pr buf ", "
-        ) vars;
+      let rec dump_vars vs =
+        let dump_var = function
+          | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
+          | OsrMut (x, OsrExp e) -> pr buf "mut %s = " x; dump_expr e;
+          | OsrMut (x, OsrUndef) -> pr buf "mut %s" x
+        in
+        match vs with
+          | [] -> ()
+          | hd :: [] -> dump_var hd
+          | hd :: tail -> dump_var hd; pr buf ", "; dump_vars tail
+      in
+      dump_vars vars;
       pr buf "]"
     | Stop                            -> pr buf " stop"
     | Comment str                     -> pr buf " #%s" str
