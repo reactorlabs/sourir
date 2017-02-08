@@ -45,7 +45,7 @@ let remove_unreachable_code (seg : segment) entry : segment =
   in
   remove_unreachable_code 0 [] []
 
-let branch_prune (prog : program_) : program_ =
+let branch_prune (prog : program) : program =
   let main = List.assoc "main" prog in
   let rest = List.remove_assoc "main" prog in
   let deopt_label = "main_" ^ string_of_int (List.length prog) in

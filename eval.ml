@@ -15,7 +15,7 @@ type configuration = {
   trace : trace;
   heap : heap;
   env : environment;
-  program : program_;
+  program : program;
   instrs : instruction_stream;
   pc : pc;
   status : status;
@@ -259,7 +259,7 @@ let rec reduce_forever conf =
   if stop conf then conf
   else reduce_forever (reduce conf)
 
-let run_forever input (program : program_) =
+let run_forever input (program : program) =
   reduce_forever (start program input 0)
 
 let read_trace conf = List.rev conf.trace

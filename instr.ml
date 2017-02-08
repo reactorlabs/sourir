@@ -286,7 +286,7 @@ type inferred_scope =
   | Scope of TypedVarSet.t
 
 type segment = instruction_stream * scope_annotation option array
-type program_ = (string * segment) list
+type program = (string * segment) list
 
 
 module Value = struct

@@ -10,7 +10,7 @@
 %token NEWLINE
 %token EOF
 
-%start<Instr.program_> program
+%start<Instr.program> program
 
 %{ open Instr
 

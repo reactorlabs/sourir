@@ -19,7 +19,7 @@ let run prog input pred () =
   let final_conf = Eval.run_forever input prog in
   assert (pred final_conf)
 
-let run_checked (prog : program_) pred =
+let run_checked (prog : program) pred =
   let rc (prog, pred) =
     let () = List.iter (fun (_, seg) ->
         ignore (Scope.infer seg)) prog in

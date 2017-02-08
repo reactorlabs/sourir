@@ -25,12 +25,17 @@ let print_program ppf (program : Instr.program) =
   Format.fprintf ppf "%s" (Disasm.disassemble program)
 ;;
 
-let print_an_program ppf (program : Instr.annotated_program) =
-  Format.fprintf ppf "%s" (Disasm.disassemble_annotated program)
+let print_instr ppf (program : Instr.instruction_stream) =
+  Format.fprintf ppf "%s" (Disasm.disassemble_instr program)
+;;
+
+let print_seg ppf (program : Instr.segment) =
+  Format.fprintf ppf "%s" (Disasm.disassemble [("anon", program)])
 ;;
 
 #install_printer print_set_vars;;
 #install_printer print_set_vars2;;
 #install_printer print_set_vars3;;
 #install_printer print_program;;
-#install_printer print_an_program;;
+#install_printer print_instr;;
+#install_printer print_seg;;

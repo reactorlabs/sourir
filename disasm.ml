@@ -57,7 +57,7 @@ let disassemble_segment b (prog : segment) =
   in
   Array.iter2 (dump_instr b) (fst prog) (snd prog)
 
-let disassemble (prog : Instr.program_) =
+let disassemble (prog : Instr.program) =
   let b = Buffer.create 1024 in
   List.iter (fun (name, segment) ->
       Printf.bprintf b "segment %s\n" name;
