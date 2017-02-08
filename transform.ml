@@ -39,7 +39,7 @@ let remove_unreachable_code (seg : segment) entry : segment =
     if pc = Array.length instrs then
       (Array.of_list (List.rev acc_i), Array.of_list (List.rev acc_a))
     else
-      match[@warning "-4"] unreachable_code.(pc), instrs.(pc), annots.(pc) with
+      match unreachable_code.(pc), instrs.(pc), annots.(pc) with
       | None,   _, _ -> remove_unreachable_code pc' acc_i acc_a
       | Some _, i, a -> remove_unreachable_code pc' (i::acc_i) (a::acc_a)
   in
