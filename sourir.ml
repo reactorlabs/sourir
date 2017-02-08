@@ -13,6 +13,9 @@ let () =
         Parse.report_error error;
         exit 2
     in
+    let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
+    let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
+
     List.iter (fun (name, segment) ->
       match Scope.infer segment with
       | exception Scope.UndeclaredVariable (xs, pc) ->
@@ -41,10 +44,10 @@ let () =
         exit 1
       | scopes -> ()) program;
 
-      let program = if ((Array.length Sys.argv > 2) && (Sys.argv.(2) = "--prune"))
+      let program = if prune
         then
           let opt = Transform.branch_prune program in
-          let () = Printf.printf "%s" (Disasm.disassemble opt) in
+          if not quiet then Printf.printf "%s" (Disasm.disassemble opt);
           opt
         else program
       in

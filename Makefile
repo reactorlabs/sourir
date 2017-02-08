@@ -5,6 +5,7 @@ OCAMLBUILD=ocamlbuild -use-ocamlfind -use-menhir -no-links
 #            the project directory
 
 all: tests sourir
+	rm -rf $(TEMPDIR)
 
 tests:
 	$(OCAMLBUILD) tests.byte
@@ -23,9 +24,15 @@ runtop: lib
 run: sourir
 	./sourir examples/sum.sou
 
+TEMPDIR := $(shell mktemp -d)
+
 test_examples: sourir
-	for f in examples/*.sou; do yes 0 | ./sourir $$f > /dev/null; done
-	for f in examples/*.sou; do echo $$f; yes 0 | ./sourir $$f --prune > /dev/null; done
+	mkdir $(TEMPDIR)/examples
+	for f in examples/*.sou; do yes 0 | ./sourir $$f --quiet              > $(TEMPDIR)/$$f.out; done
+	for f in examples/*.sou; do yes 0 | ./sourir $$f --quiet --prune      > $(TEMPDIR)/$$f.opt.out && diff $(TEMPDIR)/$$f.out $(TEMPDIR)/$$f.opt.out; done
+	for f in examples/*.sou; do yes 1 | ./sourir $$f --quiet              > $(TEMPDIR)/$$f.out; done
+	for f in examples/*.sou; do yes 1 | ./sourir $$f --quiet --prune      > $(TEMPDIR)/$$f.opt.out && diff $(TEMPDIR)/$$f.out $(TEMPDIR)/$$f.opt.out; done
+	rm -rf $(TEMPDIR)
 
 clean:
 	ocamlbuild -clean
@@ -45,4 +52,3 @@ install-deps:
 	opam install --deps-only sourir # then install its dependencies
 
 .PHONY: all run tests clean sourir test_examples
-
