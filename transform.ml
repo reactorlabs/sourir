@@ -120,7 +120,10 @@ let branch_prune (prog, scope) =
          *    Live variables need to be captured
          *    The rest of the scope needs to be declared to create a valid frame *)
         let live = live_at entry in
-        let dead = Instr.VarSet.elements (Instr.VarSet.diff scope (Instr.VarSet.of_list live)) in
+        let dead = Instr.VarSet.elements
+            (Instr.VarSet.diff
+               (TypedVarSet.untyped scope)
+               (Instr.VarSet.of_list live)) in
         let create_frame = Array.of_list (List.map (fun x -> Instr.Decl_mut (x, None)) dead) in
         (* 3. Create the actual landing pad *)
         let landing_pad = Array.concat [
