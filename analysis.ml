@@ -35,6 +35,7 @@ let dataflow_analysis (next : pc -> pc list)
                       (update : pc -> 'a -> 'a)
                       : 'a option array =
   let instrs = fst seg in
+  if Array.length instrs == 0 then [||] else
   let program_state = Array.map (fun _ -> None) instrs in
   let rec work = function
     | [] -> ()

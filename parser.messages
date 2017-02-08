@@ -1,0 +1,475 @@
+program: SEGMENT TRIPLE_DOT 
+##
+## Ends in an error in state: 5.
+##
+## segment -> SEGMENT . variable NEWLINE optional_newlines list(instruction_line) [ SEGMENT EOF ]
+##
+## The known suffix of the stack is as follows:
+## SEGMENT 
+##
+
+Missing segment identifier
+
+program: BRANCH NIL IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 77.
+##
+## instruction -> BRANCH expression label . label [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## BRANCH expression label 
+##
+
+Parsing an instruction, we parsed "branch <expr> <label>" so far;
+a label, for example "foo", is now expected to construct a branch
+instruction
+"branch <expr> <label> <label>".
+
+program: BRANCH NIL TRIPLE_DOT 
+##
+## Ends in an error in state: 76.
+##
+## instruction -> BRANCH expression . label label [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## BRANCH expression 
+##
+
+Parsing an instruction, we parsed "branch <expr>" so far; a label, for
+example "foo", is now expected to construct a branch instruction
+"branch <expr> <label> <label>".
+
+program: BRANCH TRIPLE_DOT 
+##
+## Ends in an error in state: 75.
+##
+## instruction -> BRANCH . expression label label [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## BRANCH 
+##
+
+Parsing an instruction, we parsed "branch" so far; an expression, for
+example "(x == 2)", is now expected to construct a branch instruction
+"branch <expr> <label> <label>".
+
+program: CONST IDENTIFIER EQUAL TRIPLE_DOT 
+##
+## Ends in an error in state: 70.
+##
+## instruction -> CONST variable EQUAL . expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## CONST variable EQUAL 
+##
+
+Parsing an instruction, we parsed "const <var> =" so far; an expression, for
+example "(x + 1)", is now expected to construct a constant declaration
+"const <var> = <expr>".
+
+program: CONST IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 69.
+##
+## instruction -> CONST variable . EQUAL expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## CONST variable 
+##
+
+Parsing an instruction, we parsed "const <var>" so far; the equal sign
+"=" is now expected to construct a constant declaration
+"const <var> = <expr>".
+
+program: CONST TRIPLE_DOT 
+##
+## Ends in an error in state: 68.
+##
+## instruction -> CONST . variable EQUAL expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## CONST 
+##
+
+Parsing an instruction, we parsed "const" so far; a variable, for
+example "x", is now expected to construct a constant declaration
+"const <var> = <expr>".
+
+program: GOTO TRIPLE_DOT 
+##
+## Ends in an error in state: 64.
+##
+## instruction -> GOTO . label [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## GOTO 
+##
+
+Parsing an instruction, we parsed "goto" so far; a label, for example
+"foo", is now expected to construct a goto instruction
+"goto <label>".
+
+program: IDENTIFIER LEFTARROW TRIPLE_DOT 
+##
+## Ends in an error in state: 80.
+##
+## instruction -> variable LEFTARROW . expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## variable LEFTARROW 
+##
+
+Parsing an instruction, we parsed "<var> <-" so far; an expression,
+for example "(x + 1)", is now expected to construct an assignment
+"<var> <- <expression>".
+
+program: IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 63.
+##
+## label -> IDENTIFIER . [ COLON ]
+## variable -> IDENTIFIER . [ LEFTARROW ]
+##
+## The known suffix of the stack is as follows:
+## IDENTIFIER 
+##
+
+Parsing an instruction, we parsed an identifier so far (variable or label). 
+- if this is a label declaration, we expect a semicolon: "<label>:"
+- if this is an assignment, we expect a left arrow: "<var> <- <expression>"
+
+program: OSR NIL IDENTIFIER IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 43.
+##
+## instruction -> OSR expression label label . LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## OSR expression label label 
+##
+
+Parsing the specification of the new environment of an osr instruction
+failed. After "osr <exp> <segment> <label>" we expect a square bracket enclosed,
+comma separated list of "const <variable> = <expression>" or
+"mut <variable> = <expression>" or "mut x". For example:
+"[const x = 3, mut y = x, mut a]"
+
+program: OSR NIL IDENTIFIER IDENTIFIER LBRACKET TRIPLE_DOT 
+##
+## Ends in an error in state: 44.
+##
+## instruction -> OSR expression label label LBRACKET . loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## OSR expression label label LBRACKET 
+##
+
+Parsing the specification of the new environment of an osr instruction
+failed. After "osr <exp> <segment> <label> [" we expect a comma
+separated list of "const <variable> = <expression>" or
+"mut <variable> = <expression>" or "mut x". For example:
+"[const x = 3, mut y = x, mut a]"
+
+program: OSR NIL IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 42.
+##
+## instruction -> OSR expression label . label LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## OSR expression label 
+##
+
+Parsing an osr instruction, we parsed "osr <expr> <segment>",
+and are now expecting a label. The complete instruction
+syntax is "osr <expr> <segment> <label> [<new_env>]", where
+"<new_env>" is a specification of the new environment. It's a comma
+separated list of "const <variable> = <expression>" or
+"mut <variable> = <expression>" or "mut x". For example:
+"[const x = 3, mut y = x, mut a]"
+
+program: OSR NIL TRIPLE_DOT 
+##
+## Ends in an error in state: 40.
+##
+## instruction -> OSR expression . label label LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## OSR expression 
+##
+
+Parsing an osr instruction, we parsed "osr <expr>", and
+are now expecting a segment label, for example "foo". The complete instruction
+syntax is "osr <expr> <segment> <label> [<new_env>]", where
+"<new_env>" is a specification of the new environment. It's a comma
+separated list of "const <variable> = <expression>" or
+"mut <variable> = <expression>" or "mut x". For example:
+"[const x = 3, mut y = x, mut a]"
+
+program: OSR TRIPLE_DOT 
+##
+## Ends in an error in state: 39.
+##
+## instruction -> OSR . expression label label LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## OSR 
+##
+
+Parsing an osr instruction, we parsed "osr", and are now
+expecting an expression, for example "(x + 1)". The complete instruction
+syntax is "osr <expr> <segment> <label> [<new_env>]", where
+"<new_env>" is a specification of the new environment. It's a comma
+separated list of "const <variable> = <expression>" or
+"mut <variable> = <expression>" or "mut x". For example:
+"[const x = 3, mut y = x, mut a]"
+
+program: LBRACE IDENTIFIER COMMA STOP 
+##
+## Ends in an error in state: 13.
+##
+## scope -> variable COMMA . scope [ RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## variable COMMA 
+##
+
+Parsing a scope annotation, we expect a comma-separated list of
+variables between curly brackets, for example "{ x, y }", the last
+element possibly being "...", for example "{ x, y, ...}". ("..." means
+that we are not restricting the instruction to use only the variables
+listed, we are only asking that at least those variables be present in
+scope.)
+
+program: LBRACE IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 12.
+##
+## scope -> variable . COMMA scope [ RBRACE ]
+## scope -> variable . [ RBRACE ]
+##
+## The known suffix of the stack is as follows:
+## variable 
+##
+
+Parsing a scope annotation, we expect a comma-separated list of
+variables between curly brackets, for example "{ x, y }", the last
+element possibly being "...", for example "{ x, y, ...}". ("..." means
+that we are not restricting the instruction to use only the variables
+listed, we are only asking that at least those variables be present in
+scope.)
+
+program: LBRACE STOP 
+##
+## Ends in an error in state: 10.
+##
+## scope_annotation -> LBRACE . scope RBRACE optional_newlines [ STOP READ PRINT OSR MUT IDENTIFIER GOTO DROP CONST COMMENT CLEAR BRANCH ]
+##
+## The known suffix of the stack is as follows:
+## LBRACE 
+##
+
+Parsing a scope annotation, we expect a comma-separated list of
+variables between curly brackets, for example "{ x, y }", the last
+element possibly being "...", for example "{ x, y, ...}". ("..." means
+that we are not restricting the instruction to use only the variables
+listed, we are only asking that at least those variables be present in
+scope.)
+
+program: LBRACE TRIPLE_DOT RBRACE BOOL 
+##
+## Ends in an error in state: 16.
+##
+## scope_annotation -> LBRACE scope RBRACE . optional_newlines [ STOP READ PRINT OSR MUT IDENTIFIER GOTO DROP CONST COMMENT CLEAR BRANCH ]
+##
+## The known suffix of the stack is as follows:
+## LBRACE scope RBRACE 
+##
+
+We parsed a scope annotation, and we now expect an instruction
+followed by a line break.
+
+program: LBRACE TRIPLE_DOT TRIPLE_DOT 
+##
+## Ends in an error in state: 15.
+##
+## scope_annotation -> LBRACE scope . RBRACE optional_newlines [ STOP READ PRINT OSR MUT IDENTIFIER GOTO DROP CONST COMMENT CLEAR BRANCH ]
+##
+## The known suffix of the stack is as follows:
+## LBRACE scope 
+##
+
+In a scope annotation, "..." should be the last item. "{ x, ... }" or
+"{ ... }" are valid, but "{ ..., x }" is not.
+
+program: MUT IDENTIFIER EQUAL TRIPLE_DOT 
+##
+## Ends in an error in state: 61.
+##
+## instruction -> MUT variable EQUAL . expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## MUT variable EQUAL 
+##
+
+Parsing a mutable declaration instruction, we parsed "mut <var> =" so
+far; an expression is now expected, for example "(x + 1)", to
+construct a constant mutable instruction "mut <var> = <expr>".
+
+program: MUT IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 60.
+##
+## instruction -> MUT variable . [ NEWLINE ]
+## instruction -> MUT variable . EQUAL expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## MUT variable 
+##
+
+Parsing a mutable declaration instruction, we parsed "mut <var>" so
+far; an equal sign "=" is now expected to construct a constant mutable
+instruction "mut <var> = <expr>".
+
+program: MUT TRIPLE_DOT 
+##
+## Ends in an error in state: 59.
+##
+## instruction -> MUT . variable [ NEWLINE ]
+## instruction -> MUT . variable EQUAL expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## MUT 
+##
+
+Parsing an instruction, we parsed "mut" so far; a variable, for
+example "x", is now expected to construct a mutable variable
+declaration
+"mut <var> = <expr>".
+
+program: PRINT LPAREN IDENTIFIER PLUS IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 34.
+##
+## expression -> LPAREN simple_expression infixop simple_expression . RPAREN [ RBRACKET NEWLINE IDENTIFIER COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN simple_expression infixop simple_expression 
+##
+
+Parsing an expression, we parsed "( <arg> <op> <arg>" so far;
+a closing parenthesis ")" is now expected.
+
+program: PRINT LPAREN IDENTIFIER PLUS TRIPLE_DOT 
+##
+## Ends in an error in state: 33.
+##
+## expression -> LPAREN simple_expression infixop . simple_expression RPAREN [ RBRACKET NEWLINE IDENTIFIER COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN simple_expression infixop 
+##
+
+Parsing an expression, we parsed "( <arg> <op>" so far; an argument
+(variable or literal value) is now expected to construct an expression
+"( <arg> <op> <arg> )".
+
+program: PRINT LPAREN IDENTIFIER TRIPLE_DOT 
+##
+## Ends in an error in state: 29.
+##
+## expression -> LPAREN simple_expression . infixop simple_expression RPAREN [ RBRACKET NEWLINE IDENTIFIER COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN simple_expression 
+##
+
+Parsing an expression, we parsed "( <arg>" so far; an operator such as
+"+", "==" or "!=" is now expected to construct an expression
+"( <var> <op> <var> )".
+
+program: PRINT LPAREN TRIPLE_DOT 
+##
+## Ends in an error in state: 25.
+##
+## expression -> LPAREN . simple_expression infixop simple_expression RPAREN [ RBRACKET NEWLINE IDENTIFIER COMMA ]
+##
+## The known suffix of the stack is as follows:
+## LPAREN 
+##
+
+Parsing an expression, we parsed "(" so far; an argument (variable or
+literal value) is now expected to construct an expression
+"( <arg> <op> <arg> )".
+
+program: PRINT TRIPLE_DOT 
+##
+## Ends in an error in state: 23.
+##
+## instruction -> PRINT . expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## PRINT 
+##
+
+Parsing an instruction, we parsed "print" so far;
+an expression, for example "(x + 1)", is now expected
+to construct a print instruction
+"print <expr>".
+
+program: READ TRIPLE_DOT 
+##
+## Ends in an error in state: 21.
+##
+## instruction -> READ . variable [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## READ 
+##
+
+Parsing an instruction, we parsed "read" so far;
+a variable, for example "x", is now expected
+to construct a read assignment
+"read <var>".
+Note that the variable needs to have been declared as mutable first.
+
+program: STOP NEWLINE TRIPLE_DOT 
+##
+## Ends in an error in state: 85.
+##
+## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ STOP SEGMENT READ PRINT OSR MUT LBRACE IDENTIFIER GOTO EOF DROP CONST COMMENT CLEAR BRANCH ]
+##
+## The known suffix of the stack is as follows:
+## scope_annotation instruction NEWLINE 
+##
+
+We parsed a complete instruction line, and are now inspecting a valid
+instruction on the next line, or the end of the file.
+
+program: STOP TRIPLE_DOT 
+##
+## Ends in an error in state: 84.
+##
+## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ STOP SEGMENT READ PRINT OSR MUT LBRACE IDENTIFIER GOTO EOF DROP CONST COMMENT CLEAR BRANCH ]
+##
+## The known suffix of the stack is as follows:
+## scope_annotation instruction 
+##
+
+We parsed an instruction, and are now expecting a newline to complete
+the instruction line -- even if this is the last instruction, it
+should be followed by a line break.
+
+program: TRIPLE_DOT 
+##
+## Ends in an error in state: 0.
+##
+## program' -> . program [ # ]
+##
+## The known suffix of the stack is as follows:
+## 
+##
+
+We parsed a correct program so far; extra instructions, or the end of
+the file, are now expected.
+
