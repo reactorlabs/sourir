@@ -26,9 +26,9 @@ end
  * internally infer asserts that undefined variables are never used and
  * declarations do not shadow a previous one
  *)
-let infer (program : annotated_program) : inferred_scope array =
-  let instructions = fst program in
-  let annotations = snd program in
+let infer (seg : segment) : inferred_scope array =
+  let instructions = fst seg in
+  let annotations = snd seg in
   let open Analysis in
   let merge cur incom =
     let merged = ScopeInfo.inter cur incom in
@@ -57,7 +57,7 @@ let infer (program : annotated_program) : inferred_scope array =
     }
   in
   let initial_state = {declared = TypedVarSet.empty; defined = TypedVarSet.empty} in
-  let res = Analysis.forward_analysis initial_state instructions merge update in
+  let res = Analysis.forward_analysis initial_state seg merge update in
   let finish pc res =
     let annotation = annotations.(pc) in
     let instr = instructions.(pc) in

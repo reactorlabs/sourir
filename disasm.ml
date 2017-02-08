@@ -1,6 +1,6 @@
 open Instr
 
-let disassemble_annotated (prog : annotated_program) =
+let disassemble_segment b (prog : segment) =
   let dump_instr buf instr annot =
     let pr = Printf.bprintf in
     let simple buf = function
@@ -33,16 +33,39 @@ let disassemble_annotated (prog : annotated_program) =
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print "; dump_expr exp
     | Read var                        -> pr buf " read %s" var
-    | Invalidate (exp, l, vars)       -> pr buf " invalidate "; dump_expr exp;
-                                         pr buf " %s [%s]" l (String.concat ", " vars)
+    | Osr (exp, v, l, vars)           ->
+      pr buf " osr ";
+      dump_expr exp;
+      pr buf " %s %s [" v l;
+      let rec dump_vars vs =
+        let dump_var = function
+          | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
+          | OsrMut (x, y) -> pr buf "mut %s = %s" x y;
+          | OsrMutUndef x -> pr buf "mut %s" x
+        in
+        match vs with
+          | [] -> ()
+          | hd :: [] -> dump_var hd
+          | hd :: tail -> dump_var hd; pr buf ", "; dump_vars tail
+      in
+      dump_vars vars;
+      pr buf "]"
     | Stop                            -> pr buf " stop"
     | Comment str                     -> pr buf " #%s" str
     end;
     pr buf "\n"
   in
-  let b = Buffer.create 1024 in
-  Array.iter2 (dump_instr b) (fst prog) (snd prog);
-  Buffer.contents b
+  Array.iter2 (dump_instr b) (fst prog) (snd prog)
 
 let disassemble (prog : Instr.program) =
-  disassemble_annotated (prog, Array.map (fun _ -> None) prog)
+  let b = Buffer.create 1024 in
+  List.iter (fun (name, segment) ->
+      Printf.bprintf b "segment %s\n" name;
+      disassemble_segment b segment) prog;
+  Buffer.contents b
+
+let disassemble_instr (instr : Instr.instruction_stream) =
+  let b = Buffer.create 1024 in
+  Printf.bprintf b "segment _anonym\n";
+  disassemble_segment b (instr, Array.map (fun _ -> None) instr);
+  Buffer.contents b

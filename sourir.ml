@@ -7,13 +7,17 @@ let () =
       Sys.executable_name;
     exit 1
   | path ->
-    let annotated_program =
+    let program =
       try Parse.parse_file path
       with Parse.Error error ->
         Parse.report_error error;
         exit 2
     in
-    begin match Scope.infer annotated_program with
+    let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
+    let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
+
+    List.iter (fun (name, segment) ->
+      match Scope.infer segment with
       | exception Scope.UndeclaredVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
@@ -38,14 +42,13 @@ let () =
                     l (String.concat ", " xs)
         end;
         exit 1
-      | scopes ->
-        let program = fst annotated_program in
-        let program = if ((Array.length Sys.argv > 2) && (Sys.argv.(2) = "--prune"))
-          then
-            let opt = Transform.branch_prune (program, scopes) in
-            let () = Printf.printf "%s" (Disasm.disassemble opt) in
-            opt
-          else program
-        in
-        ignore (Eval.run_interactive IO.stdin_input program)
-    end
+      | scopes -> ()) program;
+
+      let program = if prune
+        then
+          let opt = Transform.branch_prune program in
+          if not quiet then Printf.printf "%s" (Disasm.disassemble opt);
+          opt
+        else program
+      in
+      ignore (Eval.run_interactive IO.stdin_input program)

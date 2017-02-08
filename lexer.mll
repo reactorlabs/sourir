@@ -9,11 +9,12 @@ let keyword_table = [
   "branch", BRANCH;
   "goto", GOTO;
   "print", PRINT;
-  "invalidate", INVALIDATE;
+  "osr", OSR;
   "stop", STOP;
   "read", READ;
   "drop", DROP;
   "clear", CLEAR;
+  "segment", SEGMENT;
 ]
 
 let id_or_keyword id =
