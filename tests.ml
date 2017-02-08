@@ -244,7 +244,7 @@ let test_branch_pruned = "segment main
  mut x = 9
  mut y = 10
  mut r = 1
- osr (x == y) main_1 l1 [mut r = r, mut x = x, mut y = y]
+ osr (x == y) main_1 l1 [mut r, mut x, mut y]
  r <- 3
  print r
  clear r

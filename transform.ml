@@ -52,6 +52,7 @@ let branch_prune (prog : program) : program =
   let instrs = fst main in
   let annots = snd main in
   let scope = Scope.infer main in
+  let live = Analysis.live main in
   let rec branch_prune pc acc_i acc_a =
     if pc = Array.length instrs then
       (Array.of_list (List.rev acc_i), Array.of_list (List.rev acc_a))
@@ -65,7 +66,11 @@ let branch_prune (prog : program) : program =
           let osr = List.map (function
               | Const_var x ->
                 OsrConst (x, (Simple (Var x)))
-              | Mut_var x -> OsrMut (x, x))
+              | Mut_var x ->
+                if List.exists (fun x' -> x = x') (live pc) then
+                  OsrMut (x, x)
+                else
+                  OsrMutUndef x)
               (TypedVarSet.elements scope)
           in
           branch_prune pc'
