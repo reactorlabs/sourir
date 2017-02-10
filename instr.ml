@@ -105,12 +105,12 @@ module VarSet = Set.Make(Variable)
 
 type variable_type = Mut_var | Const_var
 
-type typed_var = variable_type * variable
+type moded_var = variable_type * variable
 
 exception Incomparable
 
-module TypedVar = struct
-  type t = typed_var
+module ModedVar = struct
+  type t = moded_var
   let compare (ma, a) (mb, b) =
     match String.compare a b with
     | 0 ->
@@ -118,8 +118,8 @@ module TypedVar = struct
     | c -> c
 end
 
-module TypedVarSet = struct
-  include Set.Make(TypedVar)
+module ModedVarSet = struct
+  include Set.Make(ModedVar)
 
   let vars set = List.map snd (elements set)
   let untyped set = VarSet.of_list (vars set)
@@ -146,8 +146,8 @@ let expr_vars = function
     |> List.fold_left VarSet.union VarSet.empty
 
 let declared_vars = function
-  | Decl_const (x, _) -> TypedVarSet.singleton (Const_var, x)
-  | Decl_mut (x, _) -> TypedVarSet.singleton (Mut_var, x)
+  | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
+  | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
   | (Assign _
     | Drop _
     | Clear _
@@ -158,7 +158,7 @@ let declared_vars = function
     | Print _
     | Osr _
     | Comment _
-    | Stop) -> TypedVarSet.empty
+    | Stop) -> ModedVarSet.empty
 
 (* Which variables need to be in scope
  * Producer: declared_vars *)
@@ -182,10 +182,10 @@ let required_vars = function
   | Stop -> VarSet.empty
 
 let defined_vars = function
-  | Decl_const (x, _) -> TypedVarSet.singleton (Const_var, x)
+  | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, Some _)
   | Assign (x ,_)
-  | Read x -> TypedVarSet.singleton (Mut_var, x)
+  | Read x -> ModedVarSet.singleton (Mut_var, x)
   | Decl_mut (_, None)
   | Drop _
   | Clear _
@@ -195,7 +195,7 @@ let defined_vars = function
   | Comment _
   | Print _
   | Osr _
-  | Stop -> TypedVarSet.empty
+  | Stop -> ModedVarSet.empty
 
 let dropped_vars = function
   | Drop x -> VarSet.singleton x
@@ -258,7 +258,7 @@ type scope_annotation =
 
 type inferred_scope =
   | Dead
-  | Scope of TypedVarSet.t
+  | Scope of ModedVarSet.t
 
 type segment = instruction_stream * scope_annotation option array
 type program = (string * segment) list

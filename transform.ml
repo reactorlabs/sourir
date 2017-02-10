@@ -71,7 +71,7 @@ let branch_prune (prog : program) : program =
                   OsrMut (x, x)
                 else
                   OsrMutUndef x)
-              (TypedVarSet.elements scope)
+              (ModedVarSet.elements scope)
           in
           branch_prune pc'
             (Goto l2 :: Osr (exp, deopt_label, l1, osr) :: acc_i)
