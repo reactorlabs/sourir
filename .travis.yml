@@ -1,0 +1,13 @@
+language: c
+install: wget https://raw.githubusercontent.com/avsm/ocaml-ci-scripts/extra-env/.travis-docker.sh
+script: bash -ex .travis-docker.sh
+sudo: required
+services:
+  - docker
+sudo: false
+env:
+ global:
+   - PRE_INSTALL_HOOK="cd /home/opam/opam-repository && git pull origin master && opam update -u -y"
+   - POST_INSTALL_HOOK="sh ./.travis-ci.sh"
+ matrix:
+   - PACKAGE=oUnit DISTRO=debian-testing OCAML_VERSION=4.04.0
