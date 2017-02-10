@@ -568,9 +568,8 @@ let suite =
 ;;
 
 let () =
-  let res = run_test_tt_main suite in
-  if (not (List.for_all (fun r ->
-      match r with
-      | RSuccess _ -> true
-      | _ -> false) res)) then
-    exit 1;;
+  let test_result = run_test_tt_main suite in
+  let is_success = function
+    | RSuccess _ -> true
+    | _ -> false in
+  if not (List.for_all is_success test_result) then exit 1;;
