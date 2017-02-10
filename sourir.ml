@@ -42,6 +42,13 @@ let () =
                     l (String.concat ", " xs)
         end;
         exit 1
+      | exception Scope.IncompatibleScope (scope1, scope2, pc) ->
+        let buf = Buffer.create 100 in
+        Scope.explain_incompatible_scope buf scope1 scope2 pc;
+        Buffer.output_buffer stderr buf;
+        flush stderr;
+        exit 1
+
       | scopes -> ()) program;
 
       let program = if prune
