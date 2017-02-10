@@ -94,10 +94,12 @@ loop:
   const ax = (i==limit)
   branch ax continue loop_body
 loop_body:
+  drop ax
   sum <- (sum+i)
   i <- (i+1)
   goto loop
 continue:
+  drop ax
   stop
 ")
 
@@ -117,6 +119,7 @@ let test_broken_scope_3 = parse_test
   branch y cont next
  next:
   const x = 0
+  drop x
  cont:
   print x
 "
@@ -148,10 +151,12 @@ let test_scope_1 test_var1 test_var2 = parse_test (
 a:
   const a = 0
   const c = 0
+  drop a
   goto cont
 b:
   const b = 0
   const c = 0
+  drop b
 cont:
   const res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
 ")
@@ -283,6 +288,8 @@ loop_body2:
     goto loop2
 continue2:
    sum <- (sum + sum2)
+   drop i2
+   drop sum2
    i <- (i + 1)
  goto loop1
 continue:
@@ -536,16 +543,14 @@ let suite =
            (input [Value.bool false; Value.int 1]) ok ()));
    "scope1">:: infer_broken_scope test_broken_scope_1 ["x"] 0;
    "scope2">:: infer_broken_scope test_broken_scope_2 ["x"] 3;
-   "scope3">:: infer_broken_scope test_broken_scope_3 ["x"] 5;
-   "scope3run">:: run test_broken_scope_3 no_input
-     (has_var "x" (Value.int 0));
+   "scope3">:: infer_broken_scope test_broken_scope_3 ["x"] 6;
    "scope4">:: infer_broken_scope test_broken_scope_4 ["y"] 3;
    "scope4fixed">:: run_checked test_broken_scope_4_fixed no_input ok;
    "scope5">:: infer_broken_scope test_broken_scope_5 ["w"] 2;
    "scope1ok">:: run_checked (test_scope_1 "c" "c") no_input
      (has_var "c" (Value.int 0));
-   "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"] 10;
-   "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"] 10;
+   "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"] 12;
+   "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"] 12;
    "parser">:: test_parse_disasm ("segment main\nstop\n");
    "parser1">:: test_parse_disasm ("segment asdf\nconst x = 3\nprint x\nstop\n");
    "parser2">:: test_parse_disasm ("segment asdf\ngoto l\nx <- 3\nl:\n");

@@ -21,6 +21,8 @@ module ScopeInfo = struct
                   ModedVarSet.equal a.defined b.defined
 end
 
+exception IncompatibleScope of scope_info * scope_info
+
 (* Internally we keep track of the declared and defined variables.
  * The output scopes and the annotations contain only the declarations. But
  * internally infer asserts that undefined variables are never used and
@@ -31,8 +33,9 @@ let infer (seg : segment) : inferred_scope array =
   let annotations = snd seg in
   let open Analysis in
   let merge cur incom =
-    let merged = ScopeInfo.inter cur incom in
-    if ScopeInfo.equal cur merged then None else Some merged in
+    if ScopeInfo.equal cur incom
+    then None
+    else raise (IncompatibleScope (cur, incom)) in
   let update pc cur =
     let annot = annotations.(pc) in
     let instr = instructions.(pc) in
@@ -52,9 +55,12 @@ let infer (seg : segment) : inferred_scope array =
         end
       } in
     let updated = ScopeInfo.union cur added in
-    { declared = ModedVarSet.diff_untyped updated.declared (Instr.dropped_vars instr);
-      defined = ModedVarSet.diff_untyped updated.defined (Instr.cleared_vars instr)
-    }
+    let dropped, cleared = Instr.dropped_vars instr, Instr.cleared_vars instr in
+    (* dropped variables must also be undefined, to preserve the property
+       that only declared variables are defined. *)
+    { declared = ModedVarSet.diff_untyped updated.declared dropped;
+      defined = ModedVarSet.diff_untyped updated.defined
+          (VarSet.union dropped cleared); }
   in
   let initial_state = {declared = ModedVarSet.empty; defined = ModedVarSet.empty} in
   let res = Analysis.forward_analysis initial_state seg merge update in
