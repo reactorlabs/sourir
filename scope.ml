@@ -8,17 +8,17 @@ exception UndeclaredVariable of VarSet.t * pc
 exception UninitializedVariable of VarSet.t * pc
 exception DuplicateVariable of VarSet.t * pc
 
-type scope_info = { declared : TypedVarSet.t; defined : TypedVarSet.t }
+type scope_info = { declared : ModedVarSet.t; defined : ModedVarSet.t }
 module ScopeInfo = struct
   type t = scope_info
-  let inter a b = {declared = TypedVarSet.inter a.declared b.declared;
-                   defined  = TypedVarSet.inter a.defined b.defined}
-  let union a b = {declared = TypedVarSet.union a.declared b.declared;
-                   defined  = TypedVarSet.union a.defined b.defined}
-  let diff a b = {declared  = TypedVarSet.diff a.declared b.declared;
-                   defined  = TypedVarSet.diff a.defined b.defined}
-  let equal a b = TypedVarSet.equal a.declared b.declared &&
-                  TypedVarSet.equal a.defined b.defined
+  let inter a b = {declared = ModedVarSet.inter a.declared b.declared;
+                   defined  = ModedVarSet.inter a.defined b.defined}
+  let union a b = {declared = ModedVarSet.union a.declared b.declared;
+                   defined  = ModedVarSet.union a.defined b.defined}
+  let diff a b = {declared  = ModedVarSet.diff a.declared b.declared;
+                   defined  = ModedVarSet.diff a.defined b.defined}
+  let equal a b = ModedVarSet.equal a.declared b.declared &&
+                  ModedVarSet.equal a.defined b.defined
 end
 
 (* Internally we keep track of the declared and defined variables.
@@ -40,23 +40,23 @@ let infer (seg : segment) : inferred_scope array =
       declared = Instr.declared_vars instr;
       defined = Instr.defined_vars instr;
     } in
-    let shadowed = TypedVarSet.inter cur.declared added.declared in
-    if not (TypedVarSet.is_empty shadowed) then
-      raise (DuplicateVariable (TypedVarSet.untyped shadowed, pc));
+    let shadowed = ModedVarSet.inter cur.declared added.declared in
+    if not (ModedVarSet.is_empty shadowed) then
+      raise (DuplicateVariable (ModedVarSet.untyped shadowed, pc));
     let cur =
       { cur with
         declared = begin match annot with
           | None | Some (At_least _) -> cur.declared
           | Some (Exact constraints) ->
-            TypedVarSet.inter_untyped cur.declared constraints
+            ModedVarSet.inter_untyped cur.declared constraints
         end
       } in
     let updated = ScopeInfo.union cur added in
-    { declared = TypedVarSet.diff_untyped updated.declared (Instr.dropped_vars instr);
-      defined = TypedVarSet.diff_untyped updated.defined (Instr.cleared_vars instr)
+    { declared = ModedVarSet.diff_untyped updated.declared (Instr.dropped_vars instr);
+      defined = ModedVarSet.diff_untyped updated.defined (Instr.cleared_vars instr)
     }
   in
-  let initial_state = {declared = TypedVarSet.empty; defined = TypedVarSet.empty} in
+  let initial_state = {declared = ModedVarSet.empty; defined = ModedVarSet.empty} in
   let res = Analysis.forward_analysis initial_state seg merge update in
   let finish pc res =
     let annotation = annotations.(pc) in
@@ -65,7 +65,7 @@ let infer (seg : segment) : inferred_scope array =
     | None -> Dead
     | Some res ->
       let must_have_declared vars =
-        let declared = TypedVarSet.untyped res.declared in
+        let declared = ModedVarSet.untyped res.declared in
         if not (VarSet.subset vars declared)
         then raise (UndeclaredVariable (VarSet.diff vars declared, pc)) in
       must_have_declared (Instr.required_vars instr);
@@ -74,7 +74,7 @@ let infer (seg : segment) : inferred_scope array =
         | Some (At_least xs | Exact xs) -> must_have_declared xs;
       end;
       let must_have_defined vars =
-        let defined = TypedVarSet.untyped res.defined in
+        let defined = ModedVarSet.untyped res.defined in
         if not (VarSet.subset vars defined)
         then raise (UninitializedVariable (VarSet.diff vars defined, pc)) in
       must_have_defined (Instr.used_vars instr);
