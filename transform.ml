@@ -28,7 +28,7 @@ let remove_empty_jmp (seg : segment) : segment =
 
 let remove_unreachable_code (seg : segment) entry : segment =
   let unreachable_code =
-    let merge _ _ = None in
+    let merge _ _ _ = None in
     let update _ _ = () in
     Analysis.forward_analysis_from entry () seg merge update
   in

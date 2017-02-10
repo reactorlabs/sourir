@@ -31,7 +31,7 @@ let predecessors (instrs : instruction_stream) =
 let dataflow_analysis (next : pc -> pc list)
                       (init_state : ('a * pc) list)
                       (seg : segment)
-                      (merge : 'a -> 'a -> 'a option)
+                      (merge : pc -> 'a -> 'a -> 'a option)
                       (update : pc -> 'a -> 'a)
                       : 'a option array =
   let instrs = fst seg in
@@ -43,14 +43,13 @@ let dataflow_analysis (next : pc -> pc list)
         let merged =
           match program_state.(pc) with
           | None -> Some in_state
-          | Some cur_state -> merge cur_state in_state
+          | Some cur_state -> merge pc cur_state in_state
         in begin match merged with
         | None -> work rest
         | Some new_state ->
             program_state.(pc) <- merged;
             let updated = update pc new_state in
-            let cont = next pc in
-            let new_work = List.map (fun pc -> (updated, pc)) cont in
+            let new_work = List.map (fun pc' -> (updated, pc')) (next pc) in
             work (new_work @ rest)
         end
   in
@@ -124,7 +123,7 @@ exception DeadCode of pc
 (* returns a 'pc -> pc set' computing reaching definitions *)
 let reaching (seg : segment) : pc -> InstrSet.t =
   let instrs = fst seg in
-  let merge cur_defs in_defs =
+  let merge _pc cur_defs in_defs =
     let merged = VariableMap.union cur_defs in_defs in
     if VariableMap.equal cur_defs merged then None else Some merged
   in
@@ -150,7 +149,7 @@ let reaching (seg : segment) : pc -> InstrSet.t =
 
 let liveness_analysis (seg : segment) =
   let instrs = fst seg in
-  let merge cur_uses in_uses =
+  let merge _pc cur_uses in_uses =
     let merged = VariableMap.union cur_uses in_uses in
     if VariableMap.equal cur_uses merged then None else Some merged
   in

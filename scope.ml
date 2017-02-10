@@ -32,7 +32,7 @@ let infer (seg : segment) : inferred_scope array =
   let instructions = fst seg in
   let annotations = snd seg in
   let open Analysis in
-  let merge cur incom =
+  let merge _pc cur incom =
     if ScopeInfo.equal cur incom
     then None
     else raise (IncompatibleScope (cur, incom)) in
