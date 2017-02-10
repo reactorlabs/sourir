@@ -64,9 +64,9 @@ let branch_prune (prog : program) : program =
         begin match[@warning "-4"] instrs.(pc), annots.(pc) with
         | Branch (exp, l1, l2), a ->
           let osr = List.map (function
-              | Const_var x ->
+              | (Const_var, x) ->
                 OsrConst (x, (Simple (Var x)))
-              | Mut_var x ->
+              | (Mut_var, x) ->
                 if List.exists (fun x' -> x = x') (live pc) then
                   OsrMut (x, x)
                 else
