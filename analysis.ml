@@ -30,11 +30,10 @@ let predecessors (instrs : instruction_stream) =
 
 let dataflow_analysis (next : pc -> pc list)
                       (init_state : ('a * pc) list)
-                      (seg : segment)
+                      (instrs : segment)
                       (merge : pc -> 'a -> 'a -> 'a option)
                       (update : pc -> 'a -> 'a)
                       : 'a option array =
-  let instrs = fst seg in
   if Array.length instrs == 0 then [||] else
   let program_state = Array.map (fun _ -> None) instrs in
   let rec work = function
@@ -66,19 +65,18 @@ let exits (instrs : instruction_stream) =
   exits 0
 
 let forward_analysis_from init_pos init_state seg =
-  let successors pc = successors (fst seg) pc in
+  let successors pc = successors seg pc in
   dataflow_analysis successors [(init_state, init_pos)] seg
 
 let forward_analysis init_state seg =
   forward_analysis_from 0 init_state seg
 
-let backwards_analysis init_state seg =
-  let instrs = fst seg in
+let backwards_analysis init_state instrs =
   let exits = exits instrs in
   let init_state = List.map (fun pc -> (init_state, pc)) exits in
   let preds = predecessors instrs in
   let predecessors pc = preds.(pc) in
-  dataflow_analysis predecessors init_state seg
+  dataflow_analysis predecessors init_state instrs
 
 
 
@@ -121,8 +119,7 @@ end
 exception DeadCode of pc
 
 (* returns a 'pc -> pc set' computing reaching definitions *)
-let reaching (seg : segment) : pc -> InstrSet.t =
-  let instrs = fst seg in
+let reaching (instrs : segment) : pc -> InstrSet.t =
   let merge _pc cur_defs in_defs =
     let merged = VariableMap.union cur_defs in_defs in
     if VariableMap.equal cur_defs merged then None else Some merged
@@ -135,7 +132,7 @@ let reaching (seg : segment) : pc -> InstrSet.t =
     let replace acc var = VariableMap.add var loc acc in
     List.fold_left replace defs kill
   in
-  let res = forward_analysis VariableMap.empty seg merge update in
+  let res = forward_analysis VariableMap.empty instrs merge update in
   fun pc ->
     let instr = instrs.(pc) in
     match res.(pc) with
@@ -147,8 +144,7 @@ let reaching (seg : segment) : pc -> InstrSet.t =
         List.fold_left InstrSet.union InstrSet.empty all_definitions
 
 
-let liveness_analysis (seg : segment) =
-  let instrs = fst seg in
+let liveness_analysis (instrs : segment) =
   let merge _pc cur_uses in_uses =
     let merged = VariableMap.union cur_uses in_uses in
     if VariableMap.equal cur_uses merged then None else Some merged
@@ -165,7 +161,7 @@ let liveness_analysis (seg : segment) =
     in
     List.fold_left merge uses used
   in
-  backwards_analysis VariableMap.empty seg merge update
+  backwards_analysis VariableMap.empty instrs merge update
 
 
 (* returns a 'pc -> variable set' computing live vars at a certain pc *)
@@ -180,9 +176,8 @@ let live (seg : segment) : pc -> variable list =
       live_vars
 
 (* returns a 'pc -> pc set' computing uses of a definition *)
-let used (seg : segment) : pc -> InstrSet.t =
-  let res = liveness_analysis seg in
-  let instrs = fst seg in
+let used (instrs : segment) : pc -> InstrSet.t =
+  let res = liveness_analysis instrs in
   fun pc ->
     let instr = instrs.(pc) in
     match res.(pc) with

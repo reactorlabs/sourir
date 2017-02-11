@@ -221,7 +221,7 @@ let reduce conf =
            Env.add x' (Mut a) env'
        in
        let env' = List.fold_left add Env.empty osr in
-       let instrs = fst (List.assoc v conf.program) in
+       let instrs = List.assoc v conf.program in
        { conf with
          pc = resolve instrs l;
          env = env';
@@ -238,7 +238,7 @@ let start program input pc : configuration = {
   status = Running;
   deopt = None;
   program = program;
-  instrs = fst (List.assoc "main" program);
+  instrs = List.assoc "main" program;
   pc;
 }
 

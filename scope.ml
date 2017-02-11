@@ -28,6 +28,20 @@ type inference_state = {
   info : scope_info;
 }
 
+type scope_annotation =
+  | Exact of VarSet.t
+  | At_least of VarSet.t
+
+type inferred_scope =
+  | Dead
+  | Scope of ModedVarSet.t
+
+type stream_annotation = scope_annotation option array
+type annotated_program = (instruction_stream * stream_annotation) Instr.dict
+
+let drop_annots : annotated_program -> program =
+  List.map (fun (name, (instrs, annot)) -> (name, instrs))
+
 exception IncompatibleScope of inference_state * inference_state * pc
 
 (* Internally we keep track of the declared and defined variables.
@@ -67,9 +81,7 @@ let infer instructions : inferred_scope array =
     sources = PcSet.empty;
     info = {declared = ModedVarSet.empty; defined = ModedVarSet.empty};
   } in
-  let res =
-    let seg = (instructions, Array.map (fun _ -> None) instructions) in
-    Analysis.forward_analysis initial_state seg merge update in
+  let res = Analysis.forward_analysis initial_state instructions merge update in
   let finish pc res =
     let instr = instructions.(pc) in
     match res with

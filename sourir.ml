@@ -16,10 +16,9 @@ let () =
     let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
     let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
 
-    List.iter (fun (name, segment) ->
-      let (instrs, annot) = segment in
-      match Scope.check (Scope.infer instrs) annot with
-      | exception Scope.UndeclaredVariable (xs, pc) ->
+    List.iter (fun (name, (instrs, annot)) ->
+      try Scope.check (Scope.infer instrs) annot with
+      | Scope.UndeclaredVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
           | [x] -> Printf.eprintf "%d : Error: Variable %s is not declared.\n%!" l x
@@ -27,7 +26,7 @@ let () =
                     l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.UninitializedVariable (xs, pc) ->
+      | Scope.UninitializedVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
           | [x] -> Printf.eprintf "%d : Error: Variable %s might be uninitialized.\n%!" l x
@@ -35,7 +34,7 @@ let () =
                     l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.ExtraneousVariable (xs, pc) ->
+      | Scope.ExtraneousVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
           | [x] -> Printf.eprintf "%d : Error: Variable %s is unexpected in scope.\n%!" l x
@@ -43,7 +42,7 @@ let () =
                     l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.DuplicateVariable (xs, pc) ->
+      | Scope.DuplicateVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
           | [x] -> Printf.eprintf "%d : Error: Variable %s is declared more than once.\n%!" l x
@@ -51,13 +50,14 @@ let () =
                     l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.IncompatibleScope (scope1, scope2, pc) ->
-        Disasm.pretty_print_segment stderr (name, segment);
+      | Scope.IncompatibleScope (scope1, scope2, pc) ->
+        Disasm.pretty_print_segment stderr (name, instrs);
         Scope.explain_incompatible_scope stderr scope1 scope2 pc;
         flush stderr;
         exit 1
+      ) program;
 
-      | scopes -> ()) program;
+      let program = Scope.drop_annots program in
 
       let program = if prune
         then

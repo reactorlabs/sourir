@@ -252,17 +252,10 @@ let used_vars = function
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
-type scope_annotation =
-  | Exact of VarSet.t
-  | At_least of VarSet.t
+type 'a dict = (string * 'a) list
 
-type inferred_scope =
-  | Dead
-  | Scope of ModedVarSet.t
-
-type segment = instruction_stream * scope_annotation option array
-type program = (string * segment) list
-
+type segment = instruction_stream
+type program = segment dict
 
 module Value = struct
   let int n : value = Lit (Int n)
