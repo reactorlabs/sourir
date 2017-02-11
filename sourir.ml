@@ -43,9 +43,8 @@ let () =
         end;
         exit 1
       | exception Scope.IncompatibleScope (scope1, scope2, pc) ->
-        let buf = Buffer.create 100 in
-        Scope.explain_incompatible_scope buf scope1 scope2 pc;
-        Buffer.output_buffer stderr buf;
+        Disasm.pretty_print_segment stderr (name, segment);
+        Scope.explain_incompatible_scope stderr scope1 scope2 pc;
         flush stderr;
         exit 1
 

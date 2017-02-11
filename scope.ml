@@ -104,7 +104,8 @@ let infer (seg : segment) : inferred_scope array =
   Array.mapi finish res
 
 
-let explain_incompatible_scope buf s1 s2 pc =
+let explain_incompatible_scope outchan s1 s2 pc =
+  let buf = Buffer.create 100 in
   let print_sep buf print_elem elems sep last_sep =
     let len = Array.length elems in
     for i = 0 to len - 1 do
@@ -153,4 +154,4 @@ let explain_incompatible_scope buf s1 s2 pc =
     print_sources s2.sources;
   print_only buf "former" (ScopeInfo.diff s1.info s2.info) "latter";
   print_only buf "latter" (ScopeInfo.diff s2.info s1.info) "former";
-  ()
+  Buffer.output_buffer outchan buf

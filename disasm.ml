@@ -1,7 +1,10 @@
 open Instr
 
-let disassemble_segment b (prog : segment) =
-  let dump_instr buf instr annot =
+let no_line_number buf pc = ()
+let line_number buf pc = Printf.bprintf buf "% 6d |" pc
+
+let disassemble_segment b ?(format_pc = no_line_number) (prog : segment) =
+  let dump_instr buf pc instr annot =
     let pr = Printf.bprintf in
     let simple buf = function
       | Var v             -> pr buf "%s" v
@@ -16,6 +19,7 @@ let disassemble_segment b (prog : segment) =
       | Op ((Plus | Neq | Eq), _)         -> assert(false)
     in
     let str_from_vars vars = String.concat ", " (Instr.VarSet.elements vars) in
+    format_pc buf pc;
     begin match annot with
     | Some (Exact e)    -> pr buf "{%s} "      (str_from_vars e)
     | Some (At_least e) -> pr buf "{%s, ...} " (str_from_vars e)
@@ -55,7 +59,10 @@ let disassemble_segment b (prog : segment) =
     end;
     pr buf "\n"
   in
-  Array.iter2 (dump_instr b) (fst prog) (snd prog)
+  let annot, instrs = prog in
+  for i = 0 to Array.length instrs - 1 do
+    dump_instr b i annot.(i) instrs.(i);
+  done
 
 let disassemble (prog : Instr.program) =
   let b = Buffer.create 1024 in
@@ -69,3 +76,12 @@ let disassemble_instr (instr : Instr.instruction_stream) =
   Printf.bprintf b "segment _anonym\n";
   disassemble_segment b (instr, Array.map (fun _ -> None) instr);
   Buffer.contents b
+
+let pretty_print_segment outchan (name, segment) =
+  let b = Buffer.create 1024 in
+  Printf.bprintf b "segment %s\n" name;
+  disassemble_segment b ~format_pc:line_number segment;
+  Buffer.output_buffer outchan b
+
+let pretty_print outchan prog =
+  List.iter (pretty_print_segment outchan) prog
