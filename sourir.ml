@@ -17,7 +17,8 @@ let () =
     let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
 
     List.iter (fun (name, segment) ->
-      match Scope.infer segment with
+      let (instrs, annot) = segment in
+      match Scope.check (Scope.infer instrs) annot with
       | exception Scope.UndeclaredVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with

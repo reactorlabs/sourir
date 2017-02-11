@@ -21,8 +21,9 @@ let run prog input pred () =
 
 let run_checked (prog : program) pred =
   let rc (prog, pred) =
-    let () = List.iter (fun (_, seg) ->
-        ignore (Scope.infer seg)) prog in
+    let () = List.iter (fun (_, (instrs, annot)) ->
+        let inferred = Scope.infer instrs in
+        Scope.check inferred annot) prog in
     run prog pred in
   rc (prog, pred)
 
@@ -211,8 +212,8 @@ let extraneous extra_vars pos =
   Scope.ExtraneousVariable (VarSet.of_list extra_vars, pos)
 
 let infer_broken_scope program exn = function() ->
-  let seg = List.assoc "main" program in
-  let test = function() -> Scope.infer seg in
+  let (instrs, annot) = List.assoc "main" program in
+  let test () = Scope.check (Scope.infer instrs) annot in
   assert_raises exn test
 
 let test_parse_disasm_file file = function() ->

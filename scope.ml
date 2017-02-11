@@ -31,13 +31,10 @@ type inference_state = {
 exception IncompatibleScope of inference_state * inference_state * pc
 
 (* Internally we keep track of the declared and defined variables.
- * The output scopes and the annotations contain only the declarations. But
- * internally infer asserts that undefined variables are never used and
+ * We check that undefined variables are never used and
  * declarations do not shadow a previous one
  *)
-let infer (seg : segment) : inferred_scope array =
-  let instructions = fst seg in
-  let annotations = snd seg in
+let infer instructions : inferred_scope array =
   let open Analysis in
   let merge pc cur incom =
     if not (ScopeInfo.equal cur.info incom.info)
@@ -46,7 +43,6 @@ let infer (seg : segment) : inferred_scope array =
     else Some { info = cur.info; sources = PcSet.union cur.sources incom.sources }
   in
   let update pc cur =
-    let annot = annotations.(pc) in
     let instr = instructions.(pc) in
     let added = {
       declared = Instr.declared_vars instr;
@@ -56,14 +52,6 @@ let infer (seg : segment) : inferred_scope array =
     if not (ModedVarSet.is_empty shadowed) then
       raise (DuplicateVariable (ModedVarSet.untyped shadowed, pc));
     let info = cur.info in
-    let info =
-      { info with
-        declared = begin match annot with
-          | None | Some (At_least _) -> info.declared
-          | Some (Exact constraints) ->
-            ModedVarSet.inter_untyped info.declared constraints
-        end
-      } in
     let updated = ScopeInfo.union info added in
     let dropped, cleared = Instr.dropped_vars instr, Instr.cleared_vars instr in
     (* dropped variables must also be undefined, to preserve the property
@@ -79,39 +67,49 @@ let infer (seg : segment) : inferred_scope array =
     sources = PcSet.empty;
     info = {declared = ModedVarSet.empty; defined = ModedVarSet.empty};
   } in
-  let res = Analysis.forward_analysis initial_state seg merge update in
+  let res =
+    let seg = (instructions, Array.map (fun _ -> None) instructions) in
+    Analysis.forward_analysis initial_state seg merge update in
   let finish pc res =
-    let annotation = annotations.(pc) in
     let instr = instructions.(pc) in
     match res with
     | None -> Dead
-    | Some { info = res; _ } ->
-      let must_have_declared vars =
-        let declared = ModedVarSet.untyped res.declared in
+    | Some { info; _ } ->
+      begin
+        let vars = Instr.required_vars instr in
+        let declared = ModedVarSet.untyped info.declared in
         if not (VarSet.subset vars declared)
-        then raise (UndeclaredVariable (VarSet.diff vars declared, pc)) in
-      let must_not_have_extra vars =
-        let declared = ModedVarSet.untyped res.declared in
-        if not (VarSet.subset declared vars)
-        then raise (ExtraneousVariable (VarSet.diff declared vars, pc)) in
-      must_have_declared (Instr.required_vars instr);
-      begin match annotation with
-        | None -> ()
-        | Some (At_least vars) ->
-          must_have_declared vars
-        | Some (Exact vars) ->
-          must_have_declared vars;
-          must_not_have_extra vars;
+        then raise (UndeclaredVariable (VarSet.diff vars declared, pc))
       end;
-      let must_have_defined vars =
-        let defined = ModedVarSet.untyped res.defined in
+      begin
+        let vars = Instr.used_vars instr in
+        let defined = ModedVarSet.untyped info.defined in
         if not (VarSet.subset vars defined)
-        then raise (UninitializedVariable (VarSet.diff vars defined, pc)) in
-      must_have_defined (Instr.used_vars instr);
-      Scope res.declared
+        then raise (UninitializedVariable (VarSet.diff vars defined, pc));
+      end;
+      Scope info.declared
   in
   Array.mapi finish res
 
+let check (inferred_scopes : inferred_scope array) annotations =
+  let check_instr pc = function
+    | Dead -> ()
+    | Scope scope ->
+      begin match annotations.(pc) with
+        | None -> ()
+        | Some (At_least vars) ->
+          let declared = ModedVarSet.untyped scope in
+          if not (VarSet.subset vars declared)
+          then raise (UndeclaredVariable (VarSet.diff vars declared, pc))
+        | Some (Exact vars) ->
+          let declared = ModedVarSet.untyped scope in
+          if not (VarSet.subset vars declared)
+          then raise (UndeclaredVariable (VarSet.diff vars declared, pc));
+          if not (VarSet.subset declared vars)
+          then raise (ExtraneousVariable (VarSet.diff declared vars, pc))
+      end
+  in
+  Array.iteri check_instr inferred_scopes
 
 let explain_incompatible_scope outchan s1 s2 pc =
   let buf = Buffer.create 100 in
