@@ -204,11 +204,16 @@ let test_read_print_err_4 = parse_test
     print b
 "
 
-let infer_broken_scope program missing_vars pos = function() ->
+let undeclared missing_vars pos =
+  Scope.UndeclaredVariable (VarSet.of_list missing_vars, pos)
+
+let extraneous extra_vars pos =
+  Scope.ExtraneousVariable (VarSet.of_list extra_vars, pos)
+
+let infer_broken_scope program exn = function() ->
   let seg = List.assoc "main" program in
-  let test = function() -> ignore (Scope.infer seg) in
-  let expected = Scope.(UndeclaredVariable (VarSet.of_list missing_vars, pos)) in
-  assert_raises expected test
+  let test = function() -> Scope.infer seg in
+  assert_raises exn test
 
 let test_parse_disasm_file file = function() ->
   let prog1 = Parse.parse_file file in
@@ -541,16 +546,18 @@ let suite =
    (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "b", 6))
        (fun() -> run_checked test_read_print_err_4
            (input [Value.bool false; Value.int 1]) ok ()));
-   "scope1">:: infer_broken_scope test_broken_scope_1 ["x"] 0;
-   "scope2">:: infer_broken_scope test_broken_scope_2 ["x"] 3;
-   "scope3">:: infer_broken_scope test_broken_scope_3 ["x"] 6;
-   "scope4">:: infer_broken_scope test_broken_scope_4 ["y"] 3;
+   "scope1">:: infer_broken_scope test_broken_scope_1 (undeclared ["x"] 0);
+   "scope2">:: infer_broken_scope test_broken_scope_2 (undeclared ["x"] 3);
+   "scope3">:: infer_broken_scope test_broken_scope_3 (undeclared ["x"] 6);
+   "scope4">:: infer_broken_scope test_broken_scope_4 (extraneous ["y"] 2);
    "scope4fixed">:: run_checked test_broken_scope_4_fixed no_input ok;
-   "scope5">:: infer_broken_scope test_broken_scope_5 ["w"] 2;
+   "scope5">:: infer_broken_scope test_broken_scope_5 (undeclared ["w"] 2);
    "scope1ok">:: run_checked (test_scope_1 "c" "c") no_input
      (has_var "c" (Value.int 0));
-   "scope1broken">:: infer_broken_scope (test_scope_1 "a" "c") ["a"] 12;
-   "scope1broken2">:: infer_broken_scope (test_scope_1 "a" "b") ["b"; "a"] 12;
+   "scope1broken">:: infer_broken_scope
+     (test_scope_1 "a" "c") (undeclared ["a"] 12);
+   "scope1broken2">:: infer_broken_scope
+     (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
    "parser">:: test_parse_disasm ("segment main\nstop\n");
    "parser1">:: test_parse_disasm ("segment asdf\nconst x = 3\nprint x\nstop\n");
    "parser2">:: test_parse_disasm ("segment asdf\ngoto l\nx <- 3\nl:\n");

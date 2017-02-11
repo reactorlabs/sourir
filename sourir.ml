@@ -34,6 +34,14 @@ let () =
                     l (String.concat ", " xs)
         end;
         exit 1
+      | exception Scope.ExtraneousVariable (xs, pc) ->
+        let l = pc+1 in
+        begin match Instr.VarSet.elements xs with
+          | [x] -> Printf.eprintf "%d : Error: Variable %s is unexpected in scope.\n%!" l x
+          | xs -> Printf.eprintf "%d : Error: Variables {%s} are unexpected in scope.\n%!"
+                    l (String.concat ", " xs)
+        end;
+        exit 1
       | exception Scope.DuplicateVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with

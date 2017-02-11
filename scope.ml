@@ -6,6 +6,7 @@ open Instr
 
 exception UndeclaredVariable of VarSet.t * pc
 exception UninitializedVariable of VarSet.t * pc
+exception ExtraneousVariable of VarSet.t * pc
 exception DuplicateVariable of VarSet.t * pc
 
 type scope_info = { declared : ModedVarSet.t; defined : ModedVarSet.t }
@@ -89,10 +90,18 @@ let infer (seg : segment) : inferred_scope array =
         let declared = ModedVarSet.untyped res.declared in
         if not (VarSet.subset vars declared)
         then raise (UndeclaredVariable (VarSet.diff vars declared, pc)) in
+      let must_not_have_extra vars =
+        let declared = ModedVarSet.untyped res.declared in
+        if not (VarSet.subset declared vars)
+        then raise (ExtraneousVariable (VarSet.diff declared vars, pc)) in
       must_have_declared (Instr.required_vars instr);
       begin match annotation with
         | None -> ()
-        | Some (At_least xs | Exact xs) -> must_have_declared xs;
+        | Some (At_least vars) ->
+          must_have_declared vars
+        | Some (Exact vars) ->
+          must_have_declared vars;
+          must_not_have_extra vars;
       end;
       let must_have_defined vars =
         let defined = ModedVarSet.untyped res.defined in
