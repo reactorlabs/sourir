@@ -21,33 +21,45 @@ let () =
       | Scope.UndeclaredVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "%d : Error: Variable %s is not declared.\n%!" l x
-          | xs -> Printf.eprintf "%d : Error: Variables {%s} are not declared.\n%!"
-                    l (String.concat ", " xs)
+          | [x] -> Printf.eprintf
+                     "%s:%d : Error: Variable %s is not declared.\n%!"
+                     path l x
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} are not declared.\n%!"
+                    path l (String.concat ", " xs)
         end;
         exit 1
       | Scope.UninitializedVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "%d : Error: Variable %s might be uninitialized.\n%!" l x
-          | xs -> Printf.eprintf "%d : Error: Variables {%s} might be uninitialized.\n%!"
-                    l (String.concat ", " xs)
+          | [x] -> Printf.eprintf
+                     "%s:%d : Error: Variable %s might be uninitialized.\n%!"
+                     path l x
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} might be uninitialized.\n%!"
+                    path l (String.concat ", " xs)
         end;
         exit 1
       | Scope.ExtraneousVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "%d : Error: Variable %s is unexpected in scope.\n%!" l x
-          | xs -> Printf.eprintf "%d : Error: Variables {%s} are unexpected in scope.\n%!"
-                    l (String.concat ", " xs)
+          | [x] -> Printf.eprintf
+                     "%s%d : Error: Variable %s is unexpected in scope.\n%!"
+                     path l x
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} are unexpected in scope.\n%!"
+                    path l (String.concat ", " xs)
         end;
         exit 1
       | Scope.DuplicateVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "%d : Error: Variable %s is declared more than once.\n%!" l x
-          | xs -> Printf.eprintf "%d : Error: Variables {%s} are declared more than once.\n%!"
-                    l (String.concat ", " xs)
+          | [x] -> Printf.eprintf
+                     "%s:%d : Error: Variable %s is declared more than once.\n%!"
+                     path l x
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} are declared more than once.\n%!"
+                    path l (String.concat ", " xs)
         end;
         exit 1
       | Scope.IncompatibleScope (scope1, scope2, pc) ->
