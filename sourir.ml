@@ -42,13 +42,23 @@ let () =
         exit 1
       | Scope.ExtraneousVariable (xs, pc) ->
         let l = pc+1 in
+        let annot_vars = match annot.(pc) with
+          | None | Some (Scope.At_least _) ->
+            (* we know from the exception-raising code that this cannot happen,
+               but handle this case defensively. *)
+            ""
+          | Some (Scope.Exact vars) ->
+            Instr.VarSet.elements vars |>
+            String.concat ", " |> Printf.sprintf " {%s}" in
         begin match Instr.VarSet.elements xs with
           | [x] -> Printf.eprintf
-                     "%s%d : Error: Variable %s is unexpected in scope.\n%!"
-                     path l x
+                     "%s:%d : Error: Variable %s is present in scope but missing \
+                     from the scope annotation%s.\n%!"
+                     path l x annot_vars
           | xs -> Printf.eprintf
-                    "%s:%d : Error: Variables {%s} are unexpected in scope.\n%!"
-                    path l (String.concat ", " xs)
+                    "%s:%d : Error: Variables {%s} are present in scope \
+                     but missing from the scope annotation%s.\n%!"
+                    path l (String.concat ", " xs) annot_vars
         end;
         exit 1
       | Scope.DuplicateVariable (xs, pc) ->
