@@ -10,6 +10,8 @@ loop_body:
   i <- (i + 1)
   goto loop
 
-{sum}
 continue:
+  drop i
+  drop limit
+{sum}
   print sum

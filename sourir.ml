@@ -16,33 +16,70 @@ let () =
     let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
     let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
 
-    List.iter (fun (name, segment) ->
-      match Scope.infer segment with
-      | exception Scope.UndeclaredVariable (xs, pc) ->
+    List.iter (fun (name, (instrs, annot)) ->
+      try Scope.check (Scope.infer instrs) annot with
+      | Scope.UndeclaredVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "%d : Error: Variable %s is not declared.\n%!" l x
-          | xs -> Printf.eprintf "%d : Error: Variables {%s} are not declared.\n%!"
-                    l (String.concat ", " xs)
+          | [x] -> Printf.eprintf
+                     "%s:%d : Error: Variable %s is not declared.\n%!"
+                     path l x
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} are not declared.\n%!"
+                    path l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.UninitializedVariable (xs, pc) ->
+      | Scope.UninitializedVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "%d : Error: Variable %s might be uninitialized.\n%!" l x
-          | xs -> Printf.eprintf "%d : Error: Variables {%s} might be uninitialized.\n%!"
-                    l (String.concat ", " xs)
+          | [x] -> Printf.eprintf
+                     "%s:%d : Error: Variable %s might be uninitialized.\n%!"
+                     path l x
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} might be uninitialized.\n%!"
+                    path l (String.concat ", " xs)
         end;
         exit 1
-      | exception Scope.DuplicateVariable (xs, pc) ->
+      | Scope.ExtraneousVariable (xs, pc) ->
+        let l = pc+1 in
+        let annot_vars = match annot.(pc) with
+          | None | Some (Scope.At_least _) ->
+            (* we know from the exception-raising code that this cannot happen,
+               but handle this case defensively. *)
+            ""
+          | Some (Scope.Exact vars) ->
+            Instr.VarSet.elements vars |>
+            String.concat ", " |> Printf.sprintf " {%s}" in
+        begin match Instr.VarSet.elements xs with
+          | [x] -> Printf.eprintf
+                     "%s:%d : Error: Variable %s is present in scope but missing \
+                     from the scope annotation%s.\n%!"
+                     path l x annot_vars
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} are present in scope \
+                     but missing from the scope annotation%s.\n%!"
+                    path l (String.concat ", " xs) annot_vars
+        end;
+        exit 1
+      | Scope.DuplicateVariable (xs, pc) ->
         let l = pc+1 in
         begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf "%d : Error: Variable %s is declared more than once.\n%!" l x
-          | xs -> Printf.eprintf "%d : Error: Variables {%s} are declared more than once.\n%!"
-                    l (String.concat ", " xs)
+          | [x] -> Printf.eprintf
+                     "%s:%d : Error: Variable %s is declared more than once.\n%!"
+                     path l x
+          | xs -> Printf.eprintf
+                    "%s:%d : Error: Variables {%s} are declared more than once.\n%!"
+                    path l (String.concat ", " xs)
         end;
         exit 1
-      | scopes -> ()) program;
+      | Scope.IncompatibleScope (scope1, scope2, pc) ->
+        Disasm.pretty_print_segment stderr (name, instrs);
+        Scope.explain_incompatible_scope stderr scope1 scope2 pc;
+        flush stderr;
+        exit 1
+      ) program;
+
+      let program = Scope.drop_annots program in
 
       let program = if prune
         then
