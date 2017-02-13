@@ -288,7 +288,7 @@ c:
 "
 
 let test_double_loop = parse_test
-"mut i
+"{} mut i
  i <- 0
  mut sum = 0
  const limit = 4
@@ -608,7 +608,7 @@ let suite =
 
 let () =
   let test_result = run_test_tt_main suite in
-  let is_success = function
+  let is_success = function[@warning "-4"]
     | RSuccess _ -> true
     | _ -> false in
   if not (List.for_all is_success test_result) then exit 1;;

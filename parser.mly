@@ -58,6 +58,7 @@ optional_newlines: list(NEWLINE) { () }
 scope:
 | x=variable COMMA sc=scope { let (mode, xs) = sc in (mode, x::xs) }
 | x=variable { (`Exact, [x]) }
+| { (`Exact, []) }
 | TRIPLE_DOT { (`At_least, []) }
 
 osr_def:
