@@ -15,6 +15,7 @@ let node_at cfg pc =
   node_at 0
 
 let of_program program : cfg =
+  let successors = Analysis.successors program in
   let rec next_exit pc =
     let open Instr in
     if Array.length program = pc then (pc-1)
@@ -36,8 +37,7 @@ let of_program program : cfg =
           let exit = if pc = 0 then next_exit 0 else next_exit (pc+1) in
           let node = {id = id; entry = pc; exit = exit; succ = []} in
           let acc = node :: acc in
-          let succ = Analysis.successors program exit in
-          let succ = List.filter (fun pc -> not (seen acc pc)) succ in
+          let succ = List.filter (fun pc -> not (seen acc pc)) successors.(node.exit) in
           (* explore cfg depth first to ensure topological order of id *)
           find_nodes (succ @ rest) (id+1) acc
   in
@@ -46,8 +46,7 @@ let of_program program : cfg =
   (* TODO: maybe assign the successors in the above loop
    * but its kinda hard with the order constraints *)
   let update_succ node =
-    let succ = Analysis.successors program node.exit in
-    let succ = List.map (fun pc -> node_at cfg pc) succ in
+    let succ = List.map (fun pc -> node_at cfg pc) successors.(node.exit) in
     node.succ <- succ;
   in
   Array.iter update_succ cfg;

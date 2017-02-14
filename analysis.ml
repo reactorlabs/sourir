@@ -1,34 +1,44 @@
 open Instr
 
-let successors (instrs : instruction_stream) pc =
+let pcs (instrs : instruction_stream) : pc array =
+  Array.mapi (fun pc _ -> pc) instrs
+
+let successors_at (instrs : instruction_stream) pc : pc list =
   let pc' = pc + 1 in
-  let next = if pc' = Array.length instrs then [] else [pc'] in
+  let instr = instrs.(pc) in
   let resolve = Instr.resolve instrs in
-  match instrs.(pc) with
-  | Decl_const _
-  | Decl_mut _
-  | Assign _
-  | Drop _
-  | Clear _
-  | Read _
-  | Label _
-  | Comment _
-  | Osr _
-  | Print _ -> next
-  | Goto l -> [resolve l]
-  | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
+  match instr with
+  | Decl_const _ | Decl_mut _ | Assign _ | Drop _ | Clear _ | Read _
+  | Label _ | Comment _ | Osr _ | Print _ ->
+    let is_last = pc' = Array.length instrs in
+    if is_last then [] else [pc']
   | Stop -> []
+  | Goto l -> [resolve l]
+  | Branch (_e, l1, l2) when l1 = l2 -> [resolve l1]
+  | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
 
-let predecessors (instrs : instruction_stream) =
-  let preds = Array.map (fun _ -> []) instrs in
-  let mark_successor pc pc' =
-    preds.(pc') <- pc :: preds.(pc') in
-  for pc = 0 to Array.length instrs - 1 do
-    List.iter (mark_successor pc) (successors instrs pc)
-  done;
-  preds
+let successors (instrs : instruction_stream) : pc list array =
+  let succs_at pc = successors_at instrs pc in
+  Array.map succs_at (pcs instrs)
 
-let dataflow_analysis (next : pc -> pc list)
+let predecessors (instrs : instruction_stream) : pc list array =
+  let succs = successors instrs in
+  let pcs = pcs instrs in
+  let preds_at pc =
+    let is_pred_at pc_2 pc_1 = List.exists ((=) pc_2) succs.(pc_1) in
+    List.filter (is_pred_at pc) (Array.to_list pcs)
+  in
+  Array.map preds_at pcs
+
+let starts (instrs : instruction_stream) = [0]
+
+let stops (instrs : instruction_stream) =
+  let succs = successors instrs in
+  let is_exit pc = succs.(pc) = [] in
+  let pcs = Array.to_list (pcs instrs) in
+  List.filter is_exit pcs
+
+let dataflow_analysis (next : pc list array)
                       (init_state : ('a * pc) list)
                       (instrs : segment)
                       (merge : pc -> 'a -> 'a -> 'a option)
@@ -48,42 +58,40 @@ let dataflow_analysis (next : pc -> pc list)
         | Some new_state ->
             program_state.(pc) <- merged;
             let updated = update pc new_state in
-            let new_work = List.map (fun pc' -> (updated, pc')) (next pc) in
+            let continue = next.(pc) in
+            let new_work = List.map (fun pc' -> (updated, pc')) continue in
             work (new_work @ rest)
         end
   in
   work init_state;
   program_state
 
-let exits (instrs : instruction_stream) =
-  let rec exits pc : Pc.t list =
-    if Array.length instrs = pc then []
-    else
-      let is_exit = successors instrs pc = [] in
-      if is_exit then pc :: exits (pc + 1) else exits (pc + 1)
-  in
-  exits 0
+exception UnreachableCode of pc
 
-let forward_analysis_from init_pos init_state seg =
-  let successors pc = successors seg pc in
-  dataflow_analysis successors [(init_state, init_pos)] seg
+let make_total result =
+  fun pc ->
+    match result.(pc) with
+    | None -> raise (UnreachableCode pc)
+    | Some res -> res
 
-let forward_analysis init_state seg =
-  forward_analysis_from 0 init_state seg
+let forward_analysis init_state seg merge update =
+  let successors = successors seg in
+  let starts = starts seg in
+  assert (starts != []);
+  let init = List.map (fun pos -> (init_state, pos)) starts in
+  make_total (dataflow_analysis successors init seg merge update)
 
-let backwards_analysis init_state instrs =
-  let exits = exits instrs in
-  let init_state = List.map (fun pc -> (init_state, pc)) exits in
-  let preds = predecessors instrs in
-  let predecessors pc = preds.(pc) in
-  dataflow_analysis predecessors init_state instrs
-
+let backwards_analysis init_state instrs merge update =
+  let predecessors = predecessors instrs in
+  let stops = stops instrs in
+  assert (stops != []);
+  let init = List.map (fun pos -> (init_state, pos)) stops in
+  make_total (dataflow_analysis predecessors init instrs merge update)
 
 
 (* Use - Def style analysis *)
 
-(* a set of instructions *)
-module InstrSet = Set.Make(Pc)
+module PcSet = Set.Make(Pc)
 
 (* [Analysis result] Map: variable -> pc set
  *
@@ -95,31 +103,29 @@ module VariableMap = struct
 
   (* merge is defined as the union of their equally named sets *)
   let union =
-    let merge_one _ a b : InstrSet.t option =
+    let merge_one _ a b : PcSet.t option =
       match a, b with
       | None, None -> None
       | Some a, None -> Some a
       | None, Some b -> Some b
-      | Some a, Some b -> Some (InstrSet.union a b) in
+      | Some a, Some b -> Some (PcSet.union a b) in
     merge merge_one
 
   let singleton var loc =
-      add var (InstrSet.singleton loc) empty
+      add var (PcSet.singleton loc) empty
 
   let equal =
-    let is_equal a b = InstrSet.equal a b in
+    let is_equal a b = PcSet.equal a b in
     equal is_equal
 
   let at var this =
     match find var this with
     | v -> v
-    | exception Not_found -> InstrSet.empty
+    | exception Not_found -> PcSet.empty
 end
 
-exception DeadCode of pc
-
 (* returns a 'pc -> pc set' computing reaching definitions *)
-let reaching (instrs : segment) : pc -> InstrSet.t =
+let reaching (instrs : segment) : pc -> PcSet.t =
   let merge _pc cur_defs in_defs =
     let merged = VariableMap.union cur_defs in_defs in
     if VariableMap.equal cur_defs merged then None else Some merged
@@ -128,20 +134,17 @@ let reaching (instrs : segment) : pc -> InstrSet.t =
     let instr = instrs.(pc) in
     (* add or override defined vars in one go*)
     let kill = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
-    let loc = InstrSet.singleton pc in
+    let loc = PcSet.singleton pc in
     let replace acc var = VariableMap.add var loc acc in
     List.fold_left replace defs kill
   in
   let res = forward_analysis VariableMap.empty instrs merge update in
   fun pc ->
     let instr = instrs.(pc) in
-    match res.(pc) with
-    | None -> raise (DeadCode pc)
-    | Some res ->
-        let used = VarSet.elements (used_vars instr) in
-        let definitions_of var = VariableMap.find var res in
-        let all_definitions = List.map definitions_of used in
-        List.fold_left InstrSet.union InstrSet.empty all_definitions
+    let used = VarSet.elements (used_vars instr) in
+    let definitions_of var = VariableMap.find var (res pc) in
+    let all_definitions = List.map definitions_of used in
+    List.fold_left PcSet.union PcSet.empty all_definitions
 
 
 let liveness_analysis (instrs : segment) =
@@ -168,23 +171,16 @@ let liveness_analysis (instrs : segment) =
 let live (seg : segment) : pc -> variable list =
   let res = liveness_analysis seg in
   fun pc ->
-    match res.(pc) with
-    | None -> raise (DeadCode pc)
-    | Some res ->
-      let collect_key (key, value) = key in
-      let live_vars = List.map collect_key (VariableMap.bindings res) in
-      live_vars
+    let collect_key (key, value) = key in
+    let live_vars = List.map collect_key (VariableMap.bindings (res pc)) in
+    live_vars
 
 (* returns a 'pc -> pc set' computing uses of a definition *)
-let used (instrs : segment) : pc -> InstrSet.t =
+let used (instrs : segment) : pc -> PcSet.t =
   let res = liveness_analysis instrs in
   fun pc ->
     let instr = instrs.(pc) in
-    match res.(pc) with
-    | None -> raise (DeadCode pc)
-    | Some res ->
-        let defined = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
-        let uses_of var = VariableMap.at var res in
-        let all_uses = List.map uses_of defined in
-        List.fold_left InstrSet.union InstrSet.empty all_uses
-
+      let defined = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
+      let uses_of var = VariableMap.at var (res pc) in
+      let all_uses = List.map uses_of defined in
+      List.fold_left PcSet.union PcSet.empty all_uses

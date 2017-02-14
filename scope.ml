@@ -48,7 +48,7 @@ exception IncompatibleScope of inference_state * inference_state * pc
  * We check that undefined variables are never used and
  * declarations do not shadow a previous one
  *)
-let infer instructions : inferred_scope array =
+let infer instructions : (pc -> inferred_scope) =
   let open Analysis in
   let merge pc cur incom =
     if not (ScopeInfo.equal cur.info incom.info)
@@ -82,11 +82,11 @@ let infer instructions : inferred_scope array =
     info = {declared = ModedVarSet.empty; defined = ModedVarSet.empty};
   } in
   let res = Analysis.forward_analysis initial_state instructions merge update in
-  let finish pc res =
+  fun pc ->
     let instr = instructions.(pc) in
-    match res with
-    | None -> Dead
-    | Some { info; _ } ->
+    match res pc with
+    | exception Analysis.UnreachableCode _ -> Dead
+    | { info; _ } ->
       begin
         let vars = Instr.required_vars instr in
         let declared = ModedVarSet.untyped info.declared in
@@ -100,11 +100,11 @@ let infer instructions : inferred_scope array =
         then raise (UninitializedVariable (VarSet.diff vars defined, pc));
       end;
       Scope info.declared
-  in
-  Array.mapi finish res
 
-let check (inferred_scopes : inferred_scope array) annotations =
-  let check_instr pc = function
+let check (seg : segment) annotations =
+  let inferred = infer seg in
+  let check_instr pc i =
+    match inferred pc with
     | Dead -> ()
     | Scope scope ->
       begin match annotations.(pc) with
@@ -121,7 +121,7 @@ let check (inferred_scopes : inferred_scope array) annotations =
           then raise (ExtraneousVariable (VarSet.diff declared vars, pc))
       end
   in
-  Array.iteri check_instr inferred_scopes
+  Array.iteri check_instr seg
 
 let explain_incompatible_scope outchan s1 s2 pc =
   let buf = Buffer.create 100 in
