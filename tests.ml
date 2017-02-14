@@ -370,51 +370,6 @@ l2:
 l3:
 "
 
-let do_test_dom1 = function () ->
-  let open Cfg in
-  let instrs = List.assoc "main" test_df in
-  let cfg = Cfg.of_program instrs in
-  let doms = dominators (test_df, cfg) in
-  let expected = [| []; [0]; [0;1]; [0;1;2]; |] in
-  let got = Array.map (fun s ->
-    List.map (fun n -> n.id) (BasicBlockSet.elements s)) doms in
-  assert_equal got expected;
-  let c1 = common_dominator (test_df, cfg, doms) [8; 14] in
-  let c2 = common_dominator (test_df, cfg, doms) [8; 13] in
-  let c3 = common_dominator (test_df, cfg, doms) [12; 13] in
-  assert_equal c1.id 1;
-  assert_equal c2.id 1;
-  assert_equal c3.id 2
-
-(* compare a CFG against a blueprint. The blueprint uses
- * array indices as successors instead of references to the
- * successor BB.
- * This is required since otherwise it is (i) annoying to
- * construct the expected CFG and (ii) assert_equals diverges
- * on circular CFGs *)
-type bb_blueprint = {entry : pc; exit : pc; succ : int list}
-let compare_cfg (cfg : Cfg.cfg) (cfg_blueprint : bb_blueprint array) =
-  let open Cfg in
-  assert_equal (Array.length cfg) (Array.length cfg_blueprint);
-  Array.iteri (fun i (expected : bb_blueprint) ->
-      let node = cfg.(i) in
-      assert_equal expected.entry node.entry;
-      assert_equal expected.exit node.exit;
-      let succ = List.map (fun n -> n.id) node.succ in
-      assert_equal expected.succ succ
-    ) cfg_blueprint
-
-let do_test_cfg = function () ->
-  let open Cfg in
-  let instrs = List.assoc "main" test_df in
-  let cfg = Cfg.of_program instrs in
-  let expected = [|
-      {entry=0; exit=5; succ=[1]};
-      {entry=6; exit=9; succ=[1;2]};
-      {entry=11; exit=13; succ=[1;3]};
-      {entry=14; exit=14; succ=[]} |] in
-  compare_cfg cfg expected
-
 let do_test_liveness = function () ->
   let seg = List.assoc "main" test_df in
   let open Analysis in
@@ -501,14 +456,6 @@ jmp:
   branch true start end
 end:
 "
-
-let do_test_dom prog = function () ->
-  let cfg = Cfg.of_program prog in
-  let doms = Cfg.dominators (prog, cfg) in
-  let c = Cfg.common_dominator (test_df2, cfg, doms) [12; 19] in
-  let expected = Cfg.node_at cfg 9 in
-  let open Cfg in
-  assert_equal c.id expected.id
 
 let suite =
   "suite">:::
@@ -600,9 +547,6 @@ let suite =
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
-   "cfg">:: do_test_cfg;
-   "dom">:: do_test_dom1;
-   "dom2">:: do_test_dom (List.assoc "main" test_df2);
    ]
 ;;
 
