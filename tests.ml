@@ -17,7 +17,7 @@ let input = IO.list_input
 
 let check annotated_program =
   let check_segment (name, (instrs, annot)) =
-    Scope.check instrs annot in
+    Scope.check (Scope.infer instrs) annot in
   List.iter check_segment annotated_program;
   Scope.drop_annots annotated_program
 
@@ -223,7 +223,7 @@ let extraneous extra_vars pos =
 
 let infer_broken_scope program exn = function() ->
   let (instrs, annot) = List.assoc "main" program in
-  let test () = Scope.check instrs annot in
+  let test () = Scope.check (Scope.infer instrs) annot in
   assert_raises exn test
 
 let test_parse_disasm_file file = function() ->

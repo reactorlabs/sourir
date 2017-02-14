@@ -53,7 +53,7 @@ let branch_prune (prog : program) : program =
     if pc = Array.length main then
       Array.of_list (List.rev acc)
     else
-      match scope pc with
+      match scope.(pc) with
       | Scope.Dead -> assert(false)
       | Scope.Scope scope ->
         let pc' = pc + 1 in
