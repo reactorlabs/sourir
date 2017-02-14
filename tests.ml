@@ -439,31 +439,31 @@ let do_test_used = function () ->
   let seg = List.assoc "main" test_df in
   let open Analysis in
   let used = used seg in
-  assert_equal_sorted (InstrSet.elements (used 0)) [2;5;7];
-  assert_equal_sorted (InstrSet.elements (used 1)) [2];
-  assert_equal_sorted (InstrSet.elements (used 2)) [];
-  assert_equal_sorted (InstrSet.elements (used 4)) [5;7];
-  assert_equal_sorted (InstrSet.elements (used 5)) [];
-  assert_equal_sorted (InstrSet.elements (used 7)) [12];
-  assert_equal_sorted (InstrSet.elements (used 8)) [7;9;12;13];
-  assert_equal_sorted (InstrSet.elements (used 9)) [];
-  assert_equal_sorted (InstrSet.elements (used 11)) [];
-  assert_equal_sorted (InstrSet.elements (used 12)) [];
-  assert_equal_sorted (InstrSet.elements (used 13)) [];
-  assert_equal_sorted (InstrSet.elements (used 6)) []
+  assert_equal_sorted (PcSet.elements (used 0)) [2;5;7];
+  assert_equal_sorted (PcSet.elements (used 1)) [2];
+  assert_equal_sorted (PcSet.elements (used 2)) [];
+  assert_equal_sorted (PcSet.elements (used 4)) [5;7];
+  assert_equal_sorted (PcSet.elements (used 5)) [];
+  assert_equal_sorted (PcSet.elements (used 7)) [12];
+  assert_equal_sorted (PcSet.elements (used 8)) [7;9;12;13];
+  assert_equal_sorted (PcSet.elements (used 9)) [];
+  assert_equal_sorted (PcSet.elements (used 11)) [];
+  assert_equal_sorted (PcSet.elements (used 12)) [];
+  assert_equal_sorted (PcSet.elements (used 13)) [];
+  assert_equal_sorted (PcSet.elements (used 6)) []
 
 
 let do_test_reaching = function () ->
   let seg = List.assoc "main" test_df in
   let open Analysis in
   let reaching = reaching seg in
-  assert_equal_sorted (InstrSet.elements (reaching 0)) [];
-  assert_equal_sorted (InstrSet.elements (reaching 1)) [];
-  assert_equal_sorted (InstrSet.elements (reaching 2)) [0;1];
-  assert_equal_sorted (InstrSet.elements (reaching 5)) [0;4];
-  assert_equal_sorted (InstrSet.elements (reaching 7)) [8;0;4];
-  assert_equal_sorted (InstrSet.elements (reaching 12)) [8;7];
-  assert_equal_sorted (InstrSet.elements (reaching 0)) []
+  assert_equal_sorted (PcSet.elements (reaching 0)) [];
+  assert_equal_sorted (PcSet.elements (reaching 1)) [];
+  assert_equal_sorted (PcSet.elements (reaching 2)) [0;1];
+  assert_equal_sorted (PcSet.elements (reaching 5)) [0;4];
+  assert_equal_sorted (PcSet.elements (reaching 7)) [8;0;4];
+  assert_equal_sorted (PcSet.elements (reaching 12)) [8;7];
+  assert_equal_sorted (PcSet.elements (reaching 0)) []
 
 let test_df2 = parse_no_check
 " goto jmp

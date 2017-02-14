@@ -82,11 +82,10 @@ let infer instructions : inferred_scope array =
     info = {declared = ModedVarSet.empty; defined = ModedVarSet.empty};
   } in
   let res = Analysis.forward_analysis initial_state instructions merge update in
-  let finish pc res =
-    let instr = instructions.(pc) in
-    match res with
-    | None -> Dead
-    | Some { info; _ } ->
+  let infer_at pc instr =
+    match res pc with
+    | exception Analysis.UnreachableCode _ -> Dead
+    | { info; _ } ->
       begin
         let vars = Instr.required_vars instr in
         let declared = ModedVarSet.untyped info.declared in
@@ -99,12 +98,12 @@ let infer instructions : inferred_scope array =
         if not (VarSet.subset vars defined)
         then raise (UninitializedVariable (VarSet.diff vars defined, pc));
       end;
-      Scope info.declared
-  in
-  Array.mapi finish res
+      Scope info.declared in
+  Array.mapi infer_at instructions
 
-let check (inferred_scopes : inferred_scope array) annotations =
-  let check_instr pc = function
+let check (scope : inferred_scope array) annotations =
+  let check_at pc scope =
+    match scope with
     | Dead -> ()
     | Scope scope ->
       begin match annotations.(pc) with
@@ -121,7 +120,7 @@ let check (inferred_scopes : inferred_scope array) annotations =
           then raise (ExtraneousVariable (VarSet.diff declared vars, pc))
       end
   in
-  Array.iteri check_instr inferred_scopes
+  Array.iteri check_at scope
 
 let explain_incompatible_scope outchan s1 s2 pc =
   let buf = Buffer.create 100 in
