@@ -3,32 +3,37 @@ open Instr
 let pcs (instrs : instruction_stream) : pc array =
   Array.mapi (fun pc _ -> pc) instrs
 
+module PcSet = Set.Make(Pc)
+
 let successors_at (instrs : instruction_stream) pc : pc list =
   let pc' = pc + 1 in
   let instr = instrs.(pc) in
   let resolve = Instr.resolve instrs in
-  match instr with
-  | Decl_const _ | Decl_mut _ | Assign _ | Drop _ | Clear _ | Read _
-  | Label _ | Comment _ | Osr _ | Print _ ->
-    let is_last = pc' = Array.length instrs in
-    if is_last then [] else [pc']
-  | Stop -> []
-  | Goto l -> [resolve l]
-  | Branch (_e, l1, l2) when l1 = l2 -> [resolve l1]
-  | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
+  let all_succ =
+    match instr with
+    | Decl_const _ | Decl_mut _ | Assign _ | Drop _ | Clear _ | Read _
+    | Label _ | Comment _ | Osr _ | Print _ ->
+      let is_last = pc' = Array.length instrs in
+      if is_last then [] else [pc']
+    (* those are the instructions which manipulate controlflow:  *)
+    | Stop -> []
+    | Goto l -> [resolve l]
+    | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
+  in
+  PcSet.elements (PcSet.of_list all_succ)
 
 let successors (instrs : instruction_stream) : pc list array =
   let succs_at pc = successors_at instrs pc in
   Array.map succs_at (pcs instrs)
 
 let predecessors (instrs : instruction_stream) : pc list array =
-  let succs = successors instrs in
-  let pcs = pcs instrs in
-  let preds_at pc =
-    let is_pred_at pc_2 pc_1 = List.exists ((=) pc_2) succs.(pc_1) in
-    List.filter (is_pred_at pc) (Array.to_list pcs)
-  in
-  Array.map preds_at pcs
+  let preds = Array.map (fun _ -> []) instrs in
+  let mark_successor pc pc' =
+    preds.(pc') <- pc :: preds.(pc') in
+  for pc = 0 to Array.length instrs - 1 do
+    List.iter (mark_successor pc) (successors_at instrs pc)
+  done;
+  preds
 
 let starts (instrs : instruction_stream) = [0]
 
@@ -90,8 +95,6 @@ let backwards_analysis init_state instrs merge update =
 
 
 (* Use - Def style analysis *)
-
-module PcSet = Set.Make(Pc)
 
 (* [Analysis result] Map: variable -> pc set
  *
