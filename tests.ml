@@ -457,6 +457,62 @@ jmp:
 end:
 "
 
+let do_test_codemotion = function () ->
+  let main p : instruction_stream = List.assoc "main" p in
+  let t = parse_test "
+       goto bla
+      loop:
+       y <- z
+       x <- (x + y)
+       branch (x==10) end loop
+      end:
+       stop
+      bla:
+       const z = 1
+       mut x = 1
+       mut y = z
+       goto loop
+  " in
+  let res = Transform.hoist_assignment t in
+  assert_equal (main res).(8) (Decl_mut ("y0", Some (Simple (Var "z"))));
+  let t = parse_test "
+       mut x = 1
+       mut y = 2
+      loop:
+       y <- 1
+       x <- (x + y)
+       branch (x==10) end loop
+      end:
+  " in
+  let res = Transform.hoist_assignment t in
+  assert_equal (main res).(0) (Decl_mut ("y0", Some (Simple (Lit (Int 1)))));
+  let t = parse_test "
+       mut x = 1
+       mut y = 2
+      loop:
+       y <- x
+       x <- (x + y)
+       branch (x==10) end loop
+      end:
+  " in
+  let res = Transform.hoist_assignment t in
+  assert_equal (main res).(3) (main t).(3);
+  let t = parse_test "
+       mut x = 1
+       mut y = 2
+      loop:
+       branch (x==5) la lb
+      la:
+       y <- 1
+      lb:
+       x <- (x + y)
+       branch (x==10) end loop
+      end:
+  " in
+  let res = Transform.hoist_assignment t in
+  assert_equal (main res).(5) (main t).(5);
+  ()
+
 let suite =
   "suite">:::
   ["mut">:: run_checked test_mut no_input
@@ -547,6 +603,7 @@ let suite =
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
+   "codemotion">:: do_test_codemotion;
    ]
 ;;
 

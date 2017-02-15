@@ -15,6 +15,7 @@ let () =
     in
     let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
     let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
+    let codemotion = Array.exists (fun arg -> arg = "--cm") Sys.argv in
 
     List.iter (fun (name, (instrs, annot)) ->
       try Scope.check (Scope.infer instrs) annot with
@@ -84,8 +85,17 @@ let () =
       let program = if prune
         then
           let opt = Transform.branch_prune program in
-          if not quiet then Printf.printf "%s" (Disasm.disassemble opt);
+          if not quiet then Printf.printf "\n** After speculative branch pruning:\n%s" (Disasm.disassemble opt);
           opt
         else program
       in
+
+      let program = if codemotion
+        then
+          let opt = Transform.hoist_assignment program in
+          if not quiet then Printf.printf "\n** After trying to hoist one assignment:\n%s" (Disasm.disassemble opt);
+          opt
+        else program
+      in
+
       ignore (Eval.run_interactive IO.stdin_input program)

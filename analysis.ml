@@ -43,6 +43,13 @@ let stops (instrs : instruction_stream) =
   let pcs = Array.to_list (pcs instrs) in
   List.filter is_exit pcs
 
+let osrs (instrs : instruction_stream) =
+  let is_osr pc = match[@warning "-4"] instrs.(pc) with
+    | Osr _ -> true
+    | _ -> false in
+  let pcs = Array.to_list (pcs instrs) in
+  List.filter is_osr pcs
+
 let dataflow_analysis (next : pc list array)
                       (init_state : ('a * pc) list)
                       (instrs : segment)
@@ -88,11 +95,32 @@ let forward_analysis init_state seg merge update =
 
 let backwards_analysis init_state instrs merge update =
   let predecessors = predecessors instrs in
-  let stops = stops instrs in
-  assert (stops != []);
-  let init = List.map (fun pos -> (init_state, pos)) stops in
+  let exits = stops instrs @ osrs instrs in
+  assert (exits != []);
+  let init = List.map (fun pos -> (init_state, pos)) exits in
   make_total (dataflow_analysis predecessors init instrs merge update)
 
+let find (next : pc list array)
+         (start : pc)
+         (instrs : segment)
+         (predicate : pc -> bool) : pc =
+  let rec work todo seen =
+    match todo with
+    | [] -> raise Not_found
+    | pc :: rest when PcSet.exists ((=) pc) seen ->
+      work rest seen    (* already checked *)
+    | pc :: rest when predicate pc ->
+      pc                (* fits predicate *)
+    | pc :: rest ->
+      let seen, todo = PcSet.add pc seen, next.(pc) @ todo in
+      work todo seen    (* schedule next *)
+  in
+  work [start] PcSet.empty
+
+let find_first (instrs : segment)
+               (predicate : pc -> bool) : pc =
+  let succ = successors instrs in
+  find succ 0 instrs predicate
 
 (* Use - Def style analysis *)
 
@@ -183,7 +211,20 @@ let used (instrs : segment) : pc -> PcSet.t =
   let res = liveness_analysis instrs in
   fun pc ->
     let instr = instrs.(pc) in
-      let defined = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
-      let uses_of var = VariableMap.at var (res pc) in
-      let all_uses = List.map uses_of defined in
-      List.fold_left PcSet.union PcSet.empty all_uses
+    let defined = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
+    let uses_of var = VariableMap.at var (res pc) in
+    let all_uses = List.map uses_of defined in
+    List.fold_left PcSet.union PcSet.empty all_uses
+
+let dominates (instrs : segment) : pc -> pc -> bool =
+  let merge _pc cur incom =
+    let merged = PcSet.inter cur incom in
+    if PcSet.equal merged cur then None else Some merged
+  in
+  let update pc cur =
+    PcSet.add pc cur
+  in
+  let dominators = forward_analysis PcSet.empty instrs merge update in
+  fun pc pc' ->
+    let doms = dominators pc' in
+    PcSet.exists ((=) pc) doms
