@@ -55,16 +55,15 @@ let infer instructions : inferred_scope array =
       let final_info = ModedVarSet.diff_untyped updated dropped in
       { sources = PcSet.singleton pc; info = final_info; }
     in
-    let initial_state = {
-      sources = PcSet.empty;
-      info = ModedVarSet.empty;
-    } in
+    let initial_state = { sources = PcSet.empty; info = ModedVarSet.empty; } in
     let res = Analysis.forward_analysis initial_state instructions merge update in
     fun pc -> (res pc).info in
 
   let check_initialized instructions =
-    let open Analysis in
-    let merge pc cur incom = assert (ModedVarSet.equal cur incom); None in
+    let merge pc cur incom =
+      let merged = ModedVarSet.inter cur incom in
+      if ModedVarSet.equal cur merged then None else Some merged
+    in
     let update pc cur =
       let instr = instructions.(pc) in
       let written = Instr.defined_vars instr in
@@ -74,7 +73,8 @@ let infer instructions : inferred_scope array =
          that only declared variables are defined. *)
       ModedVarSet.diff_untyped updated (VarSet.union dropped cleared)
     in
-    Analysis.forward_analysis ModedVarSet.empty instructions merge update in
+    let initial_state = ModedVarSet.empty in
+    Analysis.forward_analysis initial_state instructions merge update in
 
   let inferred = infer_scope instructions in
   let initialized = check_initialized instructions in
@@ -148,12 +148,12 @@ let explain_incompatible_scope outchan s1 s2 pc =
     Printf.bprintf buf "}";
   in
   let print_only buf name1 diff name2 =
-    let print_diff verb diff =
+    let print_diff diff =
       if not (ModedVarSet.is_empty diff) then
         Printf.bprintf buf
-          "  - the %s %s %a and the %s does not\n"
-          name1 verb print_vars diff name2 in
-    print_diff "declares" diff;
+          "  - the %s declares %a and the %s does not\n"
+          name1 print_vars diff name2 in
+    print_diff diff;
   in
   Printf.bprintf buf
     "At instruction %d,\n\

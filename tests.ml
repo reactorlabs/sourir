@@ -215,6 +215,39 @@ let test_read_print_err_4 = parse_annotated
     print b
 "
 
+let do_test_scope_uninitialized = function () ->
+  assert_raises (Scope.UninitializedVariable (VarSet.singleton "x", 2)) (fun () -> ignore (parse_test "
+     mut x = 1
+    loop:
+     print x
+     clear x
+     goto loop
+    "));
+  assert_raises (Scope.UninitializedVariable (VarSet.singleton "x", 2)) (fun () -> ignore (parse_test "
+     mut x = 1
+    loop:
+     print x
+     branch (x==1) clearit loop
+    clearit:
+     clear x
+     goto loop
+    "));
+  (* Positive example: even though one branch cleares x it is restored at the end *)
+  ignore (parse_test "
+     mut x = 1
+    loop:
+     print x
+     branch (x==1) clearit skip
+    clearit:
+     clear x
+    skip:
+     x <- 7
+     goto loop
+    ")
+
+
+
+
 let undeclared missing_vars pos =
   Scope.UndeclaredVariable (VarSet.of_list missing_vars, pos)
 
@@ -573,6 +606,7 @@ let suite =
      (test_scope_1 "a" "c") (undeclared ["a"] 12);
    "scope1broken2">:: infer_broken_scope
      (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
+   "scope_uninitialized">:: do_test_scope_uninitialized;
    "parser">:: test_parse_disasm ("segment main\nstop\n");
    "parser1">:: test_parse_disasm ("segment asdf\nconst x = 3\nprint x\nstop\n");
    "parser2">:: test_parse_disasm ("segment asdf\ngoto l\nx <- 3\nl:\n");
