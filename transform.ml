@@ -91,6 +91,19 @@ let move instrs from_pc to_pc =
   move from_pc;
   instrs.(to_pc) <- from
 
+(* Hoisting assignments "x <- exp" as far up the callgraph as possible.
+ *
+ * Since we are not in SSA moving assignments is only possible (without further
+ * analysis) if the assignments dominates all its uses. Otherwise we might
+ * accidentally capture uses on some traces.
+ *
+ * The condition for a move to be valid is that the move target dominates the
+ * move origin (ie. we are moving upwards) and is dominated by all reaching
+ * defs (ie. we are not moving above our dependencies).
+ *
+ * We only look at our own use-def chain. Thus the transformation renames the
+ * variable to avoid overriding unrelated uses of the same name.
+ *)
 let hoist_assignment prog =
   let main = List.assoc "main" prog in
   let rest = List.remove_assoc "main" prog in

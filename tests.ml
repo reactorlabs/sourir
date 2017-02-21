@@ -473,8 +473,22 @@ let do_test_codemotion = function () ->
        mut y = z
        goto loop
   " in
+  let expected = parse_test "
+       goto bla
+      loop:
+       x <- (x + y1)
+       branch (x == 10) end loop
+      end:
+       stop
+      bla:
+       const z = 1
+       mut y1 = z
+       mut x = 1
+       mut y = z
+       goto loop
+  " in
   let res = Transform.hoist_assignment t in
-  assert_equal (main res).(8) (Decl_mut ("y0", Some (Simple (Var "z"))));
+  assert_equal (Disasm.disassemble res) (Disasm.disassemble expected);
   let t = parse_test "
        mut x = 1
        mut y = 2
@@ -484,8 +498,17 @@ let do_test_codemotion = function () ->
        branch (x==10) end loop
       end:
   " in
+  let expected = parse_test "
+       mut y1 = 1
+       mut x = 1
+       mut y = 2
+      loop:
+       x <- (x + y1)
+       branch (x == 10) end loop
+      end:
+  " in
   let res = Transform.hoist_assignment t in
-  assert_equal (main res).(0) (Decl_mut ("y0", Some (Simple (Lit (Int 1)))));
+  assert_equal (Disasm.disassemble res) (Disasm.disassemble expected);
   let t = parse_test "
        mut x = 1
        mut y = 2
@@ -496,7 +519,8 @@ let do_test_codemotion = function () ->
       end:
   " in
   let res = Transform.hoist_assignment t in
-  assert_equal (main res).(3) (main t).(3);
+  (* cannot hoist because depends on previous loop iteration *)
+  assert_equal (Disasm.disassemble res) (Disasm.disassemble t);
   let t = parse_test "
        mut x = 1
        mut y = 2
@@ -510,7 +534,8 @@ let do_test_codemotion = function () ->
       end:
   " in
   let res = Transform.hoist_assignment t in
-  assert_equal (main res).(5) (main t).(5);
+  (* cannot hoist because if (x==5) then y is modified *)
+  assert_equal (Disasm.disassemble res) (Disasm.disassemble t);
   ()
 
 let suite =

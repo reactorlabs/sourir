@@ -7,7 +7,7 @@ let fresh_var instrs var =
     not (VarSet.exists ((=) (cand i)) existing) in
   let rec find i =
     if Array.for_all (is_fresh i) instrs then cand i else find (i+1) in
-  find 0
+  find 1
 
 let in_simple_expression old_name new_name (exp:simple_expression) : simple_expression =
   match exp with
