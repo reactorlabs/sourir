@@ -79,18 +79,6 @@ let branch_prune (prog : program) : program =
   let cleanup = remove_empty_jmp (remove_unreachable_code final) in
   ("main", cleanup) :: (deopt_label, main) :: rest
 
-let move instrs from_pc to_pc =
-  let (dir, to_pc) = if from_pc > to_pc then (-1, to_pc) else (1, to_pc-1) in
-  let from = instrs.(from_pc) in
-  let rec move pc =
-    if pc != to_pc then begin
-      instrs.(pc) <- instrs.(pc+dir);
-      move (pc+dir)
-    end
-  in
-  move from_pc;
-  instrs.(to_pc) <- from
-
 (* Hoisting assignments "x <- exp" as far up the callgraph as possible.
  *
  * Since we are not in SSA moving assignments is only possible (without further
@@ -139,7 +127,7 @@ let hoist_assignment prog =
   | Some (from_pc, to_pc) ->
     let copy = Array.copy main in
     Rename.freshen_assign copy from_pc;
-    move copy from_pc to_pc;
+    Edit.move copy from_pc to_pc;
     ("main", copy) :: rest
 
 let remove_unused_vars instrs =
