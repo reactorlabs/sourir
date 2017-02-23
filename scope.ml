@@ -9,18 +9,7 @@ exception UninitializedVariable of VarSet.t * pc
 exception ExtraneousVariable of VarSet.t * pc
 exception DuplicateVariable of VarSet.t * pc
 
-type scope_info = { declared : ModedVarSet.t; defined : ModedVarSet.t }
-module ScopeInfo = struct
-  type t = scope_info
-  let inter a b = {declared = ModedVarSet.inter a.declared b.declared;
-                   defined  = ModedVarSet.inter a.defined b.defined}
-  let union a b = {declared = ModedVarSet.union a.declared b.declared;
-                   defined  = ModedVarSet.union a.defined b.defined}
-  let diff a b = {declared  = ModedVarSet.diff a.declared b.declared;
-                   defined  = ModedVarSet.diff a.defined b.defined}
-  let equal a b = ModedVarSet.equal a.declared b.declared &&
-                  ModedVarSet.equal a.defined b.defined
-end
+type scope_info = ModedVarSet.t
 
 module PcSet = Set.Make(Pc)
 type inference_state = {
@@ -44,62 +33,67 @@ let drop_annots : annotated_program -> program =
 
 exception IncompatibleScope of inference_state * inference_state * pc
 
-(* Internally we keep track of the declared and defined variables.
- * We check that undefined variables are never used and
- * declarations do not shadow a previous one
- *)
 let infer instructions : inferred_scope array =
   let open Analysis in
-  let merge pc cur incom =
-    if not (ScopeInfo.equal cur.info incom.info)
-    then raise (IncompatibleScope (cur, incom, pc))
-    else if PcSet.equal cur.sources incom.sources then None
-    else Some { info = cur.info; sources = PcSet.union cur.sources incom.sources }
-  in
-  let update pc cur =
-    let instr = instructions.(pc) in
-    let added = {
-      declared = Instr.declared_vars instr;
-      defined = Instr.defined_vars instr;
-    } in
-    let shadowed = ModedVarSet.inter cur.info.declared added.declared in
-    if not (ModedVarSet.is_empty shadowed) then
-      raise (DuplicateVariable (ModedVarSet.untyped shadowed, pc));
-    let info = cur.info in
-    let updated = ScopeInfo.union info added in
-    let dropped, cleared = Instr.dropped_vars instr, Instr.cleared_vars instr in
-    (* dropped variables must also be undefined, to preserve the property
-       that only declared variables are defined. *)
-    let final_info = {
-      declared = ModedVarSet.diff_untyped updated.declared dropped;
-      defined = ModedVarSet.diff_untyped updated.defined
-          (VarSet.union dropped cleared);
-    } in
-    { sources = PcSet.singleton pc; info = final_info; }
-  in
-  let initial_state = {
-    sources = PcSet.empty;
-    info = {declared = ModedVarSet.empty; defined = ModedVarSet.empty};
-  } in
-  let res = Analysis.forward_analysis initial_state instructions merge update in
-  let infer_at pc instr =
-    match res pc with
+
+  let infer_scope instructions =
+    let merge pc cur incom =
+      if not (ModedVarSet.equal cur.info incom.info)
+      then raise (IncompatibleScope (cur, incom, pc))
+      else if PcSet.equal cur.sources incom.sources then None
+      else Some { info = cur.info; sources = PcSet.union cur.sources incom.sources }
+    in
+    let update pc cur =
+      let instr = instructions.(pc) in
+      let added = Instr.declared_vars instr in
+      let info = cur.info in
+      let shadowed = ModedVarSet.inter info added in
+      if not (ModedVarSet.is_empty shadowed) then
+        raise (DuplicateVariable (ModedVarSet.untyped shadowed, pc));
+      let updated = ModedVarSet.union info added in
+      let dropped = Instr.dropped_vars instr in
+      let final_info = ModedVarSet.diff_untyped updated dropped in
+      { sources = PcSet.singleton pc; info = final_info; }
+    in
+    let initial_state = { sources = PcSet.empty; info = ModedVarSet.empty; } in
+    let res = Analysis.forward_analysis initial_state instructions merge update in
+    fun pc -> (res pc).info in
+
+  let check_initialized instructions =
+    let merge pc cur incom =
+      let merged = ModedVarSet.inter cur incom in
+      if ModedVarSet.equal cur merged then None else Some merged
+    in
+    let update pc cur =
+      let instr = instructions.(pc) in
+      let written = Instr.defined_vars instr in
+      let updated = ModedVarSet.union cur written in
+      let dropped, cleared = Instr.dropped_vars instr, Instr.cleared_vars instr in
+      (* dropped variables must also be undefined, to preserve the property
+         that only declared variables are defined. *)
+      ModedVarSet.diff_untyped updated (VarSet.union dropped cleared)
+    in
+    let initial_state = ModedVarSet.empty in
+    Analysis.forward_analysis initial_state instructions merge update in
+
+  let inferred = infer_scope instructions in
+  let initialized = check_initialized instructions in
+
+  let resolve pc instr =
+    match inferred pc, initialized pc with
     | exception Analysis.UnreachableCode _ -> Dead
-    | { info; _ } ->
-      begin
-        let vars = Instr.required_vars instr in
-        let declared = ModedVarSet.untyped info.declared in
-        if not (VarSet.subset vars declared)
-        then raise (UndeclaredVariable (VarSet.diff vars declared, pc))
-      end;
-      begin
-        let vars = Instr.used_vars instr in
-        let defined = ModedVarSet.untyped info.defined in
-        if not (VarSet.subset vars defined)
-        then raise (UninitializedVariable (VarSet.diff vars defined, pc));
-      end;
-      Scope info.declared in
-  Array.mapi infer_at instructions
+    | declared, defined ->
+      let defined' = ModedVarSet.untyped defined in
+      let declared' = ModedVarSet.untyped declared in
+      let used = Instr.used_vars instr in
+      let required = Instr.required_vars instr in
+      if not (VarSet.subset required declared')
+      then raise (UndeclaredVariable (VarSet.diff required declared', pc));
+      if not (VarSet.subset used defined')
+      then raise (UninitializedVariable (VarSet.diff used defined', pc));
+      Scope defined in
+
+  Array.mapi resolve instructions
 
 let check (scope : inferred_scope array) annotations =
   let check_at pc scope =
@@ -154,13 +148,12 @@ let explain_incompatible_scope outchan s1 s2 pc =
     Printf.bprintf buf "}";
   in
   let print_only buf name1 diff name2 =
-    let print_diff verb diff =
+    let print_diff diff =
       if not (ModedVarSet.is_empty diff) then
         Printf.bprintf buf
-          "  - the %s %s %a and the %s does not\n"
-          name1 verb print_vars diff name2 in
-    print_diff "declares" diff.declared;
-    print_diff "defines"  (ModedVarSet.diff diff.defined diff.declared);
+          "  - the %s declares %a and the %s does not\n"
+          name1 print_vars diff name2 in
+    print_diff diff;
   in
   Printf.bprintf buf
     "At instruction %d,\n\
@@ -170,6 +163,6 @@ let explain_incompatible_scope outchan s1 s2 pc =
     pc
     print_sources s1.sources
     print_sources s2.sources;
-  print_only buf "former" (ScopeInfo.diff s1.info s2.info) "latter";
-  print_only buf "latter" (ScopeInfo.diff s2.info s1.info) "former";
+  print_only buf "former" (ModedVarSet.diff s1.info s2.info) "latter";
+  print_only buf "latter" (ModedVarSet.diff s2.info s1.info) "former";
   Buffer.output_buffer outchan buf
