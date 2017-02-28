@@ -141,3 +141,48 @@ let hoist_assignment prog =
     Rename.freshen_assign copy from_pc;
     move copy from_pc to_pc;
     ("main", copy) :: rest
+
+let remove_unused_vars instrs =
+  let open Analysis in
+  let required = Analysis.required instrs in
+  let used = Analysis.used instrs in
+  let rec result (pc : pc) =
+    if pc = Array.length instrs then []
+    else let pc', i = pc+1, instrs.(pc) in
+      match[@warning "-4"] i with
+      | Decl_mut (x, _)
+      | Decl_const (x, _) when PcSet.is_empty (required pc) -> result pc'
+      | Assign _ when PcSet.is_empty (used pc) -> result pc'
+      | i -> i :: result pc'
+  in
+  Array.of_list (result 0)
+
+let remove_drops instrs =
+  Array.of_list (
+    List.filter (fun x -> match[@warning "-4"] x with
+        | Drop _ -> false | _ -> true)
+      (Array.to_list instrs))
+
+let minimize_lifetimes prog =
+  let main = List.assoc "main" prog in
+  let rest = List.remove_assoc "main" prog in
+  let main = remove_unused_vars main in
+  let main = remove_drops main in
+  let predecessors = Analysis.predecessors main in
+  let required_at = Analysis.required_merged_vars_at main in
+  let required_before pc =
+    (* It might seem like we need to take the union over all predecessors. But
+     * since required_merged_vars_at extends lifetimes to mergepoints this is
+     * equivalent to just look at the first predecessor *)
+    match predecessors.(pc) with | [] -> VarSet.empty | p :: _ -> required_at p
+  in
+  let rec result (pc : pc) =
+    if pc = Array.length main then [] else
+      let required = required_at pc in
+      let required_before = required_before pc in
+      let to_drop = VarSet.diff required_before required in
+      let drops = List.map (fun x -> Drop x) (VarSet.elements to_drop) in
+      drops @ main.(pc) :: result (pc+1)
+  in
+  let dropped = Array.of_list (result 0) in
+  ("main", dropped) :: rest
