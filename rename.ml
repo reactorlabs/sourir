@@ -1,7 +1,7 @@
 open Instr
 
 let fresh_var instrs var =
-  let cand i = var ^ (string_of_int i) in
+  let cand i = var ^ "_" ^ (string_of_int i) in
   let is_fresh cand_var instr =
     let existing = ModedVarSet.untyped (declared_vars instr) in
     not (VarSet.mem cand_var existing) in
@@ -11,7 +11,7 @@ let fresh_var instrs var =
   find 1
 
 let fresh_label instrs label =
-  let cand i = label ^ (string_of_int i) in
+  let cand i = label ^ "_" ^ (string_of_int i) in
   let is_fresh cand_lab instr = match[@warning "-4"] instr with
     | Label l -> l <> cand_lab
     | _ -> true in

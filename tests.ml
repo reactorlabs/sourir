@@ -508,13 +508,13 @@ let do_test_codemotion = function () ->
   let expected = parse_test "
        goto bla
       loop:
-       x <- (x + y1)
+       x <- (x + y_1)
        branch (x == 10) end loop
       end:
        stop
       bla:
        const z = 1
-       mut y1 = z
+       mut y_1 = z
        mut x = 1
        mut y = z
        goto loop
@@ -531,11 +531,11 @@ let do_test_codemotion = function () ->
       end:
   " in
   let expected = parse_test "
-       mut y1 = 1
+       mut y_1 = 1
        mut x = 1
        mut y = 2
       loop:
-       x <- (x + y1)
+       x <- (x + y_1)
        branch (x == 10) end loop
       end:
   " in
