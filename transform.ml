@@ -79,6 +79,24 @@ let branch_prune (prog : program) : program =
   let cleanup = remove_empty_jmp (remove_unreachable_code final) in
   ("main", cleanup) :: (deopt_label, main) :: rest
 
+
+let remove_fallthroughs_to_label instrs =
+  let rec loop pc acc =
+    if pc = Array.length instrs then acc else
+    match[@warning "-4"] instrs.(pc-1), instrs.(pc) with
+    | Goto _, Label _
+    | Branch _, Label _ ->
+      loop (pc+1) acc
+    | _, Label l ->
+      let edit = (pc, 0, [| Goto l |]) in
+      loop (pc+1) (edit :: acc)
+    | _, _ ->
+      loop (pc+1) acc
+  in
+  let edits = loop 1 [] in
+  snd (Edit.subst_many instrs edits)
+
+
 (* Hoisting assignments "x <- exp" as far up the callgraph as possible.
  *
  * Since we are not in SSA moving assignments is only possible (without further

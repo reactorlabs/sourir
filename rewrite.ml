@@ -24,14 +24,11 @@ let split_edge instrs pc label pc' =
   new_instrs.(new_pc pc) <- new_branch;
   new_instrs, new_pc
 
-type status = Blocked | Need_pull | Stop | Work of pc list
+type push_status = Blocked | Need_pull of pc | Stop | Work of pc list
 
-let push_drop instrs pc_drop =
+let push_drop instrs dropped_var pc_drop =
   let pc_above = pc_drop - 1 in
-  let dropped_var = match[@warning "-4"] instrs.(pc_drop) with
-    | Drop x -> x
-    | _ -> invalid_arg "push_drop"
-  in
+  assert (instrs.(pc_drop) = Drop dropped_var);
   let instr = instrs.(pc_above) in
   let _succs = Analysis.successors instrs in
   let preds = Analysis.predecessors instrs in
@@ -74,7 +71,7 @@ let push_drop instrs pc_drop =
       | _ -> false in
     begin match List.find is_branch preds.(pc_above) with
     | branch_pc ->
-     if preds.(pc_above) = [branch_pc] then instrs, Need_pull
+     if preds.(pc_above) = [branch_pc] then instrs, Need_pull branch_pc
      else
        (* multi-predecessor case, one of which is a branch:
           we just split the branch edge -- doing anything more
@@ -87,10 +84,27 @@ let push_drop instrs pc_drop =
        instrs, Work [pc_map pc_drop]
    | exception Not_found ->
      let delete = (pc_drop, 1, [||]) in
-     let insert pred_pc = (pred_pc, 0, [|Drop dropped_var|]) in
+     let insert pred_pc = (pred_pc, 0, [| Drop dropped_var |]) in
      let substs = delete :: List.map insert preds.(pc_above) in
      let instrs, pc_map = Edit.subst_many instrs substs in
      let list = List.map (fun pc -> pc_map pc - 1) preds.(pc_above) in
      instrs, Work (List.sort Pervasives.compare list)
    end
+
+type pull_status = Pulled_to of pc | Blocked
+
+let pull_drop instrs dropped_var pc_branch =
+  let drop_instr = Drop dropped_var in
+  let succs = Analysis.successors instrs in
+  let instr_after pc = instr_at instrs (pc+1) in
+  let to_pull = List.map instr_after succs.(pc_branch) in
+  let can_pull = List.for_all ((=) drop_instr) to_pull in
+  if not can_pull then instrs, Blocked
+  else begin
+    let insert = (pc_branch, 0, [| drop_instr |]) in
+    let delete label_pc = (label_pc + 1, 1, [||]) in
+    let deletes = List.map delete succs.(pc_branch) in
+    let instrs, pc_map = Edit.subst_many instrs (insert :: deletes) in
+    instrs, Pulled_to (pc_map pc_branch - 1)
+  end
 

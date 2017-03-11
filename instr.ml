@@ -261,3 +261,8 @@ module Value = struct
   let int n : value = Lit (Int n)
   let bool b : value = Lit (Bool b)
 end
+
+let instr_at instrs pc =
+  if Array.length instrs = pc then Stop
+  else if Array.length instrs < pc then invalid_arg "instr_at"
+  else instrs.(pc)
