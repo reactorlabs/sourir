@@ -63,7 +63,7 @@ let branch_prune (prog : program) : program =
               | (Const_var, x) ->
                 OsrConst (x, (Simple (Var x)))
               | (Mut_var, x) ->
-                if List.exists (fun x' -> x = x') (live pc) then
+                if List.mem x (live pc) then
                   OsrMut (x, x)
                 else
                   OsrMutUndef x)

@@ -13,11 +13,11 @@ let () =
         Parse.report_error error;
         exit 2
     in
-    let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
-    let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
-    let codemotion = Array.exists (fun arg -> arg = "--cm") Sys.argv in
-    let constprop = Array.exists (fun arg -> arg = "--prop") Sys.argv in
-    let lifetime = Array.exists (fun arg -> arg = "--lifetime") Sys.argv in
+    let quiet = Array.mem "--quiet" Sys.argv in
+    let prune = Array.mem "--prune" Sys.argv in
+    let codemotion = Array.mem "--cm" Sys.argv in
+    let constprop = Array.mem "--prop" Sys.argv in
+    let lifetime = Array.mem "--lifetime" Sys.argv in
 
     List.iter (fun (name, (instrs, annot)) ->
       try Scope.check (Scope.infer instrs) annot with
