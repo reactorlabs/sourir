@@ -2,11 +2,23 @@ open Instr
 
 let fresh_var instrs var =
   let cand i = var ^ (string_of_int i) in
-  let is_fresh i instr =
+  let is_fresh cand_var instr =
     let existing = ModedVarSet.untyped (declared_vars instr) in
-    not (VarSet.exists ((=) (cand i)) existing) in
+    not (VarSet.mem cand_var existing) in
   let rec find i =
-    if Array.for_all (is_fresh i) instrs then cand i else find (i+1) in
+    let cand_var = cand i in
+    if Array.for_all (is_fresh cand_var) instrs then cand_var else find (i+1) in
+  find 1
+
+let fresh_label instrs label =
+  let cand i = label ^ (string_of_int i) in
+  let is_fresh cand_lab instr = match[@warning "-4"] instr with
+    | Label l -> l <> cand_lab
+    | _ -> true in
+  let rec find i =
+    let cand_lab = cand i in
+    if Array.for_all (is_fresh cand_lab) instrs
+    then cand_lab else find (i+1) in
   find 1
 
 let in_simple_expression old_name new_name (exp:simple_expression) : simple_expression =
