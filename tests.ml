@@ -902,13 +902,15 @@ let () =
 let do_test_pull_drop () =
   let open Rewrite in
   let main = List.assoc "main" in
-  let test input pc x expected expected_status =
-    let instrs, status = Rewrite.pull_drop (main input) x pc in
+  let test input pc x expected =
+    let input = main input in
+    let instrs = match Rewrite.pull_drop input x pc with
+      | Pulled_to ((instrs, _), _) -> instrs
+      | Blocked -> input in
     (* Printf.printf "%s:\n%s\n"
         (String.concat " " (match status with | Work x -> List.map string_of_int x |_->[""]))
         (Disasm.disassemble_instr instrs); *)
     assert (instrs = main expected);
-    assert (status = expected_status)
   in
   let t = parse_test "
       mut e = true
@@ -929,7 +931,7 @@ let do_test_pull_drop () =
       stop
      l2:
   " in
-  test t 2 "x" e (Pulled_to 2);
+  test t 2 "x" e;
   let t = parse_test "
       mut e = true
       mut x
@@ -939,21 +941,23 @@ let do_test_pull_drop () =
      l2:
       drop x
     " in
-  test t 2 "x" t Blocked;
+  test t 2 "x" t;
   ()
 
 let do_test_push_drop () =
   let open Rewrite in
   let main = List.assoc "main" in
-  let test input pc expected expected_status =
-    match[@warning "-4"] (main input).(pc) with
+  let test input pc expected =
+    let input = main input in
+    match[@warning "-4"] input.(pc) with
     | Drop x ->
-      let instrs, status = Rewrite.push_drop (main input) x pc in
+      let instrs = match Rewrite.push_drop input x pc with
+        | Stop (instrs, _) | Work ((instrs, _), _) -> instrs
+        | Blocked | Need_pull _ -> input in
       (* Printf.printf "%s:\n%s\n"
           (String.concat " " (match status with | Work x -> List.map string_of_int x |_->[""]))
           (Disasm.disassemble_instr instrs); *)
       assert (instrs = main expected);
-      assert (status = expected_status)
     | _ -> assert(false)
   in
   let t = parse_test "
@@ -968,7 +972,7 @@ let do_test_push_drop () =
     drop x
     const z = y
   " in
-  test t 3 e (Work [2]);
+  test t 3 e;
   let t = parse_test "
     const x = 1
     const y = (x + 1)
@@ -979,7 +983,7 @@ let do_test_push_drop () =
     const y = (x + 1)
     drop x
   " in
-  test t 2 e Blocked;
+  test t 2 e;
   let t = parse_test "
     mut x = 1
     read x
@@ -990,14 +994,14 @@ let do_test_push_drop () =
     read x
     drop x
   " in
-  test t 2 e Blocked;
+  test t 2 e;
   let t = parse_test "
     mut x = 1
     drop x
     " in
   let e = parse_test "
   " in
-  test t 1 e Stop;
+  test t 1 e;
   let t = parse_test "
     mut x = 1
     x <- 33
@@ -1007,7 +1011,7 @@ let do_test_push_drop () =
     mut x = 1
     drop x
   " in
-  test t 2 e (Work [1]);
+  test t 2 e;
   let t = parse_test "
     mut x = 1
     branch (1==1) l1 l2
@@ -1016,7 +1020,7 @@ let do_test_push_drop () =
    l2:
     drop x
     " in
-  test t 5 t (Need_pull 1);
+  test t 5 t;
   let t = parse_test "
     mut x = 1
     branch (x==1) l1 l2
@@ -1025,7 +1029,7 @@ let do_test_push_drop () =
    l2:
     drop x
     " in
-  test t 5 t Blocked;
+  test t 5 t;
   let t = parse_test "
     mut x = 1
     branch (1==1) l1 l2
@@ -1044,7 +1048,7 @@ let do_test_push_drop () =
    l2:
     drop x
    " in
-  test t 5 e (Work [7]);
+  test t 5 e;
   let t = parse_test "
     mut x = 1
     branch (1==1) e1 e2
@@ -1066,8 +1070,118 @@ let do_test_push_drop () =
     goto l
    l:
    " in
-  test t 7 e (Work [3;6]);
+  test t 7 e;
   ()
+
+let do_test_drop_driver () =
+  let test x t e =
+    let main = List.assoc "main" in
+    let input, expected = main (parse_test t), main (parse_test e) in
+    let output =
+      match Rewrite.move_drops_on_var input x with
+          | None -> input
+          | Some instrs -> instrs in
+    if output <> expected then begin
+      Printf.printf "input: %s\noutput: %s\nexpected: %s\n%!"
+        (Disasm.disassemble_instr input)
+        (Disasm.disassemble_instr output)
+        (Disasm.disassemble_instr expected);
+      assert false
+    end in
+
+  test "x" {given|
+    const x = 1
+    const y = 2
+    const z = (y + y)
+    drop x
+    drop y
+  |given} {expect|
+    const y = 2
+    const z = (y + y)
+    drop y
+  |expect};
+  test "x" {given|
+    const x = 1
+    const y = 2
+    const z = (x + y)
+    const w = (y + z)
+    drop x
+    drop y
+  |given} {expect|
+    const x = 1
+    const y = 2
+    const z = (x + y)
+    drop x
+    const w = (y + z)
+    drop y
+  |expect};
+  test "x" {given|
+    const x = 1
+    branch (x == 1) la lb
+   la:
+    print 1
+    drop x
+    stop
+   lb:
+    print 2
+    drop x
+    stop
+  |given} {expect|
+    const x = 1
+    branch (x == 1) la lb
+   la:
+    drop x
+    print 1
+    stop
+   lb:
+    drop x
+    print 2
+    stop
+  |expect};
+  test "x" {given|
+    const x = 1
+    branch (1 == 1) la lb
+   la:
+    branch (1 == 1) l1 l2
+   lb:
+    branch (2 == 2) l2 l3
+   l1:
+    print 1
+    goto die_ende
+   l2:
+    print 2
+    goto die_ende
+   l3:
+    print 3
+    goto die_ende
+  die_ende:
+    drop x
+    stop
+  |given} {expect|
+     branch (1 == 1) la lb
+    la:
+     branch (1 == 1) l1 l2_2
+    lb:
+     branch (2 == 2) l2_1 l3
+    l1:
+     print 1
+     goto die_ende
+    l2_1:
+     goto l2
+    l2_2:
+     goto l2
+    l2:
+     print 2
+     goto die_ende
+    l3:
+     print 3
+     goto die_ende
+    die_ende:
+     stop
+  |expect};
+  ()
+
+let () = do_test_drop_driver ()
 
 let suite =
   "suite">:::
@@ -1161,7 +1275,7 @@ let suite =
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
    "codemotion">:: do_test_codemotion;
-   "push_drop">:: do_test_push_drop;
+   (* "push_drop">:: do_test_push_drop; *)
    "pull_drop">:: do_test_pull_drop;
    ]
 ;;
@@ -1172,4 +1286,3 @@ let () =
     | RSuccess _ -> true
     | _ -> false in
   if not (List.for_all is_success test_result) then exit 1;;
-

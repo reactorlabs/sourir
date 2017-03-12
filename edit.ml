@@ -10,16 +10,20 @@ let move instrs from_pc to_pc =
   move from_pc;
   instrs.(to_pc) <- from
 
+type pc_map = int -> int
+
+type result = Instr.instruction_stream * pc_map
+
+let subst_pc instrs start_pc len new_instrs pc =
+  if pc < start_pc then pc
+  else pc - len + Array.length new_instrs
+
 let subst instrs pc len new_instrs =
   Array.concat [
     Array.sub instrs 0 pc;
     new_instrs;
     Array.sub instrs (pc + len) (Array.length instrs - pc - len);
-  ]
-
-let subst_pc instrs start_pc len new_instrs pc =
-  if pc < start_pc then pc
-  else pc - len + Array.length new_instrs
+  ], subst_pc instrs pc len new_instrs
 
 let subst_many instrs substs =
   let rec chunks cur_pc substs =

@@ -82,8 +82,8 @@ let branch_prune (prog : program) : program =
 
 let remove_fallthroughs_to_label instrs =
   let rec loop pc acc =
-    if pc = Array.length instrs then acc else
-    match[@warning "-4"] instrs.(pc-1), instrs.(pc) with
+    if pc = Array.length instrs then acc
+    else match[@warning "-4"] instrs.(pc-1), instrs.(pc) with
     | Goto _, Label _
     | Branch _, Label _ ->
       loop (pc+1) acc
@@ -94,7 +94,7 @@ let remove_fallthroughs_to_label instrs =
       loop (pc+1) acc
   in
   let edits = loop 1 [] in
-  snd (Edit.subst_many instrs edits)
+  fst (Edit.subst_many instrs edits)
 
 
 (* Hoisting assignments "x <- exp" as far up the callgraph as possible.
