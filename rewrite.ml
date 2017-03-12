@@ -32,11 +32,12 @@ let push_drop instrs dropped_var pc_drop =
   let instr = instrs.(pc_above) in
   let _succs = Analysis.successors instrs in
   let preds = Analysis.predecessors instrs in
+  let blocking_instr instr =
+    VarSet.mem dropped_var (required_vars instr) in
   let edit new_instrs =
     Edit.subst instrs pc_above 2 new_instrs in
   let general_regime instr =
-    if VarSet.mem dropped_var (required_vars instr)
-    then instrs, Blocked
+    if blocking_instr instr then instrs, Blocked
     else edit [|Drop dropped_var; instr|], Work [pc_above] in
   match instr with
   | Assign (x, _) | Clear x ->
@@ -57,6 +58,9 @@ let push_drop instrs dropped_var pc_drop =
     assert false
   | (Read _ | Branch _ | Osr _ | Drop _ | Goto _ | Comment _ | Print _) as instr ->
     general_regime instr
+  | Label label
+    when List.exists (fun pc -> blocking_instr instrs.(pc)) preds.(pc_above)
+    -> instrs, Blocked
   | Label label ->
     (*
        We don't want to push over branches; they are barriers
