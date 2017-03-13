@@ -186,17 +186,22 @@ let scope_analysis (introduction : instruction -> variable list)
   let update pc cur_scope =
     let instr = instrs.(pc) in
     let to_remove = introduction instr in
-    let remove acc var = VariableMap.remove var acc in
-    let cur_scope' = List.fold_left remove cur_scope to_remove in
+    let cur_scope = List.fold_right VariableMap.remove to_remove cur_scope in
     let to_add = elimination instr in
-    let merge acc var = VariableMap.union (VariableMap.singleton var pc) acc in
-    List.fold_left merge cur_scope' to_add
+    let entry var = VariableMap.singleton var pc in
+    let merge acc var = VariableMap.union (entry var) acc in
+    List.fold_left merge cur_scope to_add
   in
   backwards_analysis VariableMap.empty instrs merge update
 
 let liveness_analysis (instrs : segment) =
   let introduction instr = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
   let elimination instr = VarSet.elements (used_vars instr) in
+  scope_analysis introduction elimination instrs
+
+let lifetime_analysis (instrs : segment) =
+  let introduction instr = VarSet.elements (ModedVarSet.untyped (declared_vars instr)) in
+  let elimination instr = VarSet.elements (required_vars instr) in
   scope_analysis introduction elimination instrs
 
 (* returns a 'pc -> variable set' computing live vars at a certain pc *)
@@ -211,11 +216,8 @@ let live (seg : segment) : pc -> variable list =
 let used (instrs : segment) : pc -> PcSet.t =
   let res = liveness_analysis instrs in
   fun pc ->
-    let instr = instrs.(pc) in
-    let defined = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
-    let uses_of var = VariableMap.at var (res pc) in
-    let all_uses = List.map uses_of defined in
-    List.fold_left PcSet.union PcSet.empty all_uses
+    let add_uses (_, x) used = PcSet.union used (VariableMap.at x (res pc)) in
+    ModedVarSet.fold add_uses (defined_vars instrs.(pc)) PcSet.empty
 
 let dominates (instrs : segment) : pc -> pc -> bool =
   let merge _pc cur incom =
@@ -230,24 +232,16 @@ let dominates (instrs : segment) : pc -> pc -> bool =
     let doms = dominators pc' in
     PcSet.exists ((=) pc) doms
 
-let lifetime_analysis (instrs : segment) =
-  let introduction instr = VarSet.elements (ModedVarSet.untyped (declared_vars instr)) in
-  let elimination instr = VarSet.elements (required_vars instr) in
-  scope_analysis introduction elimination instrs
-
 (* returns a 'pc -> pc set' computing the set of instructions depending on a declaration *)
 let required (instrs : segment) : pc -> PcSet.t =
   let res = lifetime_analysis instrs in
   fun pc ->
-    let instr = instrs.(pc) in
-    let declared = VarSet.elements (ModedVarSet.untyped (declared_vars instr)) in
-    let required_of var = VariableMap.at var (res pc) in
-    let all_requires = List.map required_of declared in
-    List.fold_left PcSet.union PcSet.empty all_requires
+    let add_uses (_, x) used = PcSet.union used (VariableMap.at x (res pc)) in
+    ModedVarSet.fold add_uses (declared_vars instrs.(pc)) PcSet.empty
 
 (* returns a 'pc -> variable set' computing variables which need to be in scope
  * Note: they might not be! *)
-let required_vars_at (seg : segment) : pc -> variable list =
+let required_vars (seg : segment) : pc -> variable list =
   let res = lifetime_analysis seg in
   fun pc ->
     let collect_key (key, value) = key in
@@ -256,11 +250,10 @@ let required_vars_at (seg : segment) : pc -> variable list =
 
 (* The same as required_vars_at but extends the required interval to
  * merge points to conform to our scoping rules *)
-let required_merged_vars_at instrs =
-  let required_vars_at = required_vars_at instrs in
+let saturate analysis instrs =
   let merge pc cur_lifetime in_lifetime =
     let merged = VarSet.union cur_lifetime in_lifetime in
     if VarSet.equal cur_lifetime merged then None else Some merged
   in
-  let update pc cur_lifetime = VarSet.of_list (required_vars_at pc) in
+  let update pc cur_lifetime = VarSet.of_list (analysis pc) in
   forward_analysis VarSet.empty instrs merge update

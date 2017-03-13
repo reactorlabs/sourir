@@ -169,16 +169,17 @@ let minimize_lifetimes prog =
   let main = remove_unused_vars main in
   let main = remove_drops main in
   let predecessors = Analysis.predecessors main in
-  let required_at = Analysis.required_merged_vars_at main in
+  let required = Analysis.required_vars main in
+  let required = Analysis.saturate required main in
   let required_before pc =
     (* It might seem like we need to take the union over all predecessors. But
      * since required_merged_vars_at extends lifetimes to mergepoints this is
      * equivalent to just look at the first predecessor *)
-    match predecessors.(pc) with | [] -> VarSet.empty | p :: _ -> required_at p
+    match predecessors.(pc) with | [] -> VarSet.empty | p :: _ -> required p
   in
   let rec result (pc : pc) =
     if pc = Array.length main then [] else
-      let required = required_at pc in
+      let required = required pc in
       let required_before = required_before pc in
       let to_drop = VarSet.diff required_before required in
       let drops = List.map (fun x -> Drop x) (VarSet.elements to_drop) in
