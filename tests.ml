@@ -491,7 +491,6 @@ end:
 "
 
 let do_test_codemotion = function () ->
-  let main p : instruction_stream = List.assoc "main" p in
   let t = parse_test "
        goto bla
       loop:
@@ -570,6 +569,48 @@ let do_test_codemotion = function () ->
   (* cannot hoist because if (x==5) then y is modified *)
   assert_equal (Disasm.disassemble res) (Disasm.disassemble t);
   ()
+
+let do_test_minimize_lifetime = function () ->
+  let t = parse_test "
+       mut a = 12
+       mut b = false
+       mut c
+       branch b o1 o2
+      o1:
+       a <- 22
+       a <- 1
+       print a
+      o2:
+       print b
+       drop b
+       goto x
+      x:
+       const b = 3
+       print b
+       stop
+  " in
+  let expected = parse_test "
+       mut a = 12
+       mut b = false
+       branch b o1 o2
+      o1:
+       a <- 1
+       print a
+      o2:
+       drop a
+       print b
+       drop b
+       goto x
+      x:
+       const b = 3
+       print b
+       drop b
+       stop
+  " in
+  let res = Transform.minimize_lifetimes t in
+  assert_equal (Disasm.disassemble res) (Disasm.disassemble expected);
+  ()
+
 
 let suite =
   "suite">:::
@@ -663,6 +704,7 @@ let suite =
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
    "codemotion">:: do_test_codemotion;
+   "min_lifetimes">:: do_test_minimize_lifetime;
    ]
 ;;
 

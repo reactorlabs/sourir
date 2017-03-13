@@ -16,6 +16,7 @@ let () =
     let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
     let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
     let codemotion = Array.exists (fun arg -> arg = "--cm") Sys.argv in
+    let lifetime = Array.exists (fun arg -> arg = "--lifetime") Sys.argv in
 
     List.iter (fun (name, (instrs, annot)) ->
       try Scope.check (Scope.infer instrs) annot with
@@ -97,5 +98,16 @@ let () =
           opt
         else program
       in
+
+      let program = if lifetime
+        then
+          let opt = Transform.minimize_lifetimes program in
+          if not quiet then Printf.printf "\n** After minimizing lifetimes:\n%s" (Disasm.disassemble opt);
+          opt
+        else program
+      in
+
+      List.iter (fun (name, instrs) ->
+        Scope.check (Scope.infer instrs) (Array.map (fun _ -> None) instrs)) program;
 
       ignore (Eval.run_interactive IO.stdin_input program)
