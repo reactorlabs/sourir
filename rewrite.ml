@@ -1,7 +1,15 @@
 open Instr
 
-(* TODO remove the fallthrough cases *)
+(** [split_edge instrs pc label pc']
+    splits the edge from a branch instruction in [pc]
+    to a [Label label] instruction in [pc'],
+    assuming there is no fallthrough to [pc'] -- all
+    other predecessors are gotos or branches.
 
+    Before applying it to arbitrary program, we use
+    [Transform.remove_fallthroughs_to_label] to make the
+    assumption hold.
+*)
 let split_edge instrs pc label pc' =
   assert (instrs.(pc') = Label label);
   let split_label = Rename.fresh_label instrs label in
@@ -89,6 +97,12 @@ let push_drop instrs dropped_var pc_drop =
        let (_instrs, pc_map) as edit = split_edge instrs branch_pc label pc_above in
        Work (edit, [pc_map pc_drop])
    | exception Not_found ->
+     (* multi-predecessor case, with no multi-successor predecessor (no branch);
+        we can move the drop above all predecessors. For a predecessor in (pc),
+        we move the drop to ((pc_map pc) - 1), that is above a (Goto label)
+        instruction at (pc_map pc). This assumes that there is no fallthrough
+        to our label, that [Transform.remove_fallthroughs_to_label] has been
+        applied to the input program. *)
      let delete = (pc_drop, 1, [||]) in
      let insert pred_pc = (pred_pc, 0, [| Drop dropped_var |]) in
      let substs = delete :: List.map insert preds.(pc_above) in
