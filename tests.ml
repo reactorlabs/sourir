@@ -904,12 +904,9 @@ let do_test_pull_drop () =
   let main = List.assoc "main" in
   let test input pc x expected =
     let input = main input in
-    let instrs = match Rewrite.pull_drop input x pc with
+    let instrs = match Rewrite.pull_instr input pc with
       | Pulled_to ((instrs, _), _) -> instrs
       | Blocked -> input in
-    (* Printf.printf "%s:\n%s\n"
-        (String.concat " " (match status with | Work x -> List.map string_of_int x |_->[""]))
-        (Disasm.disassemble_instr instrs); *)
     assert (instrs = main expected);
   in
   let t = parse_test "
@@ -951,12 +948,13 @@ let do_test_push_drop () =
     let input = main input in
     match[@warning "-4"] input.(pc) with
     | Drop x ->
-      let instrs = match Rewrite.push_drop input x pc with
+      let push = Rewrite.push_instr
+          (Rewrite.Drop.is_eliminating x)
+          (Rewrite.Drop.is_anihilating x)
+          (Rewrite.Drop.is_blocking x) in
+      let instrs = match push input pc with
         | Stop (instrs, _) | Work ((instrs, _), _) -> instrs
         | Blocked | Need_pull _ -> input in
-      (* Printf.printf "%s:\n%s\n"
-          (String.concat " " (match status with | Work x -> List.map string_of_int x |_->[""]))
-          (Disasm.disassemble_instr instrs); *)
       assert (instrs = main expected);
     | _ -> assert(false)
   in
@@ -1078,7 +1076,7 @@ let do_test_drop_driver () =
     let main = List.assoc "main" in
     let input, expected = main (parse_test t), main (parse_test e) in
     let output =
-      match Rewrite.move_drops_on_var input x with
+      match Rewrite.Drop.move_up_var input x with
           | None -> input
           | Some instrs -> instrs in
     if output <> expected then begin
@@ -1181,8 +1179,6 @@ let do_test_drop_driver () =
   |expect};
   ()
 
-let () = do_test_drop_driver ()
-
 let suite =
   "suite">:::
   ["mut">:: run_checked test_mut no_input
@@ -1275,8 +1271,9 @@ let suite =
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
    "codemotion">:: do_test_codemotion;
-   (* "push_drop">:: do_test_push_drop; *)
+   "push_drop">:: do_test_push_drop;
    "pull_drop">:: do_test_pull_drop;
+   "move_drop">:: do_test_drop_driver;
    ]
 ;;
 
