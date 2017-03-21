@@ -2,35 +2,37 @@
 
 x        variables
 
-l        labels
-v        optimization version
+P ::= Segment  active   ↦ S, (Ds ↦ S)*   program:            active version and others
+S ::= start ↦ i,          I              segment:            instruction stream with dedicated start
+I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
-s ∈ l    start label
+Ds ::= Segment  s                  segment declaration
 
-a        addresses
+s  optimization version
+l  labels
 
-P ::= (v ↦ M)*             program
-M ::= (s ↦ i), I
-      s ∉ I                module
-I ::= (l ↦ i)*             instruction stream
+active    active segment
+start     start label
+
+a  addresses
 
 i ::=    instructions
-| const x = e               constant variable
-| mut x = e                 mutable variable
-| x <- e                    assignment
-| branch x l₁ l₂            conditional
-| goto l                    goto
-| print x                   print
-| osr(e, v, l, (x = ee)*)   osr : (can be used for osr-in and osr-out)
-
-ee ::=   extended expression
-| e
-| ⊥
+| const x = c                   constant variable
+| mut x = c                     mutable variable
+| x <- c                        assignment
+| branch e l₁ l₂                conditional
+| goto l                        goto
+| print e                       print
+| osr(e, s, l, (x = ee, ...))   osr : (can be used for osr-in and osr-out)
 
 e ::=    (simple) expressions
 | lit                   literals
 | x                     variables
 | primop(x, ...)        primitive operation (pure)
+
+ee ::=   extended expression
+| e
+| ⊥
 
 lit ::=  litterals
 | nil
@@ -42,7 +44,27 @@ v :=     values
 
 (Note: heap adresses are not values)
 
+CC ::=                 evaluation context
+| const x = [.]
+| mut x = [.]
+| x <- [.]
+| branch [.] l₁ l₂
+| print [.]
+| osr([.], s, l, (x = ee, ...))
+| primop (v ..., [.], e ...)
+
 # Natural operational semantics
+
+E ::= (x ↦ const v | x ↦ var a | x ↦ ⊥)*  lexical environment
+H ::= (l ↦ v)                             mutable heap
+
+T ::= (lit)*                    output trace
+
+## Configuration
+
+  M = (P, T, H, E*, C*)    program, trace, heap, environments, continuations
+
+## Auxiliary functions
 
 succ I l =
  | goto l'                                -> [l']
@@ -53,63 +75,77 @@ succ I l =
 pred I l =
   { l' ∈ I : succ I l' = l }
 
-E ::= (x ↦ const v | x ↦ var a | x ↦ ⊥)*  lexical environment
-H ::= (l ↦ v)                             mutable heap
-
-T ::= (lit)*                    output trace
-
-Configuration: (T, H, E, P, I, l)
+Linear successor instruction
+  stepi (C* (s, l)) = (C* (succ P(s), l))
 
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
-    v    if E ∋ (x ↦const v)
-    H(l) if E ∋ (x ↦mut l)
+    v    if E ∋ (x ↦ const v)
+    H(l) if E ∋ (x ↦ mut l)
 
 Update (partial) function, returns a S:
   (H,E)[x ← v] :=
-    H[E(x) ↦ v] if E ∋ (x ↦mut l)
+    H[E(x) ↦ v] if E ∋ (x ↦ mut l)
 
-Evaluation of simple expressions:
+## Evaluation of simple expressions:
 
-  eval H E x = (H,E)[x]
-  eval H E lit = lit
-  eval H E primop(x₁, ..., xₙ) = 〚primop〛((H,E)[x₁], ..., (H,E)[xₙ])
+  eval P H E x = (H,E)[x]
+  eval P H E lit = lit
+  eval P H E primop(v, ...) = 〚primop〛(v, ...)
 
-Evaluation of extended expressions
+## Evaluation of extended expressions
 
-  eeval H E ⊥ = ⊥
-  eeval H E e = eval H E e
+  eeval P H E ⊥ = ⊥
+  eeval P H E e = eval P H E e
 
-Reduction relation
-  (T, H, E, P, I, l) -> ((T, (H,E)[x]), H, E, P, I, l + 1)
-    when I(l) = print x
+## Reduction relation '-->'
 
-  (T, H, E, P, I, l) -> (T, H, E, P, I, l')
-    when I(l) = branch x l₁ l₂
-     and l' := if (H,E)[x] then l₁ else l₂
+  (P, T, H, E*, C* C) --> M
+    when M := step P(C) (P, T, H, E*, C* C)
 
-  (T, H, E, P, I, l) -> (T, H, (E, x ↦ v), P, I, succ I l)
-    when I(l) = (const x = e)
-     and v := eval H E x
+  step   CC[e]
+         (P, T, H, E*, C*)
+       = step CC[v] (P, T, H, E*, C*)
+    when v := eval P H E e
 
-  (T, H, E, P, I, l) -> (T, (H, a ↦ v), (E, x ↦ a), P, I, succ I l)
-    when I(l) = (mut x = e)
-     and v := eval H E e
-     and a fresh
+  step   (print x)
+         (P, T, H, E*, C*)
+       = (P, (T, (H,E)[x]), H, E*, stepi C*)
 
-  (T, H, E, P, I, l) -> (T, (H,E)[x] := v, E, P, I, succ I l)
-    when I(l) = (x ← e)
-     and v := eval H E x
+  step   (branch v l₁ l₂)
+         (P, T, H, E*, C* (s, l))
+       = (P, T, H, E*, C* (s, l₁))
+    when v = true
 
-  (T, H, E, P, I, l) -> (T, H, E, P, I, succ I l)
-    when I(l) = osr(e, _, _)
-     and (eval H E e) is not (true)
+  step   (branch v l₁ l₂)
+         (P, T, H, E*, C* (s, l))
+       = (P, T, H, E*, C* (s, l₂))
+    when v = false
 
-  (T, H, E, P, I, l) -> (T, H, E', P, I', l')
-    when I(l) = osr(e, v, l', (x = ee)*)
-     and (eval H E e) is (true)
-     and I' := P(v)
-     and E' := (x ↦ (eeval H E ee))*
+  step   (const x = v)
+         (P, T, H, E* E, C*)
+       = (P, T, H, E* (E, x ↦ v), stepi C*)
+
+  step   (mut x = v)
+         (P, T, H, E* E, C*)
+       = (P, T, H[a ↦ v], E* E[x ↦ a], stepi C*)
+    when a fresh
+
+  step   (x ← v)
+         (P, T, H, E* E, C*)
+       = (P, T, (H,E)[x ← v], E* E, stepi C*)
+
+  step   osr(v, _, _)
+         (P, T, H, E* E, C*)
+       = (P, T, H, E* E, stepi C*)
+    when v = false
+
+  step   osr(e, v', l', (x = ee, ...))
+         (P, T, H, E* E, C* (v, l))
+       = (P, T, H, E* E', C* (v', l'))
+    when v   = true
+     and E' := (x ↦ eeval P H E ee), ...
+
 
 # Scopes
 
