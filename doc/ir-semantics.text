@@ -128,21 +128,21 @@ Update (partial) function, returns a S:
 
   step   (mut x = v)
          (P, T, H, E* E, C*)
-       = (P, T, H[a ↦ v], E* E[x ↦ v], stepi C*)
+       = (P, T, H[a ↦ v], E* E[x ↦ a], stepi C*)
     when a fresh
 
   step   (x ← v)
          (P, T, H, E* E, C*)
-       = (P, T, (H,E)[x] := v, E* E, stepi C*)
+       = (P, T, (H,E)[x ← v], E* E, stepi C*)
 
   step   osr(v, _, _)
          (P, T, H, E* E, C*)
        = (P, T, H, E* E, stepi C*)
     when v = false
 
-  step   osr(e, s', l', (x = ee, ...))
-         (P, T, H, E* E, C* (s, l))
-       = (P, T, H, E* E', C* (s', l'))
+  step   osr(e, v', l', (x = ee, ...))
+         (P, T, H, E* E, C* (v, l))
+       = (P, T, H, E* E', C* (v', l'))
     when v   = true
      and E' := (x ↦ eeval P H E ee), ...
 
