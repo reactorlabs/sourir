@@ -73,7 +73,7 @@ T ::= (lit)*                    output trace
 
 ## Configuration
 
-  M = (P, T, H, E*, C*)    program, trace, heap, environments, continuations
+  M = (P, T, H, E*, π*)    program, trace, heap, environments, program counter
 
 ## Auxiliary functions
 
@@ -87,7 +87,7 @@ pred I l =
   { l' ∈ I : succ I l' = l }
 
 Linear successor instruction
-  stepi (C* (f, s, l)) = (C* (succ P(f, s), l))
+  stepi (π* (f, s, l)) = (π* (succ P(f, s), l))
 
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
@@ -113,61 +113,62 @@ Update (partial) function, returns a S:
 
 ## Reduction relation '-->'
 
-  (P, T, H, E*, C* C) --> M
-    when M := step P(C) (P, T, H, E*, C* C)
+  (P, T, H, E*, π* π) --> M
+    when M := step P(π) (P, T, H, E*, π* π)
 
   step   CC[e]
-         (P, T, H, E*, C*)
-       = step CC[v] (P, T, H, E*, C*)
+         (P, T, H, E*, π*)
+       = step CC[v] (P, T, H, E*, π*)
     when v := eval P H E e
 
   step   CC[call f (v, ...)]
-         (P, T, H, E*, C*)
-       = (P, T, H, E* E', C* C)
+         (P, T, H, E*, π*)
+       = (P, T, H, E* E', π* π)
     when P(f)  = Function (x, ...)
      and E'   := (x ↦ v), ...
-     and C    := (f, active, start)
+     and π    := (f, active, start)
 
+  # Note: this works since syntactically every i has at most one call
   step   (return v)
-         (P, T, H, E* E', C* C C')
-       = step cs (P, T, H, E*, C* C)
-    when cs := P(C)[call(...)/v]
+         (P, T, H, E* E', π* π π')
+       = step cs (P, T, H, E*, π* π)
+    when cs := P(π)[call(...)/v]
 
   step   (print x)
-         (P, T, H, E*, C*)
-       = (P, (T, (H,E)[x]), H, E*, stepi C*)
+         (P, T, H, E*, π*)
+       = (P, (T, (H,E)[x]), H, E*, stepi π*)
 
   step   (branch v l₁ l₂)
-         (P, T, H, E*, C* (f, s, l))
-       = (P, T, H, E*, C* (f, s, l₁))
+         (P, T, H, E*, π* (f, s, l))
+       = (P, T, H, E*, π* (f, s, l₁))
     when v = true
 
   step   (branch v l₁ l₂)
-         (P, T, H, E*, C* (f, s, l))
-       = (P, T, H, E*, C* (f, s, l₂))
+         (P, T, H, E*, π* (f, s, l))
+       = (P, T, H, E*, π* (f, s, l₂))
     when v = false
 
   step   (const x = v)
-         (P, T, H, E* E, C*)
-       = (P, T, H, E* (E, x ↦ v), stepi C*)
+         (P, T, H, E* E, π*)
+       = (P, T, H, E* (E, x ↦ v), stepi π*)
 
   step   (mut x = v)
-         (P, T, H, E* E, C*)
-       = (P, T, H[a ↦ v], E* E[x ↦ a], stepi C*)
+         (P, T, H, E* E, π*)
+       = (P, T, H[a ↦ v], E* E[x ↦ a], stepi π*)
     when a fresh
 
   step   (x ← v)
-         (P, T, H, E* E, C*)
-       = (P, T, (H,E)[x ← v], E* E, stepi C*)
+         (P, T, H, E* E, π*)
+       = (P, T, (H,E)[x ← v], E* E, stepi π*)
 
   step   osr(v, _, _)
-         (P, T, H, E* E, C*)
-       = (P, T, H, E* E, stepi C*)
+         (P, T, H, E* E, π*)
+       = (P, T, H, E* E, stepi π*)
     when v = false
 
   step   osr(e, v', l', (osr-map*)
-         (P, T, H, E* E, C* (f, v, l))
-       = (P, T, H, E* E', C* (f, v', l'))
+         (P, T, H, E* E, π* (f, v, l))
+       = (P, T, H, E* E', π* (f, v', l'))
     when v   = true
      and E' := fold (osr-env P H E) (osr-map*)
 
