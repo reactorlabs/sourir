@@ -23,16 +23,17 @@ i ::=    instructions
 | branch e l₁ l₂                conditional
 | goto l                        goto
 | print e                       print
-| osr(e, s, l, (x = ee, ...))   osr : (can be used for osr-in and osr-out)
+| osr(e, s, l, osr-map*)        osr : (can be used for osr-in and osr-out)
 
 e ::=    (simple) expressions
 | lit                   literals
 | x                     variables
 | primop(x, ...)        primitive operation (pure)
 
-ee ::=   extended expression
-| e
-| ⊥
+osr-map ::=    osr mapping declaration
+| const x = e
+| mut x
+| mut x = x
 
 lit ::=  litterals
 | nil
@@ -50,7 +51,7 @@ CC ::=                 evaluation context
 | x <- [.]
 | branch [.] l₁ l₂
 | print [.]
-| osr([.], s, l, (x = ee, ...))
+| osr([.], s, l, osr-map*)
 | primop (v ..., [.], e ...)
 
 # Natural operational semantics
@@ -93,10 +94,12 @@ Update (partial) function, returns a S:
   eval P H E lit = lit
   eval P H E primop(v, ...) = 〚primop〛(v, ...)
 
-## Evaluation of extended expressions
+## Osr transformation of environment
 
-  eeval P H E ⊥ = ⊥
-  eeval P H E e = eval P H E e
+  osr-env P H E E' (const x = e) = E'[x ↦ eval P H E e)
+  osr-env P H E E' (mut x)       = E'[x ↦ ⊥]
+  osr-env P H E E' (mut x = y)   = E'[x ↦ a]
+    where a = E(y)
 
 ## Reduction relation '-->'
 
@@ -140,12 +143,11 @@ Update (partial) function, returns a S:
        = (P, T, H, E* E, stepi C*)
     when v = false
 
-  step   osr(e, v', l', (x = ee, ...))
+  step   osr(e, v', l', osr-map*)
          (P, T, H, E* E, C* (v, l))
        = (P, T, H, E* E', C* (v', l'))
     when v   = true
-     and E' := (x ↦ eeval P H E ee), ...
-
+     and E' := fold (osr-env P H E) (osr-map*)
 
 # Scopes
 
