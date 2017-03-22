@@ -1,17 +1,17 @@
 # The formal language
 
-x        variables
-
-P ::= Function main    ↦ F, (Df ↦ F)*    program:            main function and other functions
-F ::= Segment active   ↦ M, (Dm ↦ M)*    function body:      can contain multiple versions -- active segment and others
-M ::= start ↦ i, I                       a function version: instruction stream with dedicated start
+P ::= Function main  ↦ F, (Df ↦ F)*      program:            main function and other functions
+F ::= Segment active ↦ G, (Dg ↦ G)*      function body:      can contain multiple versions -- active segment and others
+G ::= start ↦ i, I                       a function version: instruction stream with dedicated start
 I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
 Df ::= Function f(x, ...)          function declaration
-Dm ::= Segment  m                  segment declaration
+Dg ::= Segment  g                  segment declaration
+
+x        variables
 
 f  function name
-m  segment name
+g  segment name
 l  labels
 
 Reserved Names:
@@ -23,27 +23,22 @@ a  addresses
 
 i ::=    instructions
 | const x = ce                  constant variable
-| mut x = ce                    mutable variable
-| x <- ce                       assignment
+| mut x = e                     mutable variable
+| x <- e                        assignment
 | branch e l₁ l₂                conditional
 | goto l                        goto
 | print e                       print
 | return e                      return
-| osr(e, m, l, osr-map*)        osr : (can be used for osr-in and osr-out)
+| osr(e, g, l, osr-map*)        osr : (can be used for osr-in and osr-out)
+
+ce ::=   call expression
+| e
+| call f (e, ...)     call
 
 e ::=    (simple) expressions
 | lit                   literals
 | x                     variables
 | primop(x, ...)        primitive operation (pure)
-
-osr-map ::=    osr mapping declaration
-| const x = e
-| mut x
-| mut x = x
-
-ce ::=   call expression
-| e
-| call f (e, ...)     call
 
 lit ::=  litterals
 | nil
@@ -55,16 +50,10 @@ v :=     values
 
 (Note: heap adresses are not values)
 
-CC ::=                 evaluation context
-| const x = [.]
-| mut x = [.]
-| x <- [.]
-| branch [.] l₁ l₂
-| print [.]
-| return [.]
-| osr([.], m, l, osr-map*)
-| primop (v ..., [.], e ...)
-| call f (v ..., [.], e ...)
+osr-map ::=    osr mapping declaration
+| const x = e
+| mut x
+| mut x = x
 
 # Natural operational semantics
 
@@ -75,7 +64,9 @@ T ::= (lit)*                    output trace
 
 ## Configuration
 
-  M = (P, T, H, E*, π*)    program, trace, heap, environments, program counter
+  C ::= (x, E, I, l)                 continuation:  accumulator, environment, instructions, label
+
+  M ::= (P, C*) : (I, T, H, E, l)    machine state: program, continuations : instructions, trace, heap, environment, pc
 
 ## Auxiliary functions
 
@@ -88,9 +79,6 @@ succ I l =
 pred I l =
   { l' ∈ I : succ I l' = l }
 
-Linear successor instruction
-  stepi (π* (f, m, l)) = (π* (succ P(f, m), l))
-
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
     v    if E ∋ (x ↦ const v)
@@ -102,77 +90,71 @@ Update (partial) function, returns an H:
 
 ## Evaluation of simple expressions:
 
-  eval P H E x = (H,E)[x]
-  eval P H E lit = lit
-  eval P H E primop(v, ...) = 〚primop〛(v, ...)
+  eval H E x = (H,E)[x]
+  eval H E lit = lit
+  eval H E primop(v, ...) = 〚primop〛(v, ...)
 
 ## Osr transformation of environment
 
-  osr-env P H E E' (const x = e) = E'[x ↦ eval P H E e)
-  osr-env P H E E' (mut x)       = E'[x ↦ ⊥]
-  osr-env P H E E' (mut x = y)   = E'[x ↦ a]
+  osr-env H E (const x = e) = (x ↦ eval H E e)
+  osr-env H E (mut x)       = (x ↦ ⊥)
+  osr-env H E (mut x = y)   = (x ↦ a)
     where a = E(y)
 
 ## Reduction relation '-->'
 
-  (P, T, H, E*, π* π) --> M
-    when M := step P(π) (P, T, H, E*, π* π)
+  (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
 
-  step   CC[e]
-         (P, T, H, E*, π*)
-       = step CC[v] (P, T, H, E*, π*)
-    when v := eval P H E e
+  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
+    when I(l) = (const x' = call f (e, ...))
+     and Df ∈ dom P
+     and Df  = Function f (x, ...)
+     and I' := P(Df, Segment active)
+     and E' := (x ↦ eval H E e, ...)
+     and C' := (x', E, I, succ I l)
 
-  step   CC[call f (v, ...)]
-         (P, T, H, E*, π*)
-       = (P, T, H, E* E', π* π)
-    when P(f)  = Function (x, ...)
-     and E'   := (x ↦ v), ...
-     and π    := (f, active, start)
+  (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
+    when I(l) = (return e)
+     and v   := eval H E e
+     and C'   = (x', E', I', l')
+     and E'' := E'[x' ↦ v]
 
-  # Note: this works since syntactically every i has at most one call
-  step   (return v)
-         (P, T, H, E* E', π* π π')
-       = step cs (P, T, H, E*, π* π)
-    when cs := P(π)[call(...)/v]
+## One step reduction
 
-  step   (print x)
-         (P, T, H, E*, π*)
-       = (P, (T, (H,E)[x]), H, E*, stepi π*)
+  step   (const x = e) (P, I, T, H, E, l)
+       = (I, T, H, E[x ↦ v], succ I l)
+    when v := eval H E e
 
-  step   (branch v l₁ l₂)
-         (P, T, H, E*, π* (f, m, l))
-       = (P, T, H, E*, π* (f, m, l₁))
-    when v = true
+  step   (mut x = e) (P, I, T, H, E, l)
+       = (I, T, H[a ↦ v], E[x ↦ a], succ I l)
+    when v := eval H E e
+     and a - fresh
 
-  step   (branch v l₁ l₂)
-         (P, T, H, E*, π* (f, m, l))
-       = (P, T, H, E*, π* (f, m, l₂))
-    when v = false
+  step   (x ← e) (P, I, T, H, E, l)
+       = (I, T, (H,E)[x ← v], E, succ I l)
+    when v := eval H E e
 
-  step   (const x = v)
-         (P, T, H, E* E, π*)
-       = (P, T, H, E* (E, x ↦ v), stepi π*)
+  step   (print e) (P, I, T, H, E, l)
+       = (I, (T, v), H, E, succ I l)
+    when v := eval H E e
 
-  step   (mut x = v)
-         (P, T, H, E* E, π*)
-       = (P, T, H[a ↦ v], E* E[x ↦ a], stepi π*)
-    when a fresh
+  step   (branch e l₁ l₂) (P, I, T, H, E, l)
+       = (I, T, H, E, l')
+    when v  := eval H E e
+     and l' := if v = true  then l₁
+               if v = false then l₂
 
-  step   (x ← v)
-         (P, T, H, E* E, π*)
-       = (P, T, (H,E)[x ← v], E* E, stepi π*)
-
-  step   osr(v, _, _, _)
-         (P, T, H, E* E, π*)
-       = (P, T, H, E* E, stepi π*)
-    when v = false
-
-  step   osr(v, m', l', (osr-map*)
-         (P, T, H, E* E, π* (f, m, l))
-       = (P, T, H, E* E', π* (f, m', l'))
-    when v   = true
-     and E' := fold (osr-env P H E) (osr-map*)
+  step   osr(e, m^, l^, (osr-map, ...)) (P, I, T, H, E, l)
+       = (I', T, H, E', l')
+    when v := eval H E e
+     and if v = false then
+         I' := I
+         l' := l
+         E' := E
+     and if v = true then
+         I' := P(m^)
+         l' := l^
+         E' := (osr-env H E osr-map, ...)
 
 # Scopes
 
