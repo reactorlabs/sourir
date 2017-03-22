@@ -3,15 +3,15 @@
 x        variables
 
 P ::= Function main    ↦ F, (Df ↦ F)*    program:            main function and other functions
-F ::= Segment active   ↦ T, (Dt ↦ T)*    function body:      can contain multiple versions -- active segment and others
-T ::= start ↦ i, I                       a function version: instruction stream with dedicated start
+F ::= Segment active   ↦ M, (Dm ↦ M)*    function body:      can contain multiple versions -- active segment and others
+M ::= start ↦ i, I                       a function version: instruction stream with dedicated start
 I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
 Df ::= Function f(x, ...)          function declaration
-Dt ::= Segment  t                  segment declaration
+Dm ::= Segment  m                  segment declaration
 
 f  function name
-t  segment name
+m  segment name
 l  labels
 
 Reserved Names:
@@ -29,7 +29,7 @@ i ::=    instructions
 | goto l                        goto
 | print e                       print
 | return e                      return
-| osr(e, t, l, osr-map*)        osr : (can be used for osr-in and osr-out)
+| osr(e, m, l, osr-map*)        osr : (can be used for osr-in and osr-out)
 
 e ::=    (simple) expressions
 | lit                   literals
@@ -62,7 +62,7 @@ CC ::=                 evaluation context
 | branch [.] l₁ l₂
 | print [.]
 | return [.]
-| osr([.], t, l, osr-map*)
+| osr([.], m, l, osr-map*)
 | primop (v ..., [.], e ...)
 | call f (v ..., [.], e ...)
 
@@ -89,7 +89,7 @@ pred I l =
   { l' ∈ I : succ I l' = l }
 
 Linear successor instruction
-  stepi (π* (f, t, l)) = (π* (succ P(f, t), l))
+  stepi (π* (f, m, l)) = (π* (succ P(f, m), l))
 
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
@@ -141,13 +141,13 @@ Update (partial) function, returns an H:
        = (P, (T, (H,E)[x]), H, E*, stepi π*)
 
   step   (branch v l₁ l₂)
-         (P, T, H, E*, π* (f, t, l))
-       = (P, T, H, E*, π* (f, t, l₁))
+         (P, T, H, E*, π* (f, m, l))
+       = (P, T, H, E*, π* (f, m, l₁))
     when v = true
 
   step   (branch v l₁ l₂)
-         (P, T, H, E*, π* (f, t, l))
-       = (P, T, H, E*, π* (f, t, l₂))
+         (P, T, H, E*, π* (f, m, l))
+       = (P, T, H, E*, π* (f, m, l₂))
     when v = false
 
   step   (const x = v)
@@ -168,9 +168,9 @@ Update (partial) function, returns an H:
        = (P, T, H, E* E, stepi π*)
     when v = false
 
-  step   osr(v, t', l', (osr-map*)
-         (P, T, H, E* E, π* (f, t, l))
-       = (P, T, H, E* E', π* (f, t', l'))
+  step   osr(v, m', l', (osr-map*)
+         (P, T, H, E* E, π* (f, m, l))
+       = (P, T, H, E* E', π* (f, m', l'))
     when v   = true
      and E' := fold (osr-env P H E) (osr-map*)
 
