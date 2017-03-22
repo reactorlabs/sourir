@@ -110,4 +110,5 @@ let () =
       List.iter (fun (name, instrs) ->
         Scope.check (Scope.infer instrs) (Array.map (fun _ -> None) instrs)) program;
 
+      Constantfold.const_prop (List.assoc "main" program);
       ignore (Eval.run_interactive IO.stdin_input program)

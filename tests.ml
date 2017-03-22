@@ -611,6 +611,27 @@ let do_test_minimize_lifetime = function () ->
   assert_equal (Disasm.disassemble res) (Disasm.disassemble expected);
   ()
 
+let do_test_const_prop_driver () =
+  let test t e =
+    let main = List.assoc "main" in
+    let input, expected = main (parse_test t), main (parse_test e) in
+    let output = Constantfold.const_prop input in
+    if output <> expected then begin
+      Printf.printf "input: %s\noutput: %s\nexpected: %s\n%!"
+        (Disasm.disassemble_instr input)
+        (Disasm.disassemble_instr output)
+        (Disasm.disassemble_instr expected);
+      assert false
+    end in
+
+  test {input|
+    const x = 1
+    print x
+  |input} {expect|
+    const x = 1
+    print 1
+  |expect};
+  ()
 
 let suite =
   "suite">:::
@@ -705,6 +726,7 @@ let suite =
    "liveness">:: do_test_liveness;
    "codemotion">:: do_test_codemotion;
    "min_lifetimes">:: do_test_minimize_lifetime;
+   "constant_prop">:: do_test_const_prop_driver;
    ]
 ;;
 

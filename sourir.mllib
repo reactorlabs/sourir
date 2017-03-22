@@ -9,3 +9,5 @@ Disasm
 Analysis
 Transform
 Rename
+Constantfold
+Replace
