@@ -44,10 +44,10 @@ let const_prop instrs =
     | [] -> acc
     | pc :: rest ->
       begin match[@warning "-4"] instrs.(pc) with
-      | Drop y when x = y -> acc
+      | Drop y when x = y -> to_convert instrs rest x acc
       | instr ->
         let succs = successors_at instrs pc in
-        if PcSet.mem pc acc then acc
+        if PcSet.mem pc acc then to_convert instrs rest x acc
         else to_convert instrs (succs @ rest) x (PcSet.add pc acc)
       end in
 

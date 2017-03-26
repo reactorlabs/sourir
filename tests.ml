@@ -624,12 +624,175 @@ let do_test_const_prop_driver () =
       assert false
     end in
 
+  (* Simple test case; sanity check *)
   test {input|
     const x = 1
     print x
   |input} {expect|
     const x = 1
     print 1
+  |expect};
+  (* Test with branching *)
+  test {input|
+    const x = 1
+    branch (1==1) l1 l2
+   l1:
+    drop x
+    goto next
+   l2:
+    print x
+    drop x
+    goto next
+   next:
+    const y = 1
+    branch (1==1) l3 l4
+   l3:
+    print y
+    drop y
+    stop
+   l4:
+    drop y
+    stop
+  |input} {expect|
+    const x = 1
+    branch (1==1) l1 l2
+   l1:
+    drop x
+    goto next
+   l2:
+    print 1
+    drop x
+    goto next
+   next:
+    const y = 1
+    branch (1==1) l3 l4
+   l3:
+    print 1
+    drop y
+    stop
+   l4:
+    drop y
+    stop
+  |expect};
+  (* Test with booleans, updating mut vars, and branching *)
+  test {input|
+    const a = 1
+    const b = 2
+    mut c = 5
+    c <- (a + b)
+    const d = true
+    branch d l1 l2
+   l1:
+    c <- (c + a)
+    print a
+    goto fin
+   l2:
+    c <- (c + b)
+    print b
+    goto fin
+   fin:
+    print c
+    stop
+  |input} {expect|
+    const a = 1
+    const b = 2
+    mut c = 5
+    c <- (1 + 2)
+    const d = true
+    branch true l1 l2
+   l1:
+    c <- (c + 1)
+    print 1
+    goto fin
+   l2:
+    c <- (c + 2)
+    print 2
+    goto fin
+   fin:
+    print c
+    stop
+  |expect};
+  (* Test with a loop *)
+  test {input|
+    const n = 10
+    goto bla
+   loop:
+    y <- z
+    x <- (x + z)
+    branch (x==n) end loop
+   end:
+    print z
+    stop
+   bla:
+    const z = 1
+    mut x = 1
+    mut y = z
+    goto loop
+  |input} {expect|
+    const n = 10
+    goto bla
+   loop:
+    y <- 1
+    x <- (x + 1)
+    branch (x==10) end loop
+   end:
+    print 1
+    stop
+   bla:
+    const z = 1
+    mut x = 1
+    mut y = 1
+    goto loop
+  |expect};
+  (* More complicated control flow *)
+  test {input|
+    const x = 1
+    const t = true
+    const a = 10
+    const b = 20
+    const c = 30
+    branch t la lb
+   la:
+    branch t l1 l2
+   lb:
+    branch t l2 l3
+   l1:
+    print a
+    goto fin
+   l2:
+    print b
+    goto fin
+   l3:
+    print c
+    goto fin
+   fin:
+    const y = (x + x)
+    print y
+    stop
+  |input} {expect|
+    const x = 1
+    const t = true
+    const a = 10
+    const b = 20
+    const c = 30
+    branch true la lb
+   la:
+    branch true l1 l2
+   lb:
+    branch true l2 l3
+   l1:
+    print 10
+    goto fin
+   l2:
+    print 20
+    goto fin
+   l3:
+    print 30
+    goto fin
+   fin:
+    const y = (1 + 1)
+    print y
+    stop
   |expect};
   ()
 
