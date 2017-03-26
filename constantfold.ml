@@ -1,16 +1,31 @@
 open Instr
 
+(*
+ * Constant propagation. Takes an instruction stream `instrs` and returns an
+ * updated stream.
+ *
+ * Finds all constant declarations of the form:
+ *     const x = l
+ * where `l` is a literal.
+ *
+ * Then, whenever `x` is used in an expression (while x is still in scope), it
+ * is replaced by the literal `l`. Afterwards, the variable `x` is no longer
+ * used, and the declaration can be removed by running `minimize_lifetimes`.
+ *)
 let const_prop instrs =
-  let rec find_candidates instrs pc =
-    if pc = Array.length instrs then [] else
-    match[@warning "-4"] instrs.(pc) with
-    | Decl_const (x, Simple(Lit(n))) ->
-        (pc, x, n) :: find_candidates instrs (pc+1)
-    | _ -> find_candidates instrs (pc+1)
+  (* Finds the declarations that can be used for constant propagation.
+     Returns a list of (pc, x, l) where `const x = l` is defined at pc `pc`. *)
+  let rec find_candidates instrs pc acc =
+    if pc = Array.length instrs then acc
+    else match[@warning "-4"] instrs.(pc) with
+    | Decl_const (x, Simple(Lit(l))) ->
+        find_candidates instrs (pc+1) ((pc, x, l) :: acc)
+    | _ -> find_candidates instrs (pc+1) acc
   in
 
-  let convert x n instr =
-    let replace = Replace.var_in_exp x n in
+  (* Replaces the variable `x` with literal `l` in instruction `instr`. *)
+  let convert x l instr =
+    let replace = Replace.var_in_exp x l in
     match instr with
     | Decl_const (y, e) ->
       assert (x <> y);
@@ -24,6 +39,7 @@ let const_prop instrs =
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
     | Osr (exp, l1, l2, env) ->
+      (* Replace all expressions in the osr environment. *)
       let env' = List.map (fun osr_def ->
         match[@warning "-4"] osr_def with
         | OsrConst (y, e) -> OsrConst (y, replace e)
@@ -38,27 +54,41 @@ let const_prop instrs =
       instr
     | Label _ | Goto _ | Stop | Comment _ -> instr in
 
-  let rec to_convert instrs worklist x acc =
+  (* Finds the target pcs to perform constant propagation. *)
+  let rec find_targets instrs x worklist acc =
     let open Analysis in
     match worklist with
     | [] -> acc
     | pc :: rest ->
       begin match[@warning "-4"] instrs.(pc) with
-      | Drop y when x = y -> to_convert instrs rest x acc
+      | Drop y when x = y ->
+        (* `x` is now out of scope, but continue searching the `rest` of the
+           worklist. *)
+        find_targets instrs x rest acc
       | instr ->
-        let succs = successors_at instrs pc in
-        if PcSet.mem pc acc then to_convert instrs rest x acc
-        else to_convert instrs (succs @ rest) x (PcSet.add pc acc)
+        if PcSet.mem pc acc then
+          (* Already seen this pc, but continue searching the `rest` of the
+             worklist. *)
+          find_targets instrs x rest acc
+        else
+          (* Add the current `pc` to the accumulator and update the worklist
+             with our successors. *)
+          let succs = successors_at instrs pc in
+          find_targets instrs x (succs @ rest) (PcSet.add pc acc)
       end in
 
+  (* Perform constant propagation. *)
   let work instrs =
     let open Analysis in
-    let candidates = find_candidates instrs 0 in
-    let propagate instrs (pc, x, n) =
+    (* Find all constant propagation candidates. *)
+    let candidates = find_candidates instrs 0 [] in
+    (* Perform all propagations for a single candidate. *)
+    let propagate instrs (pc, x, l) =
       let succs = successors_at instrs pc in
-      let worklist = to_convert instrs succs x PcSet.empty in
+      let targets = find_targets instrs x succs PcSet.empty in
       let instrs = Array.copy instrs in
-      PcSet.iter (fun pc -> instrs.(pc) <- convert x (Lit(n)) instrs.(pc)) worklist;
+      let convert_at pc = instrs.(pc) <- convert x (Lit(l)) instrs.(pc) in
+      PcSet.iter convert_at targets;
       instrs
     in
     List.fold_left propagate instrs candidates in
