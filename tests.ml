@@ -613,14 +613,13 @@ let do_test_minimize_lifetime = function () ->
 
 let do_test_const_prop_driver () =
   let test t e =
-    let main = List.assoc "main" in
-    let input, expected = main (parse_test t), main (parse_test e) in
+    let input, expected = (parse_test t), (parse_test e) in
     let output = Constantfold.const_prop input in
     if output <> expected then begin
       Printf.printf "input: %s\noutput: %s\nexpected: %s\n%!"
-        (Disasm.disassemble_instr input)
-        (Disasm.disassemble_instr output)
-        (Disasm.disassemble_instr expected);
+        (Disasm.disassemble input)
+        (Disasm.disassemble output)
+        (Disasm.disassemble expected);
       assert false
     end in
 

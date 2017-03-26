@@ -1,8 +1,7 @@
 open Instr
 
 (*
- * Constant propagation. Takes an instruction stream `instrs` and returns an
- * updated stream.
+ * Constant propagation. Takes a program `prog` and returns an updated stream.
  *
  * Finds all constant declarations of the form:
  *     const x = l
@@ -12,7 +11,10 @@ open Instr
  * is replaced by the literal `l`. Afterwards, the variable `x` is no longer
  * used, and the declaration can be removed by running `minimize_lifetimes`.
  *)
-let const_prop instrs =
+let const_prop prog =
+  let main = List.assoc "main" prog in
+  let rest = List.remove_assoc "main" prog in
+
   (* Finds the declarations that can be used for constant propagation.
      Returns a list of (pc, x, l) where `const x = l` is defined at pc `pc`. *)
   let rec find_candidates instrs pc acc =
@@ -75,7 +77,8 @@ let const_prop instrs =
              with our successors. *)
           let succs = successors_at instrs pc in
           find_targets instrs x (succs @ rest) (PcSet.add pc acc)
-      end in
+      end
+  in
 
   (* Perform constant propagation. *)
   let work instrs =
@@ -91,6 +94,8 @@ let const_prop instrs =
       PcSet.iter convert_at targets;
       instrs
     in
-    List.fold_left propagate instrs candidates in
+    List.fold_left propagate instrs candidates
+  in
 
-  work instrs
+  let result = work main in
+  ("main", result) :: rest
