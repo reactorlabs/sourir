@@ -30,11 +30,11 @@ test_examples: sourir
 	mkdir $(TEMPDIR)/examples
 	for f in examples/*.sou; do yes 0 | ./sourir $$f --quiet \
 	  > $(TEMPDIR)/$$f.out; done
-	for f in examples/*.sou; do yes 0 | ./sourir $$f --quiet --lifetime --cm --prune \
+	for f in examples/*.sou; do yes 0 | ./sourir $$f --quiet --lifetime --prop --cm --prune \
 	  > $(TEMPDIR)/$$f.opt.out && diff $(TEMPDIR)/$$f.out $(TEMPDIR)/$$f.opt.out; done
 	for f in examples/*.sou; do yes 1 | ./sourir $$f --quiet \
 	  > $(TEMPDIR)/$$f.out; done
-	for f in examples/*.sou; do yes 1 | ./sourir $$f --quiet --lifetime --cm --prune \
+	for f in examples/*.sou; do yes 1 | ./sourir $$f --quiet --lifetime --prop --cm --prune \
 	  > $(TEMPDIR)/$$f.opt.out && diff $(TEMPDIR)/$$f.out $(TEMPDIR)/$$f.opt.out; done
 	rm -rf $(TEMPDIR)
 

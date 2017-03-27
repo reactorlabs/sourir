@@ -16,6 +16,7 @@ let () =
     let quiet = Array.exists (fun arg -> arg = "--quiet") Sys.argv in
     let prune = Array.exists (fun arg -> arg = "--prune") Sys.argv in
     let codemotion = Array.exists (fun arg -> arg = "--cm") Sys.argv in
+    let constprop = Array.exists (fun arg -> arg = "--prop") Sys.argv in
     let lifetime = Array.exists (fun arg -> arg = "--lifetime") Sys.argv in
 
     List.iter (fun (name, (instrs, annot)) ->
@@ -95,6 +96,14 @@ let () =
         then
           let opt = Transform.hoist_assignment program in
           if not quiet then Printf.printf "\n** After trying to hoist one assignment:\n%s" (Disasm.disassemble opt);
+          opt
+        else program
+      in
+
+      let program = if constprop
+        then
+          let opt = Constantfold.const_prop program in
+          if not quiet then Printf.printf "\n** After constant propagation:\n%s" (Disasm.disassemble opt);
           opt
         else program
       in
