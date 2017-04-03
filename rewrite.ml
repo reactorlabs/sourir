@@ -36,7 +36,7 @@ type push_status =
   | Need_pull of pc
   | Work of Edit.result * pc list
 
-let push_instr is_eliminating is_anihilating is_blocking instrs pc : push_status =
+let push_instr is_eliminating is_annihilating is_blocking instrs pc : push_status =
   assert (pc >0);
   let pc_above = pc - 1 in
   let to_move = instrs.(pc) in
@@ -92,7 +92,7 @@ let push_instr is_eliminating is_anihilating is_blocking instrs pc : push_status
    end
   | _ as instr ->
     if is_eliminating instr then Work (edit [|to_move|], [pc_above])
-    else if is_anihilating instr then Stop (edit [||])
+    else if is_annihilating instr then Stop (edit [||])
     else if is_blocking instr then Blocked
     else Work (edit [|to_move; instr|], [pc_above])
 
@@ -120,8 +120,8 @@ let pull_instr instrs pc_branch : pull_status =
 
 type progress = Made_progress | Stuck
 
-let move_up_instr is_eliminating is_anihilating is_blocking instrs pc =
-  let push_instr = push_instr is_eliminating is_anihilating is_blocking in
+let move_up_instr is_eliminating is_annihilating is_blocking instrs pc =
+  let push_instr = push_instr is_eliminating is_annihilating is_blocking in
   let rec work_push instrs progress to_push to_pull =
     match to_push with
     | pc :: to_push ->
@@ -157,8 +157,8 @@ let move_up_instr is_eliminating is_anihilating is_blocking instrs pc =
   in
   work_push instrs Stuck pc []
 
-let move_up is_target is_eliminating is_anihilating is_blocking instrs =
-    let move_up_instr = move_up_instr is_eliminating is_anihilating is_blocking in
+let move_up is_target is_eliminating is_annihilating is_blocking instrs =
+    let move_up_instr = move_up_instr is_eliminating is_annihilating is_blocking in
 
     (* Loop around and move all drops until none moves anymore *)
     let rec work status instrs pc =
@@ -167,11 +167,10 @@ let move_up is_target is_eliminating is_anihilating is_blocking instrs =
         match status with
         | Stuck -> None
         | Made_progress ->
-          let instrs = match work Stuck instrs 0 with
-            | Some instrs -> instrs
-            | None -> instrs
-          in
-          Some instrs
+          begin match work Stuck instrs 0 with
+            | None -> Some instrs
+            | Some instrs -> Some instrs
+          end
       else if is_target instrs.(pc) then
         begin match move_up_instr instrs [pc] with
           | None -> work status instrs (pc+1)
@@ -192,7 +191,7 @@ module Drop = struct
     | Assign (x, _) | Clear x -> x = var
     | _ -> false
 
-  let is_anihilating var instr =
+  let is_annihilating var instr =
     match[@warning "-4"] instr with
     | Decl_const (x, _) | Decl_mut (x, _) -> x = var
     | _ -> false
@@ -205,7 +204,7 @@ module Drop = struct
     in
     let move = move_up
         is_target
-        (is_eliminating var) (is_anihilating var) (is_blocking var) in
+        (is_eliminating var) (is_annihilating var) (is_blocking var) in
     move instrs
 
   let move_up instrs =

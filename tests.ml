@@ -950,7 +950,7 @@ let do_test_push_drop () =
     | Drop x ->
       let push = Rewrite.push_instr
           (Rewrite.Drop.is_eliminating x)
-          (Rewrite.Drop.is_anihilating x)
+          (Rewrite.Drop.is_annihilating x)
           (Rewrite.Drop.is_blocking x) in
       let instrs = match push input pc with
         | Stop (instrs, _) | Work ((instrs, _), _) -> instrs
