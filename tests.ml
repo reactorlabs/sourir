@@ -904,7 +904,7 @@ let do_test_pull_drop () =
   let main = List.assoc "main" in
   let test input pc x expected =
     let input = main input in
-    let instrs = match Rewrite.pull_instr input pc with
+    let instrs = match Rewrite.try_pull input pc with
       | Pulled_to ((instrs, _), _) -> instrs
       | Blocked -> input in
     assert (instrs = main expected);
@@ -1076,7 +1076,7 @@ let do_test_drop_driver () =
     let main = List.assoc "main" in
     let input, expected = main (parse_test t), main (parse_test e) in
     let output =
-      match Rewrite.Drop.move_up_var input x with
+      match Rewrite.Drop.pull_var input x with
           | None -> input
           | Some instrs -> instrs in
     if output <> expected then begin
