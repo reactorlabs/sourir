@@ -508,13 +508,13 @@ let do_test_codemotion = function () ->
   let expected = parse_test "
        goto bla
       loop:
-       x <- (x + y1)
+       x <- (x + y_1)
        branch (x == 10) end loop
       end:
        stop
       bla:
        const z = 1
-       mut y1 = z
+       mut y_1 = z
        mut x = 1
        mut y = z
        goto loop
@@ -531,11 +531,11 @@ let do_test_codemotion = function () ->
       end:
   " in
   let expected = parse_test "
-       mut y1 = 1
+       mut y_1 = 1
        mut x = 1
        mut y = 2
       loop:
-       x <- (x + y1)
+       x <- (x + y_1)
        branch (x == 10) end loop
       end:
   " in
@@ -889,6 +889,394 @@ let suite =
    "codemotion">:: do_test_codemotion;
    "min_lifetimes">:: do_test_minimize_lifetime;
    "constant_prop">:: do_test_const_prop_driver;
+   ]
+;;
+
+let () =
+  let test_result = run_test_tt_main suite in
+  let is_success = function[@warning "-4"]
+    | RSuccess _ -> true
+    | _ -> false in
+  if not (List.for_all is_success test_result) then exit 1;;
+
+let do_test_pull_drop () =
+  let open Rewrite in
+  let main = List.assoc "main" in
+  let test input pc x expected =
+    let input = main input in
+    let instrs = match Rewrite.pull_drop input x pc with
+      | Pulled_to ((instrs, _), _) -> instrs
+      | Blocked -> input in
+    (* Printf.printf "%s:\n%s\n"
+        (String.concat " " (match status with | Work x -> List.map string_of_int x |_->[""]))
+        (Disasm.disassemble_instr instrs); *)
+    assert (instrs = main expected);
+  in
+  let t = parse_test "
+      mut e = true
+      mut x
+      branch e l1 l2
+     l1:
+      drop x
+      stop
+     l2:
+      drop x
+    " in
+  let e = parse_test "
+      mut e = true
+      mut x
+      drop x
+      branch e l1 l2
+     l1:
+      stop
+     l2:
+  " in
+  test t 2 "x" e;
+  let t = parse_test "
+      mut e = true
+      mut x
+      branch e l1 l2
+     l1:
+      stop
+     l2:
+      drop x
+    " in
+  test t 2 "x" t;
+  ()
+
+let do_test_push_drop () =
+  let open Rewrite in
+  let main = List.assoc "main" in
+  let test input pc expected =
+    let input = main input in
+    match[@warning "-4"] input.(pc) with
+    | Drop x ->
+      let instrs = match Rewrite.push_drop input x pc with
+        | Stop (instrs, _) | Work ((instrs, _), _) -> instrs
+        | Blocked | Need_pull _ -> input in
+      (* Printf.printf "%s:\n%s\n"
+          (String.concat " " (match status with | Work x -> List.map string_of_int x |_->[""]))
+          (Disasm.disassemble_instr instrs); *)
+      assert (instrs = main expected);
+    | _ -> assert(false)
+  in
+  let t = parse_test "
+    const x = 1
+    const y = (x + 1)
+    const z = y
+    drop x
+    " in
+  let e = parse_test "
+    const x = 1
+    const y = (x + 1)
+    drop x
+    const z = y
+  " in
+  test t 3 e;
+  let t = parse_test "
+    const x = 1
+    const y = (x + 1)
+    drop x
+    " in
+  let e = parse_test "
+    const x = 1
+    const y = (x + 1)
+    drop x
+  " in
+  test t 2 e;
+  let t = parse_test "
+    mut x = 1
+    read x
+    drop x
+    " in
+  let e = parse_test "
+    mut x = 1
+    read x
+    drop x
+  " in
+  test t 2 e;
+  let t = parse_test "
+    mut x = 1
+    drop x
+    " in
+  let e = parse_test "
+  " in
+  test t 1 e;
+  let t = parse_test "
+    mut x = 1
+    x <- 33
+    drop x
+    " in
+  let e = parse_test "
+    mut x = 1
+    drop x
+  " in
+  test t 2 e;
+  let t = parse_test "
+    mut x = 1
+    branch (1==1) l1 l2
+   l1:
+    stop
+   l2:
+    drop x
+    " in
+  test t 5 t;
+  let t = parse_test "
+    mut x = 1
+    branch (x==1) l1 l2
+   l1:
+    stop
+   l2:
+    drop x
+    " in
+  test t 5 t;
+  let t = parse_test "
+    mut x = 1
+    branch (1==1) l1 l2
+   l1:
+    goto l2
+   l2:
+    drop x
+    " in
+  let e = parse_test "
+    mut x = 1
+    branch (1 == 1) l1 l2_1
+   l1:
+    goto l2
+   l2_1:
+    goto l2
+   l2:
+    drop x
+   " in
+  test t 5 e;
+  let t = parse_test "
+    mut x = 1
+    branch (1==1) e1 e2
+   e1:
+    goto l
+   e2:
+    goto l
+   l:
+    drop x
+   " in
+  let e = parse_test "
+    mut x = 1
+    branch (1==1) e1 e2
+   e1:
+    drop x
+    goto l
+   e2:
+    drop x
+    goto l
+   l:
+   " in
+  test t 7 e;
+  ()
+
+let do_test_drop_driver () =
+  let test x t e =
+    let main = List.assoc "main" in
+    let input, expected = main (parse_test t), main (parse_test e) in
+    let output =
+      match Rewrite.move_drops_on_var input x with
+          | None -> input
+          | Some instrs -> instrs in
+    if output <> expected then begin
+      Printf.printf "input: %s\noutput: %s\nexpected: %s\n%!"
+        (Disasm.disassemble_instr input)
+        (Disasm.disassemble_instr output)
+        (Disasm.disassemble_instr expected);
+      assert false
+    end in
+
+  test "x" {given|
+    const x = 1
+    const y = 2
+    const z = (y + y)
+    drop x
+    drop y
+  |given} {expect|
+    const y = 2
+    const z = (y + y)
+    drop y
+  |expect};
+  test "x" {given|
+    const x = 1
+    const y = 2
+    const z = (x + y)
+    const w = (y + z)
+    drop x
+    drop y
+  |given} {expect|
+    const x = 1
+    const y = 2
+    const z = (x + y)
+    drop x
+    const w = (y + z)
+    drop y
+  |expect};
+  test "x" {given|
+    const x = 1
+    branch (x == 1) la lb
+   la:
+    print 1
+    drop x
+    stop
+   lb:
+    print 2
+    drop x
+    stop
+  |given} {expect|
+    const x = 1
+    branch (x == 1) la lb
+   la:
+    drop x
+    print 1
+    stop
+   lb:
+    drop x
+    print 2
+    stop
+  |expect};
+  test "x" {given|
+    const x = 1
+    branch (1 == 1) la lb
+   la:
+    branch (1 == 1) l1 l2
+   lb:
+    branch (2 == 2) l2 l3
+   l1:
+    print 1
+    goto die_ende
+   l2:
+    print 2
+    goto die_ende
+   l3:
+    print 3
+    goto die_ende
+  die_ende:
+    drop x
+    stop
+  |given} {expect|
+     branch (1 == 1) la lb
+    la:
+     branch (1 == 1) l1 l2_2
+    lb:
+     branch (2 == 2) l2_1 l3
+    l1:
+     print 1
+     goto die_ende
+    l2_1:
+     goto l2
+    l2_2:
+     goto l2
+    l2:
+     print 2
+     goto die_ende
+    l3:
+     print 3
+     goto die_ende
+    die_ende:
+     stop
+  |expect};
+  ()
+
+let () = do_test_drop_driver ()
+
+let suite =
+  "suite">:::
+  ["mut">:: run_checked test_mut no_input
+     (has_var "x" (Value.int 2)
+      &&& (trace_is Value.[int 1; int 2]));
+   "decl_const">:: run_checked test_decl_const no_input
+     (has_var "x" (Value.int 1));
+   "print">:: run_checked test_print no_input
+     (trace_is Value.[int 1; int 2]);
+   "jump">:: run_checked test_jump no_input
+     (has_var "x" (Value.bool true));
+   "jump (oo)" >:: run_checked test_overloading no_input
+     (has_var "b" (Value.bool true)
+      &&& has_var "x" (Value.int 2)
+      &&& has_var "y" (Value.int 1));
+   "add">:: run_checked (test_add "1" "2") no_input
+     (has_var "z" (Value.int 3));
+   "add2">:: run_checked (test_add "2" "1") no_input
+     (has_var "z" (Value.int 3));
+   "eq">:: run_checked (test_eq 1 2) no_input
+     (has_var "z" (Value.bool false));
+   "neq">:: run_checked (test_eq 1 1) no_input
+     (has_var "z" (Value.bool true));
+   "loops">:: run_checked (test_sum 5) no_input
+     (has_var "sum" (Value.int 10));
+   "read">:: run_checked test_read_print (input [Value.bool false; Value.int 1])
+     (trace_is [Value.int 1; Value.bool false]);
+   "mut_undeclared">::
+   (fun () -> assert_raises (Eval.Unbound_variable "b")
+       (run test_read_print_err
+          (input [Value.bool false; Value.int 1]) ok));
+   "mut_undeclared2">::
+   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b", 1))
+       (fun() -> run_checked (check test_read_print_err)
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undeclared3">::
+   (fun () -> assert_raises (Scope.UndeclaredVariable (VarSet.singleton "b", 6))
+       (fun() -> run_checked (check test_read_print_err_3)
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undefined">::
+   (fun () -> assert_raises (Eval.Undefined_variable "n")
+       (run test_read_print_err_2
+          (input [Value.bool false; Value.int 1]) ok));
+   "mut_undefined2">::
+   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "n", 3))
+       (fun() -> run_checked (check test_read_print_err_2)
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "mut_undefined3">::
+   (fun () -> assert_raises (Scope.UninitializedVariable (VarSet.singleton "b", 6))
+       (fun() -> run_checked (check test_read_print_err_4)
+           (input [Value.bool false; Value.int 1]) ok ()));
+   "scope1">:: infer_broken_scope test_broken_scope_1 (undeclared ["x"] 0);
+   "scope2">:: infer_broken_scope test_broken_scope_2 (undeclared ["x"] 3);
+   "scope3">:: infer_broken_scope test_broken_scope_3 (undeclared ["x"] 6);
+   "scope4">:: infer_broken_scope test_broken_scope_4 (extraneous ["y"] 2);
+   "scope4fixed">:: run_checked test_broken_scope_4_fixed no_input ok;
+   "scope5">:: infer_broken_scope test_broken_scope_5 (undeclared ["w"] 2);
+   "scope1ok">:: check_and_run (test_scope_1 "c" "c") no_input
+     (has_var "c" (Value.int 0));
+   "scope1broken">:: infer_broken_scope
+     (test_scope_1 "a" "c") (undeclared ["a"] 12);
+   "scope1broken2">:: infer_broken_scope
+     (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
+   "scope_uninitialized">:: do_test_scope_uninitialized;
+   "parser">:: test_parse_disasm ("segment main\nstop\n");
+   "parser1">:: test_parse_disasm ("segment asdf\nconst x = 3\nprint x\nstop\n");
+   "parser2">:: test_parse_disasm ("segment asdf\ngoto l\nx <- 3\nl:\n");
+   "parser3">:: test_parse_disasm ("segment asdf\nconst x = (y + x)\n");
+   "parser4">:: test_parse_disasm ("segment asdf\nx <- (x == y)\n");
+   "parser5">:: test_parse_disasm ("segment asdf\n# asdfasdf\n");
+   "parser5b">:: test_parse_disasm ("segment as\nosr (x == y) v l [const x = x, mut y = x, mut v, const x = (1+2)]\nl:\n");
+   "parser6">:: test_parse_disasm ("segment s\nbranch (x == y) as fd\n");
+   "parser7">:: test_parse_disasm ("segment x\nconst x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser8">:: test_parse_disasm_file "examples/sum.sou";
+   "disasm1">:: test_disasm_parse (test_sum 10);
+   "disasm2">:: test_disasm_parse (test_add "1" "0");
+   "disasm_scope1">:: test_disasm_parse
+     (Scope.drop_annots test_broken_scope_4);
+   "disasm_scope2">:: test_disasm_parse
+     test_broken_scope_4_fixed;
+   "disasm_scope3">:: test_disasm_parse
+     (Scope.drop_annots test_broken_scope_5);
+   "parser_scope1">:: test_parse_disasm "segment x\n{a, b} print x\n{a,x,...} #asdf\n";
+   "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
+   "predecessors">:: do_test_pred;
+   "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "continue"));
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "loop_body1"));
+   "reaching">:: do_test_reaching;
+   "used">:: do_test_used;
+   "liveness">:: do_test_liveness;
+   "codemotion">:: do_test_codemotion;
+   (* "push_drop">:: do_test_push_drop; *)
+   "pull_drop">:: do_test_pull_drop;
    ]
 ;;
 
