@@ -948,10 +948,7 @@ let do_test_push_drop () =
     let input = main input in
     match[@warning "-4"] input.(pc) with
     | Drop x ->
-      let push = Rewrite.push_instr
-          (Rewrite.Drop.is_eliminating x)
-          (Rewrite.Drop.is_annihilating x)
-          (Rewrite.Drop.is_blocking x) in
+      let push = Rewrite.push_instr (Rewrite.Drop.conditions_var x) in
       let instrs = match push input pc with
         | Stop (instrs, _) | Work ((instrs, _), _) -> instrs
         | Blocked | Need_pull _ -> input in

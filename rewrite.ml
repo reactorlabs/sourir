@@ -36,7 +36,14 @@ type push_status =
   | Need_pull of pc
   | Work of Edit.result * pc list
 
-let push_instr is_eliminating is_annihilating is_blocking instrs pc : push_status =
+type conditions = {
+  is_eliminating : instruction -> bool;
+  is_annihilating : instruction -> bool;
+  is_blocking : instruction -> bool;
+}
+
+let push_instr cond instrs pc : push_status =
+  let { is_eliminating; is_annihilating; is_blocking } = cond in
   assert (pc >0);
   let pc_above = pc - 1 in
   let to_move = instrs.(pc) in
@@ -120,12 +127,11 @@ let try_pull instrs pc_branch : pull_status =
 
 type progress = Made_progress | Stuck
 
-let pull_instr is_eliminating is_annihilating is_blocking instrs pc =
-  let push_instr = push_instr is_eliminating is_annihilating is_blocking in
+let pull_instr cond instrs pc =
   let rec work_push instrs progress to_push to_pull =
     match to_push with
     | pc :: to_push ->
-      begin match push_instr instrs pc with
+      begin match push_instr cond instrs pc with
         | Blocked ->
           work_push instrs progress to_push to_pull
         | Stop (instrs, pc_map) ->
@@ -157,9 +163,7 @@ let pull_instr is_eliminating is_annihilating is_blocking instrs pc =
   in
   work_push instrs Stuck pc []
 
-let pull is_target is_eliminating is_annihilating is_blocking instrs =
-    let pull_instr = pull_instr is_eliminating is_annihilating is_blocking in
-
+let pull is_target cond instrs =
     (* Loop around and move all drops until none moves anymore *)
     let rec work status instrs pc =
       let at_end = Array.length instrs = pc in
@@ -172,7 +176,7 @@ let pull is_target is_eliminating is_annihilating is_blocking instrs =
             | Some instrs -> Some instrs
           end
       else if is_target instrs.(pc) then
-        begin match pull_instr instrs [pc] with
+        begin match pull_instr cond instrs [pc] with
           | None -> work status instrs (pc+1)
           | Some instrs -> work Made_progress instrs 0
         end
@@ -196,16 +200,19 @@ module Drop = struct
     | Decl_const (x, _) | Decl_mut (x, _) -> x = var
     | _ -> false
 
+  let conditions_var var = {
+    is_blocking = is_blocking var;
+    is_eliminating = is_eliminating var;
+    is_annihilating = is_annihilating var;
+  }
+
   let pull_var instrs var =
     let is_target instr =
       match[@warning "-4"] instr with
       | Drop x when x = var -> true
       | _ -> false
     in
-    let move = pull
-        is_target
-        (is_eliminating var) (is_annihilating var) (is_blocking var) in
-    move instrs
+    pull is_target (conditions_var var) instrs
 
   let move_up instrs =
     let collect vars instr =
