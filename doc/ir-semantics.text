@@ -22,7 +22,8 @@ start     start label      (execution of segment starts here)
 a  addresses
 
 i ::=    instructions
-| const x = ce                  constant variable
+| const x = e                   constant variable
+| call x = f e*                 function call
 | mut x = e                     mutable variable
 | x <- e                        assignment
 | branch e l₁ l₂                conditional
@@ -30,10 +31,6 @@ i ::=    instructions
 | print e                       print
 | return e                      return
 | osr(e, g, l, osr-map*)        osr : (can be used for osr-in and osr-out)
-
-ce ::=   call expression
-| e
-| call f (e, ...)     call
 
 e ::=    (simple) expressions
 | lit                   literals
@@ -106,12 +103,12 @@ Update (partial) function, returns an H:
   (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
 
   (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
-    when I(l) = (const x' = call f (e, ...))
+    when I(l) = (call x = f e*)
      and Df ∈ dom P
-     and Df  = Function f (x, ...)
+     and Df  = Function f y*
      and I' := P(Df, Segment active)
-     and E' := (x ↦ eval H E e, ...)
-     and C' := (x', E, I, succ I l)
+     and E' := (y ↦ eval H E e)*
+     and C' := (x, E, I, succ I l)
 
   (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
     when I(l) = (return e)
