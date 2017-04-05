@@ -33,6 +33,8 @@ type instruction_stream = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
+  | Call of variable * label * (expression list)
+  | Return of expression
   | Drop of variable
   | Assign of variable * expression
   | Clear of variable
@@ -146,10 +148,12 @@ let expr_vars = function
     |> List.fold_left VarSet.union VarSet.empty
 
 let declared_vars = function
+  | Call (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
   | (Assign _
     | Drop _
+    | Return _
     | Clear _
     | Branch _
     | Label _
@@ -163,6 +167,10 @@ let declared_vars = function
 (* Which variables need to be in scope
  * Producer: declared_vars *)
 let required_vars = function
+  | Call (_x, f, es) ->
+    let vs = List.map expr_vars es in
+    List.fold_left VarSet.union VarSet.empty vs
+  | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
@@ -182,11 +190,13 @@ let required_vars = function
   | Stop -> VarSet.empty
 
 let defined_vars = function
+  | Call (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, Some _)
   | Assign (x ,_)
   | Read x -> ModedVarSet.singleton (Mut_var, x)
   | Decl_mut (_, None)
+  | Return _
   | Drop _
   | Clear _
   | Branch _
@@ -199,6 +209,8 @@ let defined_vars = function
 
 let dropped_vars = function
   | Drop x -> VarSet.singleton x
+  | Return _
+  | Call _
   | Decl_const _
   | Decl_mut _
   | Assign _
@@ -214,6 +226,8 @@ let dropped_vars = function
 
 let cleared_vars = function
   | Clear x -> VarSet.singleton x
+  | Return _
+  | Call _
   | Decl_const _
   | Decl_mut _
   | Assign _
@@ -230,6 +244,10 @@ let cleared_vars = function
 (* Which variables need to be defined
  * Producer: defined_vars *)
 let used_vars = function
+  | Call (_x, _f, es) ->
+    let vs = List.map expr_vars es in
+    List.fold_left VarSet.union VarSet.empty vs
+  | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty

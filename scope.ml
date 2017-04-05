@@ -18,9 +18,19 @@ type inference_state = {
 }
 
 exception IncompatibleScope of inference_state * inference_state * pc
+exception DuplicateFormalParameter
 
-let infer instructions : inferred_scope array =
+let infer func version_name : inferred_scope array =
   let open Analysis in
+
+  let to_moded_var = function
+    | ParamConst x -> (Const_var, x)
+    | ParamMut x -> (Mut_var, x)
+  in
+  let formals = ModedVarSet.of_list (List.map to_moded_var func.formals) in
+  if (List.length func.formals) <> (List.length (VarSet.elements (ModedVarSet.untyped formals))) then
+    raise DuplicateFormalParameter else
+  let _, instructions = Instr.lookup_version func version_name in
 
   let infer_scope instructions =
     let merge pc cur incom =
@@ -41,7 +51,7 @@ let infer instructions : inferred_scope array =
       let final_info = ModedVarSet.diff_untyped updated dropped in
       { sources = PcSet.singleton pc; info = final_info; }
     in
-    let initial_state = { sources = PcSet.empty; info = ModedVarSet.empty; } in
+    let initial_state = { sources = PcSet.empty; info = formals; } in
     let res = Analysis.forward_analysis initial_state instructions merge update in
     fun pc -> (res pc).info in
 
@@ -59,8 +69,7 @@ let infer instructions : inferred_scope array =
          that only declared variables are defined. *)
       ModedVarSet.diff_untyped updated (VarSet.union dropped cleared)
     in
-    let initial_state = ModedVarSet.empty in
-    Analysis.forward_analysis initial_state instructions merge update in
+    Analysis.forward_analysis formals instructions merge update in
 
   let inferred = infer_scope instructions in
   let initialized = check_initialized instructions in
@@ -102,19 +111,18 @@ let check (scope : inferred_scope array) annotations =
   in
   Array.iteri check_at scope
 
-let check_instrs instrs annot =
-  check (infer instrs) annot
-
 exception ScopeExceptionAt of label * label * exn
 
 let check_function (func : afunction) =
   List.iter (fun (label, instrs) ->
       let check () =
+        let inferred = infer func label in
         match List.assoc label func.annotations with
         | exception Not_found ->
-          check_instrs instrs (Array.map (fun _ -> None) instrs)
+          let annot = Array.map (fun _ -> None) instrs in
+          check inferred annot
         | annot ->
-          check_instrs instrs annot
+          check inferred annot
       in
       try check () with
       | e -> raise (ScopeExceptionAt (func.name, label, e))

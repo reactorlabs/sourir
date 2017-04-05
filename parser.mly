@@ -5,7 +5,7 @@
 %token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
-%token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR VERSION FUNCTION
+%token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
 %token<string> COMMENT
 %token NEWLINE
 %token EOF
@@ -57,7 +57,7 @@ formal_param:
     { ParamMut x }
 
 afunction:
-| FUNCTION name=variable LPAREN formals=list(formal_param) RPAREN NEWLINE optional_newlines prog=list(instruction_line)
+| FUNCTION name=variable LPAREN formals=separated_list(COMMA, formal_param) RPAREN NEWLINE optional_newlines prog=list(instruction_line)
   {
     let annotations, instructions = List.split prog in
     { name = name;
@@ -65,7 +65,7 @@ afunction:
       body = [("anon", Array.of_list instructions)];
       annotations = [("anon", Array.of_list annotations)]; }
   }
-| FUNCTION name=variable LPAREN formals=list(formal_param) RPAREN NEWLINE optional_newlines v1=version vs=list(version)
+| FUNCTION name=variable LPAREN formals=separated_list(COMMA, formal_param) RPAREN NEWLINE optional_newlines v1=version vs=list(version)
   {
     let vs = v1 :: vs in
     let bodies, annots = List.split vs in
@@ -107,6 +107,10 @@ osr_def:
     { OsrMut (x, y) }
 
 instruction:
+| CALL x=variable EQUAL f=variable LPAREN es=separated_list(COMMA, expression) RPAREN
+  { Call (x, f, es) }
+| RETURN e=expression
+  { Return e }
 | CONST x=variable EQUAL e=expression
   { Decl_const (x, e) }
 | MUT x=variable

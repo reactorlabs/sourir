@@ -45,7 +45,7 @@ let remove_unreachable_code (instrs : instruction_stream) : instruction_stream =
 
 let branch_prune (func : afunction) : afunction =
   let (old_label, instrs) = Instr.active_version func in
-  let scope = Scope.infer instrs in
+  let scope = Scope.infer func old_label in
   let live = Analysis.live instrs in
   let rec branch_prune pc acc =
     if pc = Array.length instrs then

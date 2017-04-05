@@ -14,6 +14,8 @@ let keyword_table = [
   "read", READ;
   "drop", DROP;
   "clear", CLEAR;
+  "return", RETURN;
+  "call", CALL;
   "version", VERSION;
   "function", FUNCTION;
 ]

@@ -12,11 +12,11 @@ let successors_at (instrs : instruction_stream) pc : pc list =
   let all_succ =
     match instr with
     | Decl_const _ | Decl_mut _ | Assign _ | Drop _ | Clear _ | Read _
-    | Label _ | Comment _ | Osr _ | Print _ ->
+    | Call _ | Label _ | Comment _ | Osr _ | Print _ ->
       let is_last = pc' = Array.length instrs in
       if is_last then [] else [pc']
     (* those are the instructions which manipulate controlflow:  *)
-    | Stop -> []
+    | Stop | Return _ -> []
     | Goto l -> [resolve l]
     | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   in

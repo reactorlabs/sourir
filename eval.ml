@@ -8,7 +8,8 @@ type trace = value list
 type environment = binding Env.t
 type heap = heap_value Heap.t
 
-type status = Running | Stopped
+type status = Running | Stopped of value option
+type continuation = variable * environment * instruction_stream * pc
 
 type configuration = {
   input : input;
@@ -20,6 +21,7 @@ type configuration = {
   pc : pc;
   status : status;
   deopt : string option;
+  continuation : continuation list;
 }
 
 type litteral_type = Nil | Bool | Int
@@ -128,21 +130,66 @@ let get_bool (Lit lit : value) =
      let expected, received = Bool, litteral_type other in
      raise (Type_error { expected; received })
 
-let instruction conf =
-  if conf.pc >= Array.length conf.instrs
-  then Stop
-  else conf.instrs.(conf.pc)
+exception WrongNumberOfArguments
+exception MissingReturn
+exception InvalidArgument
 
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
   let resolve instrs label = Instr.resolve instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
-  match instruction conf with
+
+  let instruction =
+    if conf.pc < Array.length conf.instrs
+    then conf.instrs.(conf.pc)
+    else if conf.continuation = []
+    then Stop
+    else raise MissingReturn
+  in
+
+  match instruction with
+  | Call (x, f, exs) ->
+    let func = Instr.lookup_fun conf.program f in
+    if (List.length exs) <> (List.length func.formals) then raise WrongNumberOfArguments else
+    let _, instrs = Instr.active_version func in
+    let args = List.combine func.formals exs in
+    let env = List.fold_left (fun env arg ->
+        begin match[@warning "-4"] arg with
+        | Instr.ParamConst x, e ->
+          Env.add x (Const (eval conf e)) env
+        | Instr.ParamMut x, (Simple (Var y)) ->
+          begin match Env.find y conf.env with
+            | Mut a as adr -> Env.add x adr env
+            | Const _ -> raise InvalidArgument
+          end
+        | Instr.ParamMut x, e ->
+          raise InvalidArgument
+        end) Env.empty args in
+    { conf with
+      env = env;
+      instrs = instrs;
+      pc = 0;
+      continuation = (x, conf.env, conf.instrs, pc') :: conf.continuation
+    }
+  | Return e ->
+     let v = eval conf e in
+     begin match conf.continuation with
+     | [] ->
+       { conf with
+         status = Stopped (Some v) }
+     | (x, env, instrs, pc) :: cont ->
+       let env = Env.add x (Const v) env in
+       { conf with
+         env = env;
+         instrs = instrs;
+         pc = pc;
+         continuation = cont; }
+     end
   | Comment _ -> { conf with
                    pc = pc' }
   | Stop -> { conf with
-              status = Stopped }
+              status = Stopped None }
   | Decl_const (x, e) ->
      let v = eval conf e in
      { conf with
@@ -240,11 +287,14 @@ let start program input pc : configuration = {
   deopt = None;
   program = program;
   instrs = snd (Instr.active_version program.main);
-  pc;
+  pc = pc;
+  continuation = []
 }
 
 let stop conf =
-  conf.status = Stopped
+  match conf.status with
+  | Running -> false
+  | Stopped _ -> true
 
 let rec reduce_bounded (conf, n) =
   if n = 0 then conf

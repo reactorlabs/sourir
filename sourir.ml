@@ -24,7 +24,7 @@ let () =
     begin try Scope.check_program program with
     | Scope.ScopeExceptionAt (f, v, e) ->
       begin
-        Printf.printf "Error in function %s version %s " f v;
+        Printf.eprintf "Error in function %s version %s " f v;
         begin match e with
         | Scope.UndeclaredVariable (xs, pc) ->
           let l = pc+1 in
@@ -122,4 +122,16 @@ let () =
 
     Scope.check_program program;
 
-    ignore (Eval.run_interactive IO.stdin_input program)
+    let conf = Eval.run_interactive IO.stdin_input program in
+    let open Eval in
+    match conf.status with
+    | Running -> assert(false)
+    | Stopped None
+      -> exit 0
+    | Stopped (Some (Lit (Int n))) ->
+      exit n
+    | Stopped (Some (Lit (Bool b))) ->
+      exit (if b then 1 else 0)
+    | Stopped (Some (Lit Nil)) ->
+      exit 0
+

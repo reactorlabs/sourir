@@ -20,6 +20,16 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     in
     format_pc buf pc;
     begin match instr with
+    | Call (var, f, exs)              ->
+      let rec dump_exs = function
+        | [] -> ()
+        | [e] -> dump_expr e
+        | e::t -> dump_expr e; pr buf ", "; dump_exs t
+      in
+      pr buf " call %s = %s (" var f;
+      dump_exs exs;
+      pr buf ")"
+    | Return exp                      -> pr buf " return "; dump_expr exp
     | Decl_const (var, exp)           -> pr buf " const %s = " var; dump_expr exp
     | Decl_mut (var, Some exp)        -> pr buf " mut %s = " var; dump_expr exp
     | Decl_mut (var, None)            -> pr buf " mut %s" var

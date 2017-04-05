@@ -7,6 +7,8 @@ let trace_is li =
   fun conf -> Eval.read_trace conf = li
 let has_var x v =
   fun conf -> Eval.(lookup conf.heap conf.env x = v)
+let returns n =
+  fun conf -> Eval.(conf.status = Stopped (Some (Lit (Int n))))
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
@@ -1059,6 +1061,66 @@ let do_test_drop_driver () =
   |expect};
   ()
 
+let test_functions () =
+  let test str exp =
+    run (parse str) no_input (returns exp) () in
+  test "return 1\n" 1;
+  test "return (1+1)\n" 2;
+  test {pr|
+     call x = bla ()
+     return x
+    function bla ()
+     return 1
+  |pr} 1;
+  assert_raises Eval.WrongNumberOfArguments (fun () ->
+    test {pr|
+       call x = bla (1)
+      function bla ()
+    |pr} 1);
+  assert_raises Eval.MissingReturn (fun () ->
+    test {pr|
+       call x = bla ()
+       return x
+      function bla ()
+    |pr} 1);
+  test {pr|
+     call x = bla (22)
+     return x
+    function bla (const y)
+      return y
+  |pr} 22;
+  test {pr|
+     call one = one ()
+     call three = pl (one, 2)
+     return three
+    function pl (const y, const z)
+      return (y+z)
+    function one ()
+      return 1
+  |pr} 3;
+  assert_raises Eval.InvalidArgument (fun () ->
+    test {pr|
+       call x = bla (22)
+       return x
+      function bla (mut y)
+        return y
+    |pr} 22);
+  test {pr|
+     mut a = 3
+     call x = bla (a)
+     return x
+    function bla (mut y)
+      return y
+  |pr} 3;
+  test {pr|
+     mut a = 3
+     call x = bla (a)
+     return a
+    function bla (mut y)
+     y <- 4
+     return false
+  |pr} 4;
+  ();;
 
 let suite =
   "suite">:::
@@ -1150,6 +1212,7 @@ let suite =
    "push_drop">:: do_test_push_drop;
    "pull_drop">:: do_test_pull_drop;
    "move_drop">:: do_test_drop_driver;
+   "test_functions">:: test_functions;
    ]
 ;;
 

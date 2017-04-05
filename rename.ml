@@ -54,6 +54,11 @@ let uses_in_instruction old_name new_name instr : instruction =
   let in_expression = in_expression old_name new_name in
   let in_osr = in_osr old_name new_name in
   match instr with
+  | Call (x, f, exs) ->
+    assert(x != old_name);   (* -> invalid scope *)
+    Call (x, f, List.map in_expression exs)
+  | Return e ->
+    Return (in_expression e)
   | Decl_const (x, exp) ->
     assert(x != old_name);   (* -> invalid scope *)
     Decl_const (x, in_expression exp)

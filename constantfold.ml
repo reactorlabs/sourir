@@ -28,6 +28,11 @@ let const_prop (func : afunction) : afunction =
   let convert x l instr =
     let replace = Replace.var_in_exp x l in
     match instr with
+    | Call (y, f, es) ->
+      assert (x <> y);
+      Call (y, f, List.map replace es)
+    | Return e ->
+      Return (replace e)
     | Decl_const (y, e) ->
       assert (x <> y);
       Decl_const (y, replace e)
