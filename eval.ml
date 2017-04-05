@@ -200,7 +200,7 @@ let reduce conf =
        trace = v :: conf.trace;
        pc = pc';
      }
-  | Osr (e, v, l, osr) ->
+  | Osr (e, f, v, l, osr) ->
      let b = get_bool (eval conf e) in
      if not b then
        { conf with
@@ -221,7 +221,8 @@ let reduce conf =
            Env.add x' (Mut a) env'
        in
        let env' = List.fold_left add Env.empty osr in
-       let instrs = List.assoc v conf.program in
+       let func = Instr.lookup_fun conf.program f in
+       let (_, instrs) = Instr.lookup_version func v in
        { conf with
          pc = resolve instrs l;
          env = env';
@@ -238,7 +239,7 @@ let start program input pc : configuration = {
   status = Running;
   deopt = None;
   program = program;
-  instrs = snd (Instr.active_version program);
+  instrs = snd (Instr.active_version program.main);
   pc;
 }
 

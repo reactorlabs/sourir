@@ -31,10 +31,10 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print "; dump_expr exp
     | Read var                        -> pr buf " read %s" var
-    | Osr (exp, v, l, vars)           ->
+    | Osr (exp, f, v, l, vars)        ->
       pr buf " osr ";
       dump_expr exp;
-      pr buf " %s %s [" v l;
+      pr buf " %s %s %s [" f v l;
       let rec dump_vars vs =
         let dump_var = function
           | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
@@ -56,9 +56,17 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
   Array.iteri (dump_instr buf) prog
 
 let disassemble buf (prog : Instr.program) =
-  List.iter (fun (name, version) ->
-      Printf.bprintf buf "version %s\n" name;
-      disassemble_instrs buf version) prog
+  (* TODO: disassemble annotations *)
+  List.iter (fun {name=name; formals=formals; body=body} ->
+      let formals = List.map (fun x -> match x with
+          | ParamMut x -> "mut "^x
+          | ParamConst x -> "const "^x) formals in
+      let formals = String.concat ", " formals in
+      Printf.bprintf buf "function %s (%s)\n" name formals;
+      List.iter (fun (label, instrs) ->
+          Printf.bprintf buf "version %s\n" label;
+          disassemble_instrs buf instrs) body
+    ) (prog.main :: prog.functions)
 
 let disassemble_s (prog : Instr.program) =
   let b = Buffer.create 1024 in

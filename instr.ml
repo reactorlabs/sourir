@@ -41,7 +41,7 @@ and instruction =
   | Label of label
   | Goto of label
   | Print of expression
-  | Osr of expression * label * label * osr_def list
+  | Osr of expression * label * label * label * osr_def list
   | Stop
   | Comment of string
 and osr_def =
@@ -172,7 +172,7 @@ let required_vars = function
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
   | Print e -> expr_vars e
-  | Osr (e, _, _, osr) ->
+  | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
         | OsrConst (_, e) -> e
         | OsrMut (_, x) -> Simple (Var x)
@@ -244,7 +244,7 @@ let used_vars = function
   | Comment _
   | Read _
   | Stop -> VarSet.empty
-  | Osr (e, _, _, osr) ->
+  | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
         | OsrConst (_, e) -> e
         | OsrMut (_, x) -> Simple (Var x)
@@ -252,16 +252,62 @@ let used_vars = function
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
-type 'a dict = (string * 'a) list
+type scope_annotation =
+  | ExactScope of VarSet.t
+  | AtLeastScope of VarSet.t
 
-type version = label * instruction_stream
-type program = version list
+type inferred_scope =
+  | DeadScope
+  | Scope of ModedVarSet.t
 
-let active_version (prog : program) : version =
-  (List.hd prog)
+type annotations = scope_annotation option array
 
-let replace_active_version (prog : program) (repl : version) =
-  repl :: (List.tl prog)
+type formal_parameter =
+  | ParamConst of variable
+  | ParamMut of variable
+
+type version = (label * instruction_stream)
+type version_annotation = (label * annotations)
+
+type afunction = {
+  name : label;
+  formals : formal_parameter list;
+  body : version list;
+  annotations : version_annotation list;
+}
+type program = {
+  main : afunction;
+  functions : afunction list;
+}
+
+exception FunctionDoesNotExist of label
+exception AmbiguousFunctionName of label
+
+let lookup_fun (prog : program) (name : label) : afunction =
+  if name = "main" then prog.main else
+  match List.filter (fun {name = l} -> name = l) prog.functions with
+  | [] -> raise (FunctionDoesNotExist name)
+  | [f] -> f
+  | _ -> raise (AmbiguousFunctionName name)
+
+exception VersionDoesNotExist of label
+exception AmbiguousVersionName of label
+
+let lookup_version (func : afunction) (label : label) : version =
+  match List.filter (fun (l, _) -> label = l) func.body with
+  | [] -> raise (VersionDoesNotExist label)
+  | [v] -> v
+  | _ -> raise (AmbiguousVersionName label)
+
+let active_version (func : afunction) : version =
+  (List.hd func.body)
+
+let replace_active_version (func : afunction) (repl : version) : afunction =
+  { func with
+    body = repl :: (List.tl func.body);
+    (* If we replace the version the annotations are no longer valid *)
+    annotations = List.remove_assoc (fst repl) func.annotations
+  }
 
 module Value = struct
   let int n : value = Lit (Int n)

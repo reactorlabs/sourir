@@ -17,20 +17,6 @@ type inference_state = {
   info : scope_info;
 }
 
-type scope_annotation =
-  | Exact of VarSet.t
-  | At_least of VarSet.t
-
-type inferred_scope =
-  | Dead
-  | Scope of ModedVarSet.t
-
-type annotations = scope_annotation option array
-type annotated_program = (instruction_stream * annotations) Instr.dict
-
-let drop_annots : annotated_program -> program =
-  List.map (fun (name, (instrs, annot)) -> (name, instrs))
-
 exception IncompatibleScope of inference_state * inference_state * pc
 
 let infer instructions : inferred_scope array =
@@ -81,7 +67,7 @@ let infer instructions : inferred_scope array =
 
   let resolve pc instr =
     match inferred pc, initialized pc with
-    | exception Analysis.UnreachableCode _ -> Dead
+    | exception Analysis.UnreachableCode _ -> DeadScope
     | declared, defined ->
       let defined' = ModedVarSet.untyped defined in
       let declared' = ModedVarSet.untyped declared in
@@ -98,15 +84,15 @@ let infer instructions : inferred_scope array =
 let check (scope : inferred_scope array) annotations =
   let check_at pc scope =
     match scope with
-    | Dead -> ()
+    | DeadScope -> ()
     | Scope scope ->
       begin match annotations.(pc) with
         | None -> ()
-        | Some (At_least vars) ->
+        | Some (AtLeastScope vars) ->
           let declared = ModedVarSet.untyped scope in
           if not (VarSet.subset vars declared)
           then raise (UndeclaredVariable (VarSet.diff vars declared, pc))
-        | Some (Exact vars) ->
+        | Some (ExactScope vars) ->
           let declared = ModedVarSet.untyped scope in
           if not (VarSet.subset vars declared)
           then raise (UndeclaredVariable (VarSet.diff vars declared, pc));
@@ -115,6 +101,28 @@ let check (scope : inferred_scope array) annotations =
       end
   in
   Array.iteri check_at scope
+
+let check_instrs instrs annot =
+  check (infer instrs) annot
+
+exception ScopeExceptionAt of label * label * exn
+
+let check_function (func : afunction) =
+  List.iter (fun (label, instrs) ->
+      let check () =
+        match List.assoc label func.annotations with
+        | exception Not_found ->
+          check_instrs instrs (Array.map (fun _ -> None) instrs)
+        | annot ->
+          check_instrs instrs annot
+      in
+      try check () with
+      | e -> raise (ScopeExceptionAt (func.name, label, e))
+    ) func.body
+
+let check_program (prog : program) =
+  List.iter (fun func ->
+      check_function func) (prog.main :: prog.functions)
 
 let explain_incompatible_scope outchan s1 s2 pc =
   let buf = Buffer.create 100 in
@@ -166,7 +174,3 @@ let explain_incompatible_scope outchan s1 s2 pc =
   print_only buf "former" (ModedVarSet.diff s1.info s2.info) "latter";
   print_only buf "latter" (ModedVarSet.diff s2.info s1.info) "former";
   Buffer.output_buffer outchan buf
-
-let active_version (prog : annotated_program) : (label * instruction_stream * annotations) =
-  let (name, stream) = (List.hd prog) in
-  (name, fst stream, snd stream)

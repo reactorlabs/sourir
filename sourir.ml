@@ -1,3 +1,5 @@
+open Instr
+
 let () =
   match Sys.argv.(1) with
   | exception _ ->
@@ -19,104 +21,105 @@ let () =
     let constprop = Array.mem "--prop" Sys.argv in
     let lifetime = Array.mem "--lifetime" Sys.argv in
 
-    List.iter (fun (name, (instrs, annot)) ->
-      try Scope.check (Scope.infer instrs) annot with
-      | Scope.UndeclaredVariable (xs, pc) ->
-        let l = pc+1 in
-        begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "%s:%d : Error: Variable %s is not declared.\n%!"
-                     path l x
-          | xs -> Printf.eprintf
-                    "%s:%d : Error: Variables {%s} are not declared.\n%!"
-                    path l (String.concat ", " xs)
-        end;
+    begin try Scope.check_program program with
+    | Scope.ScopeExceptionAt (f, v, e) ->
+      begin
+        Printf.printf "Error in function %s version %s " f v;
+        begin match e with
+        | Scope.UndeclaredVariable (xs, pc) ->
+          let l = pc+1 in
+          begin match VarSet.elements xs with
+            | [x] -> Printf.eprintf
+                       "line %d: Variable %s is not declared.\n%!"
+                       l x
+            | xs -> Printf.eprintf
+                      "line %d: Variables {%s} are not declared.\n%!"
+                      l (String.concat ", " xs)
+          end;
+        | Scope.UninitializedVariable (xs, pc) ->
+          let l = pc+1 in
+          begin match VarSet.elements xs with
+            | [x] -> Printf.eprintf
+                       "line %d: Variable %s might be uninitialized.\n%!"
+                       l x
+            | xs -> Printf.eprintf
+                      "line %d: Variables {%s} might be uninitialized.\n%!"
+                      l (String.concat ", " xs)
+          end;
+        | Scope.ExtraneousVariable (xs, pc) ->
+          let l = pc+1 in
+          let func = lookup_fun program f in
+          let annot = List.assoc v func.annotations in
+          let annot_vars = match annot.(pc) with
+            | None | Some (AtLeastScope _) ->
+              (* we know from the exception-raising code that this cannot happen *)
+              assert (false)
+            | Some (ExactScope vars) ->
+              VarSet.elements vars |>
+              String.concat ", " |> Printf.sprintf " {%s}" in
+          begin match VarSet.elements xs with
+            | [x] -> Printf.eprintf
+                       "line %d: Variable %s is present in scope but missing \
+                       from the scope annotation%s.\n%!"
+                       l x annot_vars
+            | xs -> Printf.eprintf
+                      "line %d: Variables {%s} are present in scope \
+                       but missing from the scope annotation%s.\n%!"
+                      l (String.concat ", " xs) annot_vars
+          end;
+        | Scope.DuplicateVariable (xs, pc) ->
+          let l = pc+1 in
+          begin match VarSet.elements xs with
+            | [x] -> Printf.eprintf
+                       "line %d: Variable %s is declared more than once.\n%!"
+                       l x
+            | xs -> Printf.eprintf
+                      "line %d: Variables {%s} are declared more than once.\n%!"
+                      l (String.concat ", " xs)
+          end;
+        | Scope.IncompatibleScope (scope1, scope2, pc) ->
+          let func = lookup_fun program f in
+          let instrs = List.assoc v func.body in
+          Disasm.pretty_print_version stderr (v, instrs);
+          Scope.explain_incompatible_scope stderr scope1 scope2 pc;
+          flush stderr;
+        | _ -> assert(false) end;
         exit 1
-      | Scope.UninitializedVariable (xs, pc) ->
-        let l = pc+1 in
-        begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "%s:%d : Error: Variable %s might be uninitialized.\n%!"
-                     path l x
-          | xs -> Printf.eprintf
-                    "%s:%d : Error: Variables {%s} might be uninitialized.\n%!"
-                    path l (String.concat ", " xs)
-        end;
-        exit 1
-      | Scope.ExtraneousVariable (xs, pc) ->
-        let l = pc+1 in
-        let annot_vars = match annot.(pc) with
-          | None | Some (Scope.At_least _) ->
-            (* we know from the exception-raising code that this cannot happen,
-               but handle this case defensively. *)
-            ""
-          | Some (Scope.Exact vars) ->
-            Instr.VarSet.elements vars |>
-            String.concat ", " |> Printf.sprintf " {%s}" in
-        begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "%s:%d : Error: Variable %s is present in scope but missing \
-                     from the scope annotation%s.\n%!"
-                     path l x annot_vars
-          | xs -> Printf.eprintf
-                    "%s:%d : Error: Variables {%s} are present in scope \
-                     but missing from the scope annotation%s.\n%!"
-                    path l (String.concat ", " xs) annot_vars
-        end;
-        exit 1
-      | Scope.DuplicateVariable (xs, pc) ->
-        let l = pc+1 in
-        begin match Instr.VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "%s:%d : Error: Variable %s is declared more than once.\n%!"
-                     path l x
-          | xs -> Printf.eprintf
-                    "%s:%d : Error: Variables {%s} are declared more than once.\n%!"
-                    path l (String.concat ", " xs)
-        end;
-        exit 1
-      | Scope.IncompatibleScope (scope1, scope2, pc) ->
-        Disasm.pretty_print_version stderr (name, instrs);
-        Scope.explain_incompatible_scope stderr scope1 scope2 pc;
-        flush stderr;
-        exit 1
-      ) program;
+      end
+    end;
 
-      let program = Scope.drop_annots program in
+    let program = if prune
+      then
+        let opt = { program with main = Transform.branch_prune program.main } in
+        if not quiet then Printf.printf "\n** After speculative branch pruning:\n%s" (Disasm.disassemble_s opt);
+        opt
+      else program
+    in
 
-      let program = if prune
-        then
-          let opt = Transform.branch_prune program in
-          if not quiet then Printf.printf "\n** After speculative branch pruning:\n%s" (Disasm.disassemble_s opt);
-          opt
-        else program
-      in
+    let program = if codemotion
+      then
+        let opt = { program with main = Transform.hoist_assignment program.main } in
+        if not quiet then Printf.printf "\n** After trying to hoist one assignment:\n%s" (Disasm.disassemble_s opt);
+        opt
+      else program
+    in
 
-      let program = if codemotion
-        then
-          let opt = Transform.hoist_assignment program in
-          if not quiet then Printf.printf "\n** After trying to hoist one assignment:\n%s" (Disasm.disassemble_s opt);
-          opt
-        else program
-      in
+    let program = if constprop
+      then
+        let opt = { program with main = Constantfold.const_prop program.main } in
+        if not quiet then Printf.printf "\n** After constant propagation:\n%s" (Disasm.disassemble_s opt);
+        opt
+      else program
+    in
 
-      let program = if constprop
-        then
-          let opt = Constantfold.const_prop program in
-          if not quiet then Printf.printf "\n** After constant propagation:\n%s" (Disasm.disassemble_s opt);
-          opt
-        else program
-      in
+    let program = if lifetime
+      then
+        let opt = { program with main = Transform.minimize_lifetimes program.main } in
+        if not quiet then Printf.printf "\n** After minimizing lifetimes:\n%s" (Disasm.disassemble_s opt);
+        opt
+      else program
+    in
 
-      let program = if lifetime
-        then
-          let opt = Transform.minimize_lifetimes program in
-          if not quiet then Printf.printf "\n** After minimizing lifetimes:\n%s" (Disasm.disassemble_s opt);
-          opt
-        else program
-      in
+    Scope.check_program program;
 
-      List.iter (fun (name, instrs) ->
-        Scope.check (Scope.infer instrs) (Array.map (fun _ -> None) instrs)) program;
-
-      ignore (Eval.run_interactive IO.stdin_input program)
+    ignore (Eval.run_interactive IO.stdin_input program)

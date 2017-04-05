@@ -15,6 +15,7 @@ let keyword_table = [
   "drop", DROP;
   "clear", CLEAR;
   "version", VERSION;
+  "function", FUNCTION;
 ]
 
 let id_or_keyword id =

@@ -11,8 +11,8 @@ open Instr
  * is replaced by the literal `l`. Afterwards, the variable `x` is no longer
  * used, and the declaration can be removed by running `minimize_lifetimes`.
  *)
-let const_prop prog =
-  let (name, instrs) = Instr.active_version prog in
+let const_prop (func : afunction) : afunction =
+  let (old_name, instrs) = Instr.active_version func in
 
   (* Finds the declarations that can be used for constant propagation.
      Returns a list of (pc, x, l) where `const x = l` is defined at pc `pc`. *)
@@ -39,14 +39,14 @@ let const_prop prog =
       Assign (y, replace e)
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
-    | Osr (exp, l1, l2, env) ->
+    | Osr (exp, f, v, l, env) ->
       (* Replace all expressions in the osr environment. *)
       let env' = List.map (fun osr_def ->
         match[@warning "-4"] osr_def with
         | OsrConst (y, e) -> OsrConst (y, replace e)
         | _ -> osr_def) env
       in
-      Osr (replace exp, l1, l2, env')
+      Osr (replace exp, f, v, l, env')
     | Drop y
     | Decl_mut (y, None)
     | Clear y
@@ -96,5 +96,5 @@ let const_prop prog =
     List.fold_left propagate instrs candidates
   in
 
-  let result = work instrs in
-  Instr.replace_active_version prog (name, result)
+  let result = (old_name, work instrs) in
+  Instr.replace_active_version func result

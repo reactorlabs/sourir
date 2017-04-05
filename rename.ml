@@ -22,9 +22,9 @@ let fresh_label instrs label =
     then cand_lab else find (i+1) in
   find 1
 
-let fresh_version_label (prog:program) label =
+let fresh_version_label (func : afunction) label =
   let cand i = label ^ "_" ^ (string_of_int i) in
-  let existing = fst (List.split prog) in
+  let existing = List.map (fun (l, _) -> l) func.body in
   let rec find i =
     let cand_lab = cand i in
     if not (List.mem cand_lab existing)
@@ -70,8 +70,8 @@ let uses_in_instruction old_name new_name instr : instruction =
     Print (in_expression exp)
   | Branch (exp, l1, l2) ->
     Branch (in_expression exp, l1, l2)
-  | Osr (exp, v, l, osrs) ->
-    Osr (in_expression exp, v, l,
+  | Osr (exp, f, v, l, osrs) ->
+    Osr (in_expression exp, f, v, l,
          List.map in_osr osrs)
 
   | Decl_mut (x, None)
