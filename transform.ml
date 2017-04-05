@@ -1,9 +1,9 @@
 open Instr
 
-let remove_empty_jmp (instrs : segment) : segment =
+let remove_empty_jmp (instrs : instruction_stream) : instruction_stream =
   let pred = Analysis.predecessors instrs in
   let succ = Analysis.successors instrs in
-  let rec remove_empty_jmp pc acc : segment =
+  let rec remove_empty_jmp pc acc =
     let pc' = pc + 1 in
     if pc' = Array.length instrs then
       Array.of_list (List.rev (instrs.(pc) :: acc))
@@ -23,13 +23,13 @@ let remove_empty_jmp (instrs : segment) : segment =
   in
   remove_empty_jmp 0 []
 
-let remove_unreachable_code (instrs : segment) : segment =
+let remove_unreachable_code (instrs : instruction_stream) : instruction_stream =
   let unreachable =
     let merge _ _ _ = None in
     let update _ _ = () in
     Analysis.forward_analysis () instrs merge update
   in
-  let rec remove_unreachable pc acc : segment =
+  let rec remove_unreachable pc acc =
     let pc' = pc+1 in
     if pc = Array.length instrs then
       Array.of_list (List.rev acc)
@@ -44,20 +44,19 @@ let remove_unreachable_code (instrs : segment) : segment =
   remove_unreachable 0 []
 
 let branch_prune (prog : program) : program =
-  let main = List.assoc "main" prog in
-  let rest = List.remove_assoc "main" prog in
-  let deopt_label = "main_" ^ string_of_int (List.length prog) in
-  let scope = Scope.infer main in
-  let live = Analysis.live main in
+  let (old_name, instrs) = Instr.active_version prog in
+  let new_version_name = Rename.fresh_version_label prog old_name in
+  let scope = Scope.infer instrs in
+  let live = Analysis.live instrs in
   let rec branch_prune pc acc =
-    if pc = Array.length main then
+    if pc = Array.length instrs then
       Array.of_list (List.rev acc)
     else
       match scope.(pc) with
       | Scope.Dead -> assert(false)
       | Scope.Scope scope ->
         let pc' = pc + 1 in
-        begin match[@warning "-4"] main.(pc) with
+        begin match[@warning "-4"] instrs.(pc) with
         | Branch (exp, l1, l2) ->
           let osr = List.map (function
               | (Const_var, x) ->
@@ -70,14 +69,14 @@ let branch_prune (prog : program) : program =
               (ModedVarSet.elements scope)
           in
           branch_prune pc'
-            (Goto l2 :: Osr (exp, deopt_label, l1, osr) :: acc)
+            (Goto l2 :: Osr (exp, old_name, l1, osr) :: acc)
         | i ->
           branch_prune pc' (i::acc)
         end
   in
   let final = branch_prune 0 [] in
   let cleanup = remove_empty_jmp (remove_unreachable_code final) in
-  ("main", cleanup) :: (deopt_label, main) :: rest
+  (new_version_name, cleanup) :: prog
 
 
 let remove_fallthroughs_to_label instrs =
@@ -111,18 +110,17 @@ let remove_fallthroughs_to_label instrs =
  * variable to avoid overriding unrelated uses of the same name.
  *)
 let hoist_assignment prog =
-  let main = List.assoc "main" prog in
-  let rest = List.remove_assoc "main" prog in
-  let reaching = Analysis.reaching main in
-  let uses = Analysis.used main in
-  let dominates = Analysis.dominates main in
+  let (old_name, instrs) = Instr.active_version prog in
+  let reaching = Analysis.reaching instrs in
+  let uses = Analysis.used instrs in
+  let dominates = Analysis.dominates instrs in
   let dominates_all_uses pc =
     Analysis.PcSet.for_all (fun use -> dominates pc use) (uses pc) in
   let rec find_possible_move pc =
-    if pc = Array.length main then None
+    if pc = Array.length instrs then None
     else
       let pc' = pc + 1 in
-      match[@warning "-4"] main.(pc) with
+      match[@warning "-4"] instrs.(pc) with
       | Assign (x, exp) ->
         if not (dominates_all_uses pc) then find_possible_move pc'
         else
@@ -131,7 +129,7 @@ let hoist_assignment prog =
             let dominate_me = Analysis.PcSet.for_all (fun pc -> dominates pc candidate) in
             dominates candidate pc && dominate_me reaching_defs in
 
-          begin match Analysis.find_first main valid_move with
+          begin match Analysis.find_first instrs valid_move with
           | exception Not_found -> find_possible_move pc'
           | pc' -> Some (pc, pc')
           end
@@ -143,10 +141,10 @@ let hoist_assignment prog =
   match find_possible_move 0 with
   | None -> prog
   | Some (from_pc, to_pc) ->
-    let copy = Array.copy main in
+    let copy = Array.copy instrs in
     Rename.freshen_assign copy from_pc;
     Edit.move copy from_pc to_pc;
-    ("main", copy) :: rest
+    Instr.replace_active_version prog (old_name, copy)
 
 let remove_unused_vars instrs =
   let open Analysis in
@@ -170,13 +168,12 @@ let remove_drops instrs =
       (Array.to_list instrs))
 
 let minimize_lifetimes prog =
-  let main = List.assoc "main" prog in
-  let rest = List.remove_assoc "main" prog in
-  let main = remove_unused_vars main in
-  let main = remove_drops main in
-  let predecessors = Analysis.predecessors main in
-  let required = Analysis.required_vars main in
-  let required = Analysis.saturate required main in
+  let (old_name, instrs) = Instr.active_version prog in
+  let instrs = remove_unused_vars instrs in
+  let instrs = remove_drops instrs in
+  let predecessors = Analysis.predecessors instrs in
+  let required = Analysis.required_vars instrs in
+  let required = Analysis.saturate required instrs in
   let required_before pc =
     (* It might seem like we need to take the union over all predecessors. But
      * since required_merged_vars_at extends lifetimes to mergepoints this is
@@ -184,12 +181,12 @@ let minimize_lifetimes prog =
     match predecessors.(pc) with | [] -> VarSet.empty | p :: _ -> required p
   in
   let rec result (pc : pc) =
-    if pc = Array.length main then [] else
+    if pc = Array.length instrs then [] else
       let required = required pc in
       let required_before = required_before pc in
       let to_drop = VarSet.diff required_before required in
       let drops = List.map (fun x -> Drop x) (VarSet.elements to_drop) in
-      drops @ main.(pc) :: result (pc+1)
+      drops @ instrs.(pc) :: result (pc+1)
   in
   let dropped = Array.of_list (result 0) in
-  ("main", dropped) :: rest
+  Instr.replace_active_version prog (old_name, dropped)

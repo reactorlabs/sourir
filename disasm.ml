@@ -3,7 +3,7 @@ open Instr
 let no_line_number buf pc = ()
 let line_number buf pc = Printf.bprintf buf "% 6d |" pc
 
-let disassemble_segment buf ?(format_pc = no_line_number) (prog : segment) =
+let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_stream) =
   let dump_instr buf pc instr =
     let pr = Printf.bprintf in
     let simple buf = function
@@ -55,24 +55,31 @@ let disassemble_segment buf ?(format_pc = no_line_number) (prog : segment) =
   in
   Array.iteri (dump_instr buf) prog
 
-let disassemble (prog : Instr.program) =
-  let b = Buffer.create 1024 in
-  List.iter (fun (name, segment) ->
-      Printf.bprintf b "segment %s\n" name;
-      disassemble_segment b segment) prog;
-  Buffer.contents b
+let disassemble buf (prog : Instr.program) =
+  List.iter (fun (name, version) ->
+      Printf.bprintf buf "version %s\n" name;
+      disassemble_instrs buf version) prog
 
-let disassemble_instr (instr : Instr.instruction_stream) =
+let disassemble_s (prog : Instr.program) =
   let b = Buffer.create 1024 in
-  Printf.bprintf b "segment _anonym\n";
-  disassemble_segment b instr;
-  Buffer.contents b
+  disassemble b prog;
+  Buffer.to_bytes b
 
-let pretty_print_segment outchan (name, segment) =
+let disassemble_o outchan (prog : Instr.program) =
   let b = Buffer.create 1024 in
-  Printf.bprintf b "segment %s\n" name;
-  disassemble_segment b ~format_pc:line_number segment;
+  disassemble b prog;
+  Buffer.output_buffer outchan b
+
+let disassemble_instrs_s (prog : instruction_stream) =
+  let b = Buffer.create 1024 in
+  disassemble_instrs b prog;
+  Buffer.to_bytes b
+
+let pretty_print_version outchan (name, version) =
+  let b = Buffer.create 1024 in
+  Printf.bprintf b "version %s\n" name;
+  disassemble_instrs b ~format_pc:line_number version;
   Buffer.output_buffer outchan b
 
 let pretty_print outchan prog =
-  List.iter (pretty_print_segment outchan) prog
+  List.iter (pretty_print_version outchan) prog

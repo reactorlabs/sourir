@@ -52,7 +52,7 @@ let osrs (instrs : instruction_stream) =
 
 let dataflow_analysis (next : pc list array)
                       (init_state : ('a * pc) list)
-                      (instrs : segment)
+                      (instrs : instruction_stream)
                       (merge : pc -> 'a -> 'a -> 'a option)
                       (update : pc -> 'a -> 'a)
                       : 'a option array =
@@ -102,7 +102,7 @@ let backwards_analysis init_state instrs merge update =
 
 let find (next : pc list array)
          (start : pc)
-         (instrs : segment)
+         (instrs : instruction_stream)
          (predicate : pc -> bool) : pc =
   let rec work todo seen =
     match todo with
@@ -117,7 +117,7 @@ let find (next : pc list array)
   in
   work [start] PcSet.empty
 
-let find_first (instrs : segment)
+let find_first (instrs : instruction_stream)
                (predicate : pc -> bool) : pc =
   let succ = successors instrs in
   find succ 0 instrs predicate
@@ -156,7 +156,7 @@ module VariableMap = struct
 end
 
 (* returns a 'pc -> pc set' computing reaching definitions *)
-let reaching (instrs : segment) : pc -> PcSet.t =
+let reaching (instrs : instruction_stream) : pc -> PcSet.t =
   let merge _pc cur_defs in_defs =
     let merged = VariableMap.union cur_defs in_defs in
     if VariableMap.equal cur_defs merged then None else Some merged
@@ -178,7 +178,7 @@ let reaching (instrs : segment) : pc -> PcSet.t =
     List.fold_left PcSet.union PcSet.empty all_definitions
 
 let scope_analysis (introduction : instruction -> variable list)
-                   (elimination : instruction -> variable list) (instrs : segment) =
+                   (elimination : instruction -> variable list) (instrs : instruction_stream) =
   let merge _pc cur_scope in_scope =
     let merged = VariableMap.union cur_scope in_scope in
     if VariableMap.equal cur_scope merged then None else Some merged
@@ -194,18 +194,18 @@ let scope_analysis (introduction : instruction -> variable list)
   in
   backwards_analysis VariableMap.empty instrs merge update
 
-let liveness_analysis (instrs : segment) =
+let liveness_analysis (instrs : instruction_stream) =
   let introduction instr = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
   let elimination instr = VarSet.elements (used_vars instr) in
   scope_analysis introduction elimination instrs
 
-let lifetime_analysis (instrs : segment) =
+let lifetime_analysis (instrs : instruction_stream) =
   let introduction instr = VarSet.elements (ModedVarSet.untyped (declared_vars instr)) in
   let elimination instr = VarSet.elements (required_vars instr) in
   scope_analysis introduction elimination instrs
 
 (* returns a 'pc -> variable set' computing live vars at a certain pc *)
-let live (seg : segment) : pc -> variable list =
+let live (seg : instruction_stream) : pc -> variable list =
   let res = liveness_analysis seg in
   fun pc ->
     let collect_key (key, value) = key in
@@ -213,13 +213,13 @@ let live (seg : segment) : pc -> variable list =
     live_vars
 
 (* returns a 'pc -> pc set' computing uses of a definition *)
-let used (instrs : segment) : pc -> PcSet.t =
+let used (instrs : instruction_stream) : pc -> PcSet.t =
   let res = liveness_analysis instrs in
   fun pc ->
     let add_uses (_, x) used = PcSet.union used (VariableMap.at x (res pc)) in
     ModedVarSet.fold add_uses (defined_vars instrs.(pc)) PcSet.empty
 
-let dominates (instrs : segment) : pc -> pc -> bool =
+let dominates (instrs : instruction_stream) : pc -> pc -> bool =
   let merge _pc cur incom =
     let merged = PcSet.inter cur incom in
     if PcSet.equal merged cur then None else Some merged
@@ -233,7 +233,7 @@ let dominates (instrs : segment) : pc -> pc -> bool =
     PcSet.mem pc doms
 
 (* returns a 'pc -> pc set' computing the set of instructions depending on a declaration *)
-let required (instrs : segment) : pc -> PcSet.t =
+let required (instrs : instruction_stream) : pc -> PcSet.t =
   let res = lifetime_analysis instrs in
   fun pc ->
     let add_uses (_, x) used = PcSet.union used (VariableMap.at x (res pc)) in
@@ -241,7 +241,7 @@ let required (instrs : segment) : pc -> PcSet.t =
 
 (* returns a 'pc -> variable set' computing variables which need to be in scope
  * Note: they might not be! *)
-let required_vars (seg : segment) : pc -> variable list =
+let required_vars (seg : instruction_stream) : pc -> variable list =
   let res = lifetime_analysis seg in
   fun pc ->
     let collect_key (key, value) = key in

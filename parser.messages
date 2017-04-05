@@ -1,14 +1,14 @@
-program: SEGMENT TRIPLE_DOT 
+program: VERSION TRIPLE_DOT 
 ##
 ## Ends in an error in state: 5.
 ##
-## segment -> SEGMENT . variable NEWLINE optional_newlines list(instruction_line) [ SEGMENT EOF ]
+## version -> VERSION . variable NEWLINE optional_newlines list(instruction_line) [ VERSION EOF ]
 ##
 ## The known suffix of the stack is as follows:
-## SEGMENT 
+## VERSION 
 ##
 
-Missing segment identifier
+Missing version identifier
 
 program: BRANCH NIL IDENTIFIER TRIPLE_DOT 
 ##
@@ -149,7 +149,7 @@ program: OSR NIL IDENTIFIER IDENTIFIER TRIPLE_DOT
 ##
 
 Parsing the specification of the new environment of an osr instruction
-failed. After "osr <exp> <segment> <label>" we expect a square bracket enclosed,
+failed. After "osr <exp> <version> <label>" we expect a square bracket enclosed,
 comma separated list of "const <variable> = <expression>" or
 "mut <variable> = <expression>" or "mut x". For example:
 "[const x = 3, mut y = x, mut a]"
@@ -165,7 +165,7 @@ program: OSR NIL IDENTIFIER IDENTIFIER LBRACKET TRIPLE_DOT
 ##
 
 Parsing the specification of the new environment of an osr instruction
-failed. After "osr <exp> <segment> <label> [" we expect a comma
+failed. After "osr <exp> <version> <label> [" we expect a comma
 separated list of "const <variable> = <expression>" or
 "mut <variable> = <expression>" or "mut x". For example:
 "[const x = 3, mut y = x, mut a]"
@@ -180,9 +180,9 @@ program: OSR NIL IDENTIFIER TRIPLE_DOT
 ## OSR expression label 
 ##
 
-Parsing an osr instruction, we parsed "osr <expr> <segment>",
+Parsing an osr instruction, we parsed "osr <expr> <version>",
 and are now expecting a label. The complete instruction
-syntax is "osr <expr> <segment> <label> [<new_env>]", where
+syntax is "osr <expr> <version> <label> [<new_env>]", where
 "<new_env>" is a specification of the new environment. It's a comma
 separated list of "const <variable> = <expression>" or
 "mut <variable> = <expression>" or "mut x". For example:
@@ -199,8 +199,8 @@ program: OSR NIL TRIPLE_DOT
 ##
 
 Parsing an osr instruction, we parsed "osr <expr>", and
-are now expecting a segment label, for example "foo". The complete instruction
-syntax is "osr <expr> <segment> <label> [<new_env>]", where
+are now expecting a version label, for example "foo". The complete instruction
+syntax is "osr <expr> <version> <label> [<new_env>]", where
 "<new_env>" is a specification of the new environment. It's a comma
 separated list of "const <variable> = <expression>" or
 "mut <variable> = <expression>" or "mut x". For example:
@@ -218,7 +218,7 @@ program: OSR TRIPLE_DOT
 
 Parsing an osr instruction, we parsed "osr", and are now
 expecting an expression, for example "(x + 1)". The complete instruction
-syntax is "osr <expr> <segment> <label> [<new_env>]", where
+syntax is "osr <expr> <version> <label> [<new_env>]", where
 "<new_env>" is a specification of the new environment. It's a comma
 separated list of "const <variable> = <expression>" or
 "mut <variable> = <expression>" or "mut x". For example:
@@ -437,7 +437,7 @@ program: STOP NEWLINE TRIPLE_DOT
 ##
 ## Ends in an error in state: 85.
 ##
-## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ STOP SEGMENT READ PRINT OSR MUT LBRACE IDENTIFIER GOTO EOF DROP CONST COMMENT CLEAR BRANCH ]
+## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ STOP VERSION READ PRINT OSR MUT LBRACE IDENTIFIER GOTO EOF DROP CONST COMMENT CLEAR BRANCH ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction NEWLINE 
@@ -450,7 +450,7 @@ program: STOP TRIPLE_DOT
 ##
 ## Ends in an error in state: 84.
 ##
-## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ STOP SEGMENT READ PRINT OSR MUT LBRACE IDENTIFIER GOTO EOF DROP CONST COMMENT CLEAR BRANCH ]
+## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ STOP VERSION READ PRINT OSR MUT LBRACE IDENTIFIER GOTO EOF DROP CONST COMMENT CLEAR BRANCH ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction 

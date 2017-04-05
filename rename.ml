@@ -1,5 +1,6 @@
 open Instr
 
+(* TODO unify those 3 functions *)
 let fresh_var instrs var =
   let cand i = var ^ "_" ^ (string_of_int i) in
   let is_fresh cand_var instr =
@@ -18,6 +19,15 @@ let fresh_label instrs label =
   let rec find i =
     let cand_lab = cand i in
     if Array.for_all (is_fresh cand_lab) instrs
+    then cand_lab else find (i+1) in
+  find 1
+
+let fresh_version_label (prog:program) label =
+  let cand i = label ^ "_" ^ (string_of_int i) in
+  let existing = fst (List.split prog) in
+  let rec find i =
+    let cand_lab = cand i in
+    if not (List.mem cand_lab existing)
     then cand_lab else find (i+1) in
   find 1
 
@@ -73,7 +83,7 @@ let uses_in_instruction old_name new_name instr : instruction =
     assert (VarSet.is_empty (used_vars instr));
     instr
 
-let freshen_assign (instrs : segment) (def : pc) =
+let freshen_assign (instrs : instruction_stream) (def : pc) =
   let uses = Analysis.PcSet.elements (Analysis.used instrs def) in
   let instr = instrs.(def) in
   match[@warning "-4"] instr with

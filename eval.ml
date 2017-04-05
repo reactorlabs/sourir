@@ -238,7 +238,7 @@ let start program input pc : configuration = {
   status = Running;
   deopt = None;
   program = program;
-  instrs = List.assoc "main" program;
+  instrs = snd (Instr.active_version program);
   pc;
 }
 

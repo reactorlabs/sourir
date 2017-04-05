@@ -25,8 +25,8 @@ type inferred_scope =
   | Dead
   | Scope of ModedVarSet.t
 
-type stream_annotation = scope_annotation option array
-type annotated_program = (instruction_stream * stream_annotation) Instr.dict
+type annotations = scope_annotation option array
+type annotated_program = (instruction_stream * annotations) Instr.dict
 
 let drop_annots : annotated_program -> program =
   List.map (fun (name, (instrs, annot)) -> (name, instrs))
@@ -166,3 +166,7 @@ let explain_incompatible_scope outchan s1 s2 pc =
   print_only buf "former" (ModedVarSet.diff s1.info s2.info) "latter";
   print_only buf "latter" (ModedVarSet.diff s2.info s1.info) "former";
   Buffer.output_buffer outchan buf
+
+let active_version (prog : annotated_program) : (label * instruction_stream * annotations) =
+  let (name, stream) = (List.hd prog) in
+  (name, fst stream, snd stream)
