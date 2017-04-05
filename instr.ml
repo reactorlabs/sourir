@@ -254,8 +254,14 @@ let used_vars = function
 
 type 'a dict = (string * 'a) list
 
-type segment = instruction_stream
-type program = segment dict
+type version = label * instruction_stream
+type program = version list
+
+let active_version (prog : program) : version =
+  (List.hd prog)
+
+let replace_active_version (prog : program) (repl : version) =
+  repl :: (List.tl prog)
 
 module Value = struct
   let int n : value = Lit (Int n)

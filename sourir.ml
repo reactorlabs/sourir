@@ -76,7 +76,7 @@ let () =
         end;
         exit 1
       | Scope.IncompatibleScope (scope1, scope2, pc) ->
-        Disasm.pretty_print_segment stderr (name, instrs);
+        Disasm.pretty_print_version stderr (name, instrs);
         Scope.explain_incompatible_scope stderr scope1 scope2 pc;
         flush stderr;
         exit 1
@@ -87,7 +87,7 @@ let () =
       let program = if prune
         then
           let opt = Transform.branch_prune program in
-          if not quiet then Printf.printf "\n** After speculative branch pruning:\n%s" (Disasm.disassemble opt);
+          if not quiet then Printf.printf "\n** After speculative branch pruning:\n%s" (Disasm.disassemble_s opt);
           opt
         else program
       in
@@ -95,7 +95,7 @@ let () =
       let program = if codemotion
         then
           let opt = Transform.hoist_assignment program in
-          if not quiet then Printf.printf "\n** After trying to hoist one assignment:\n%s" (Disasm.disassemble opt);
+          if not quiet then Printf.printf "\n** After trying to hoist one assignment:\n%s" (Disasm.disassemble_s opt);
           opt
         else program
       in
@@ -103,7 +103,7 @@ let () =
       let program = if constprop
         then
           let opt = Constantfold.const_prop program in
-          if not quiet then Printf.printf "\n** After constant propagation:\n%s" (Disasm.disassemble opt);
+          if not quiet then Printf.printf "\n** After constant propagation:\n%s" (Disasm.disassemble_s opt);
           opt
         else program
       in
@@ -111,7 +111,7 @@ let () =
       let program = if lifetime
         then
           let opt = Transform.minimize_lifetimes program in
-          if not quiet then Printf.printf "\n** After minimizing lifetimes:\n%s" (Disasm.disassemble opt);
+          if not quiet then Printf.printf "\n** After minimizing lifetimes:\n%s" (Disasm.disassemble_s opt);
           opt
         else program
       in

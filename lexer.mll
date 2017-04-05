@@ -14,7 +14,7 @@ let keyword_table = [
   "read", READ;
   "drop", DROP;
   "clear", CLEAR;
-  "segment", SEGMENT;
+  "version", VERSION;
 ]
 
 let id_or_keyword id =

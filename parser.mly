@@ -5,7 +5,7 @@
 %token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
-%token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR SEGMENT
+%token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR VERSION
 %token<string> COMMENT
 %token NEWLINE
 %token EOF
@@ -34,14 +34,14 @@ program_code:
       (Array.of_list instructions,
        Array.of_list annotations))]
   }
-| s1=segment segs=list(segment)
-  { s1 :: segs }
+| s1=version vers=list(version)
+  { s1 :: vers }
 
-segment:
-| SEGMENT segment=variable NEWLINE optional_newlines prog=list(instruction_line)
+version:
+| VERSION name=variable NEWLINE optional_newlines prog=list(instruction_line)
   {
     let annotations, instructions = List.split prog in
-    (segment,
+    (name,
      (Array.of_list instructions,
       Array.of_list annotations))
   }

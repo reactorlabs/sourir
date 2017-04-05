@@ -12,8 +12,7 @@ open Instr
  * used, and the declaration can be removed by running `minimize_lifetimes`.
  *)
 let const_prop prog =
-  let main = List.assoc "main" prog in
-  let rest = List.remove_assoc "main" prog in
+  let (name, instrs) = Instr.active_version prog in
 
   (* Finds the declarations that can be used for constant propagation.
      Returns a list of (pc, x, l) where `const x = l` is defined at pc `pc`. *)
@@ -97,5 +96,5 @@ let const_prop prog =
     List.fold_left propagate instrs candidates
   in
 
-  let result = work main in
-  ("main", result) :: rest
+  let result = work instrs in
+  Instr.replace_active_version prog (name, result)

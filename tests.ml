@@ -16,9 +16,9 @@ let no_input = IO.no_input
 let input = IO.list_input
 
 let check annotated_program =
-  let check_segment (name, (instrs, annot)) =
+  let check_version (name, (instrs, annot)) =
     Scope.check (Scope.infer instrs) annot in
-  List.iter check_segment annotated_program;
+  List.iter check_version annotated_program;
   Scope.drop_annots annotated_program
 
 let run_checked prog input pred () =
@@ -32,7 +32,7 @@ let exact vars = Some Scope.(Exact (VarSet.of_list vars))
 let at_least vars = Some Scope.(At_least (VarSet.of_list vars))
 
 let parse_annotated str : Scope.annotated_program =
-  try Parse.parse_string ("segment main\n" ^ str)
+  try Parse.parse_string ("version x\n" ^ str)
   with Parse.Error error ->
     Parse.report_error error;
     exit 2
@@ -255,28 +255,28 @@ let extraneous extra_vars pos =
   Scope.ExtraneousVariable (VarSet.of_list extra_vars, pos)
 
 let infer_broken_scope program exn = function() ->
-  let (instrs, annot) = List.assoc "main" program in
+  let (name, instrs, annot) = Scope.active_version program in
   let test () = Scope.check (Scope.infer instrs) annot in
   assert_raises exn test
 
 let test_parse_disasm_file file = function() ->
   let prog1 = Scope.drop_annots (Parse.parse_file file) in
-  let disasm1 = Disasm.disassemble prog1 in
+  let disasm1 = Disasm.disassemble_s prog1 in
   let prog2 = Scope.drop_annots (Parse.parse_string disasm1) in
-  let disasm2 = Disasm.disassemble prog2 in
+  let disasm2 = Disasm.disassemble_s prog2 in
   assert_equal disasm1 disasm2
 
 let test_parse_disasm str = function() ->
   let prog1 = Scope.drop_annots (Parse.parse_string str) in
-  let disasm1 = Disasm.disassemble prog1 in
+  let disasm1 = Disasm.disassemble_s prog1 in
   let prog2 = Scope.drop_annots (Parse.parse_string disasm1) in
-  let disasm2 = Disasm.disassemble prog2 in
+  let disasm2 = Disasm.disassemble_s prog2 in
   assert_equal disasm1 disasm2
 
 let test_disasm_parse prog = function() ->
-  let disasm1 = Disasm.disassemble prog in
+  let disasm1 = Disasm.disassemble_s prog in
   let prog2 = Scope.drop_annots (Parse.parse_string disasm1) in
-  let disasm2 = Disasm.disassemble prog2 in
+  let disasm2 = Disasm.disassemble_s prog2 in
   assert_equal disasm1 disasm2
 
 let test_branch = parse_test
@@ -296,15 +296,15 @@ c:
 "
 
 let test_branch_pruned =
-"segment main
+"version x_1
  mut x = 9
  mut y = 10
  mut r = 1
- osr (x == y) main_1 l1 [mut r, mut x, mut y]
+ osr (x == y) x l1 [mut r, mut x, mut y]
  r <- 3
  print r
  clear r
-segment main_1
+version x
  mut x = 9
  mut y = 10
  mut r = 1
@@ -349,7 +349,7 @@ continue:
 
 let test_branch_pruning_exp prog expected =
   let prog2 = Transform.branch_prune prog in
-  assert_equal (Disasm.disassemble prog2) expected
+  assert_equal (Disasm.disassemble_s prog2) expected
 
 let test_branch_pruning prog deopt =
   let open Eval in
@@ -374,7 +374,8 @@ let test_pred = parse_no_check
 "
 
 let do_test_pred = function () ->
-  let pred = Analysis.predecessors (List.assoc "main" test_pred) in
+  let _name, instrs = Instr.active_version test_pred in
+  let pred = Analysis.predecessors instrs in
   let pred pc = pred.(pc) in
   assert_equal_sorted (pred 0) [3; 5; 7];
   assert_equal_sorted (pred 1) [0];
@@ -404,9 +405,9 @@ l3:
 "
 
 let do_test_liveness = function () ->
-  let seg = List.assoc "main" test_df in
+  let _name, instrs = Instr.active_version test_df in
   let open Analysis in
-  let live = live seg in
+  let live = live instrs in
   assert_equal_sorted (live 0) ["a"];
   assert_equal_sorted (live 1) ["a";"b"];
   assert_equal_sorted (live 2) ["a"];
@@ -424,9 +425,9 @@ let do_test_liveness = function () ->
 
 
 let do_test_used = function () ->
-  let seg = List.assoc "main" test_df in
+  let _name, instrs = Instr.active_version test_df in
   let open Analysis in
-  let used = used seg in
+  let used = used instrs in
   assert_equal_sorted (PcSet.elements (used 0)) [2;5;7];
   assert_equal_sorted (PcSet.elements (used 1)) [2];
   assert_equal_sorted (PcSet.elements (used 2)) [];
@@ -442,9 +443,9 @@ let do_test_used = function () ->
 
 
 let do_test_reaching = function () ->
-  let seg = List.assoc "main" test_df in
+  let _name, instrs = Instr.active_version test_df in
   let open Analysis in
-  let reaching = reaching seg in
+  let reaching = reaching instrs in
   assert_equal_sorted (PcSet.elements (reaching 0)) [];
   assert_equal_sorted (PcSet.elements (reaching 1)) [];
   assert_equal_sorted (PcSet.elements (reaching 2)) [0;1];
@@ -520,7 +521,7 @@ let do_test_codemotion = function () ->
        goto loop
   " in
   let res = Transform.hoist_assignment t in
-  assert_equal (Disasm.disassemble res) (Disasm.disassemble expected);
+  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse_test "
        mut x = 1
        mut y = 2
@@ -540,7 +541,7 @@ let do_test_codemotion = function () ->
       end:
   " in
   let res = Transform.hoist_assignment t in
-  assert_equal (Disasm.disassemble res) (Disasm.disassemble expected);
+  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse_test "
        mut x = 1
        mut y = 2
@@ -552,7 +553,7 @@ let do_test_codemotion = function () ->
   " in
   let res = Transform.hoist_assignment t in
   (* cannot hoist because depends on previous loop iteration *)
-  assert_equal (Disasm.disassemble res) (Disasm.disassemble t);
+  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
   let t = parse_test "
        mut x = 1
        mut y = 2
@@ -567,7 +568,7 @@ let do_test_codemotion = function () ->
   " in
   let res = Transform.hoist_assignment t in
   (* cannot hoist because if (x==5) then y is modified *)
-  assert_equal (Disasm.disassemble res) (Disasm.disassemble t);
+  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
   ()
 
 let do_test_minimize_lifetime = function () ->
@@ -608,7 +609,7 @@ let do_test_minimize_lifetime = function () ->
        stop
   " in
   let res = Transform.minimize_lifetimes t in
-  assert_equal (Disasm.disassemble res) (Disasm.disassemble expected);
+  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   ()
 
 let do_test_const_prop_driver () =
@@ -617,9 +618,9 @@ let do_test_const_prop_driver () =
     let output = Constantfold.const_prop input in
     if output <> expected then begin
       Printf.printf "input: %s\noutput: %s\nexpected: %s\n%!"
-        (Disasm.disassemble input)
-        (Disasm.disassemble output)
-        (Disasm.disassemble expected);
+        (Disasm.disassemble_s input)
+        (Disasm.disassemble_s output)
+        (Disasm.disassemble_s expected);
       assert false
     end in
 
@@ -859,15 +860,15 @@ let suite =
    "scope1broken2">:: infer_broken_scope
      (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
    "scope_uninitialized">:: do_test_scope_uninitialized;
-   "parser">:: test_parse_disasm ("segment main\nstop\n");
-   "parser1">:: test_parse_disasm ("segment asdf\nconst x = 3\nprint x\nstop\n");
-   "parser2">:: test_parse_disasm ("segment asdf\ngoto l\nx <- 3\nl:\n");
-   "parser3">:: test_parse_disasm ("segment asdf\nconst x = (y + x)\n");
-   "parser4">:: test_parse_disasm ("segment asdf\nx <- (x == y)\n");
-   "parser5">:: test_parse_disasm ("segment asdf\n# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("segment as\nosr (x == y) v l [const x = x, mut y = x, mut v, const x = (1+2)]\nl:\n");
-   "parser6">:: test_parse_disasm ("segment s\nbranch (x == y) as fd\n");
-   "parser7">:: test_parse_disasm ("segment x\nconst x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser">:: test_parse_disasm ("version xy\nstop\n");
+   "parser1">:: test_parse_disasm ("version asdf\nconst x = 3\nprint x\nstop\n");
+   "parser2">:: test_parse_disasm ("version asdf\ngoto l\nx <- 3\nl:\n");
+   "parser3">:: test_parse_disasm ("version asdf\nconst x = (y + x)\n");
+   "parser4">:: test_parse_disasm ("version asdf\nx <- (x == y)\n");
+   "parser5">:: test_parse_disasm ("version asdf\n# asdfasdf\n");
+   "parser5b">:: test_parse_disasm ("version as\nosr (x == y) v l [const x = x, mut y = x, mut v, const x = (1+2)]\nl:\n");
+   "parser6">:: test_parse_disasm ("version s\nbranch (x == y) as fd\n");
+   "parser7">:: test_parse_disasm ("version x\nconst x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
    "disasm1">:: test_disasm_parse (test_sum 10);
    "disasm2">:: test_disasm_parse (test_add "1" "0");
@@ -877,7 +878,7 @@ let suite =
      test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse
      (Scope.drop_annots test_broken_scope_5);
-   "parser_scope1">:: test_parse_disasm "segment x\n{a, b} print x\n{a,x,...} #asdf\n";
+   "parser_scope1">:: test_parse_disasm "version x\n{a, b} print x\n{a,x,...} #asdf\n";
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
    "predecessors">:: do_test_pred;
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
@@ -901,13 +902,13 @@ let () =
 
 let do_test_pull_drop () =
   let open Rewrite in
-  let main = List.assoc "main" in
   let test input pc x expected =
-    let input = main input in
+    let _name, input = Instr.active_version input in
     let instrs = match Rewrite.try_pull input pc with
       | Pulled_to ((instrs, _), _) -> instrs
       | Blocked -> input in
-    assert (instrs = main expected);
+    let _name, expected = Instr.active_version expected in
+    assert (instrs = expected);
   in
   let t = parse_test "
       mut e = true
@@ -943,16 +944,16 @@ let do_test_pull_drop () =
 
 let do_test_push_drop () =
   let open Rewrite in
-  let main = List.assoc "main" in
   let test input pc expected =
-    let input = main input in
+    let _name, input = Instr.active_version input in
     match[@warning "-4"] input.(pc) with
     | Drop x ->
       let push = Rewrite.push_instr (Rewrite.Drop.conditions_var x) in
       let instrs = match push input pc with
         | Stop (instrs, _) | Work ((instrs, _), _) -> instrs
         | Blocked | Need_pull _ -> input in
-      assert (instrs = main expected);
+      let _name, expected = Instr.active_version expected in
+      assert (instrs = expected);
     | _ -> assert(false)
   in
   let t = parse_test "
@@ -1070,17 +1071,18 @@ let do_test_push_drop () =
 
 let do_test_drop_driver () =
   let test x t e =
-    let main = List.assoc "main" in
-    let input, expected = main (parse_test t), main (parse_test e) in
+    let input, expected = parse_test t, parse_test e in
+    let _name, input = Instr.active_version input in
+    let _name, expected = Instr.active_version expected in
     let output =
       match Rewrite.Drop.pull_var input x with
           | None -> input
           | Some instrs -> instrs in
     if output <> expected then begin
       Printf.printf "input: %s\noutput: %s\nexpected: %s\n%!"
-        (Disasm.disassemble_instr input)
-        (Disasm.disassemble_instr output)
-        (Disasm.disassemble_instr expected);
+        (Disasm.disassemble_instrs_s input)
+        (Disasm.disassemble_instrs_s output)
+        (Disasm.disassemble_instrs_s expected);
       assert false
     end in
 
@@ -1240,15 +1242,15 @@ let suite =
    "scope1broken2">:: infer_broken_scope
      (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
    "scope_uninitialized">:: do_test_scope_uninitialized;
-   "parser">:: test_parse_disasm ("segment main\nstop\n");
-   "parser1">:: test_parse_disasm ("segment asdf\nconst x = 3\nprint x\nstop\n");
-   "parser2">:: test_parse_disasm ("segment asdf\ngoto l\nx <- 3\nl:\n");
-   "parser3">:: test_parse_disasm ("segment asdf\nconst x = (y + x)\n");
-   "parser4">:: test_parse_disasm ("segment asdf\nx <- (x == y)\n");
-   "parser5">:: test_parse_disasm ("segment asdf\n# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("segment as\nosr (x == y) v l [const x = x, mut y = x, mut v, const x = (1+2)]\nl:\n");
-   "parser6">:: test_parse_disasm ("segment s\nbranch (x == y) as fd\n");
-   "parser7">:: test_parse_disasm ("segment x\nconst x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser">:: test_parse_disasm ("version xy\nstop\n");
+   "parser1">:: test_parse_disasm ("version asdf\nconst x = 3\nprint x\nstop\n");
+   "parser2">:: test_parse_disasm ("version asdf\ngoto l\nx <- 3\nl:\n");
+   "parser3">:: test_parse_disasm ("version asdf\nconst x = (y + x)\n");
+   "parser4">:: test_parse_disasm ("version asdf\nx <- (x == y)\n");
+   "parser5">:: test_parse_disasm ("version asdf\n# asdfasdf\n");
+   "parser5b">:: test_parse_disasm ("version as\nosr (x == y) v l [const x = x, mut y = x, mut v, const x = (1+2)]\nl:\n");
+   "parser6">:: test_parse_disasm ("version s\nbranch (x == y) as fd\n");
+   "parser7">:: test_parse_disasm ("version x\nconst x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
    "disasm1">:: test_disasm_parse (test_sum 10);
    "disasm2">:: test_disasm_parse (test_add "1" "0");
@@ -1258,7 +1260,7 @@ let suite =
      test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse
      (Scope.drop_annots test_broken_scope_5);
-   "parser_scope1">:: test_parse_disasm "segment x\n{a, b} print x\n{a,x,...} #asdf\n";
+   "parser_scope1">:: test_parse_disasm "version x\n{a, b} print x\n{a,x,...} #asdf\n";
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
    "predecessors">:: do_test_pred;
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
