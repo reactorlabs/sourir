@@ -364,8 +364,8 @@ let test_pred = parse
 "
 
 let do_test_pred = function () ->
-  let (_, instrs) = Instr.active_version test_pred.main in
-  let pred = Analysis.predecessors instrs in
+  let v = Instr.active_version test_pred.main in
+  let pred = Analysis.predecessors v.instrs in
   let pred pc = pred.(pc) in
   assert_equal_sorted (pred 0) [3; 5; 7];
   assert_equal_sorted (pred 1) [0];
@@ -395,9 +395,9 @@ l3:
 "
 
 let do_test_liveness = function () ->
-  let (_, instrs) = Instr.active_version test_df.main in
+  let v = Instr.active_version test_df.main in
   let open Analysis in
-  let live = live instrs in
+  let live = live v.instrs in
   assert_equal_sorted (live 0) ["a"];
   assert_equal_sorted (live 1) ["a";"b"];
   assert_equal_sorted (live 2) ["a"];
@@ -415,9 +415,9 @@ let do_test_liveness = function () ->
 
 
 let do_test_used = function () ->
-  let (_, instrs) = Instr.active_version test_df.main in
+  let v = Instr.active_version test_df.main in
   let open Analysis in
-  let used = used instrs in
+  let used = used v.instrs in
   assert_equal_sorted (PcSet.elements (used 0)) [2;5;7];
   assert_equal_sorted (PcSet.elements (used 1)) [2];
   assert_equal_sorted (PcSet.elements (used 2)) [];
@@ -433,9 +433,9 @@ let do_test_used = function () ->
 
 
 let do_test_reaching = function () ->
-  let (_, instrs) = Instr.active_version test_df.main in
+  let v = Instr.active_version test_df.main in
   let open Analysis in
-  let reaching = reaching instrs in
+  let reaching = reaching v.instrs in
   assert_equal_sorted (PcSet.elements (reaching 0)) [];
   assert_equal_sorted (PcSet.elements (reaching 1)) [];
   assert_equal_sorted (PcSet.elements (reaching 2)) [0;1];
@@ -606,7 +606,7 @@ let do_test_const_prop_driver () =
   let test t e =
     let input, expected = (parse t), (parse e) in
     let output = { input with main = Constantfold.const_prop input.main } in
-    if output.main.body <> expected.main.body then begin
+    if (active_version output.main).instrs <> (active_version expected.main).instrs then begin
       Printf.printf "input: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
         (Disasm.disassemble_s input)
         (Disasm.disassemble_s output)
@@ -789,7 +789,8 @@ let do_test_const_prop_driver () =
 let do_test_pull_drop () =
   let open Rewrite in
   let test input pc x expected =
-    let (_, input), (_, expected) = Instr.active_version input.main, Instr.active_version expected.main in
+    let input, expected = Instr.active_version input.main, Instr.active_version expected.main in
+    let input, expected = input.instrs, expected.instrs in
     let instrs = match Rewrite.try_pull input pc with
       | Pulled_to ((instrs, _), _) -> instrs
       | Blocked -> input in
@@ -830,7 +831,8 @@ let do_test_pull_drop () =
 let do_test_push_drop () =
   let open Rewrite in
   let test input pc expected =
-    let (_, input), (_, expected) = Instr.active_version input.main, Instr.active_version expected.main in
+    let input, expected = Instr.active_version input.main, Instr.active_version expected.main in
+    let input, expected = input.instrs, expected.instrs in
     match[@warning "-4"] input.(pc) with
     | Drop x ->
       let push = Rewrite.push_instr (Rewrite.Drop.conditions_var x) in
@@ -956,7 +958,8 @@ let do_test_push_drop () =
 let do_test_drop_driver () =
   let test x t e =
     let input, expected = parse t, parse e in
-    let (_, input), (_, expected) = Instr.active_version input.main, Instr.active_version expected.main in
+    let input, expected = Instr.active_version input.main, Instr.active_version expected.main in
+    let input, expected = input.instrs, expected.instrs in
     let output =
       match Rewrite.Drop.pull_var input x with
           | None -> input

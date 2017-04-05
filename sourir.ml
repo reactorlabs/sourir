@@ -49,7 +49,8 @@ let () =
         | Scope.ExtraneousVariable (xs, pc) ->
           let l = pc+1 in
           let func = lookup_fun program f in
-          let annot = List.assoc v func.annotations in
+          let version = lookup_version func v in
+          let annot = match version.annotations with | Some a -> a | None -> assert(false) in
           let annot_vars = match annot.(pc) with
             | None | Some (AtLeastScope _) ->
               (* we know from the exception-raising code that this cannot happen *)
@@ -79,7 +80,8 @@ let () =
           end;
         | Scope.IncompatibleScope (scope1, scope2, pc) ->
           let func = lookup_fun program f in
-          let instrs = List.assoc v func.body in
+          let version = lookup_version func v in
+          let instrs = version.instrs in
           Disasm.pretty_print_version stderr (v, instrs);
           Scope.explain_incompatible_scope stderr scope1 scope2 pc;
           flush stderr;

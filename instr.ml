@@ -284,14 +284,15 @@ type formal_parameter =
   | ParamConst of variable
   | ParamMut of variable
 
-type version = (label * instruction_stream)
-type version_annotation = (label * annotations)
-
+type version = {
+  label : label;
+  instrs : instruction_stream;
+  annotations : annotations option;
+}
 type afunction = {
   name : label;
   formals : formal_parameter list;
   body : version list;
-  annotations : version_annotation list;
 }
 type program = {
   main : afunction;
@@ -312,7 +313,7 @@ exception VersionDoesNotExist of label
 exception AmbiguousVersionName of label
 
 let lookup_version (func : afunction) (label : label) : version =
-  match List.filter (fun (l, _) -> label = l) func.body with
+  match List.filter (fun {label=l} -> label = l) func.body with
   | [] -> raise (VersionDoesNotExist label)
   | [v] -> v
   | _ -> raise (AmbiguousVersionName label)
@@ -322,10 +323,7 @@ let active_version (func : afunction) : version =
 
 let replace_active_version (func : afunction) (repl : version) : afunction =
   { func with
-    body = repl :: (List.tl func.body);
-    (* If we replace the version the annotations are no longer valid *)
-    annotations = List.remove_assoc (fst repl) func.annotations
-  }
+    body = repl :: (List.tl func.body); }
 
 module Value = struct
   let int n : value = Lit (Int n)

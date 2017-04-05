@@ -24,7 +24,7 @@ let fresh_label instrs label =
 
 let fresh_version_label (func : afunction) label =
   let cand i = label ^ "_" ^ (string_of_int i) in
-  let existing = List.map (fun (l, _) -> l) func.body in
+  let existing = List.map (fun {label=l} -> l) func.body in
   let rec find i =
     let cand_lab = cand i in
     if not (List.mem cand_lab existing)

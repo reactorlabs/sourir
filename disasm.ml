@@ -73,9 +73,9 @@ let disassemble buf (prog : Instr.program) =
           | ParamConst x -> "const "^x) formals in
       let formals = String.concat ", " formals in
       Printf.bprintf buf "function %s (%s)\n" name formals;
-      List.iter (fun (label, instrs) ->
-          Printf.bprintf buf "version %s\n" label;
-          disassemble_instrs buf instrs) body
+      List.iter (fun version ->
+          Printf.bprintf buf "version %s\n" version.label;
+          disassemble_instrs buf version.instrs) body
     ) (prog.main :: prog.functions)
 
 let disassemble_s (prog : Instr.program) =

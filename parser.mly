@@ -34,8 +34,10 @@ program_code:
     { main = {
           name = "main";
           formals = [];
-          body = [("anon", Array.of_list (i1::instructions))];
-          annotations = [("anon", Array.of_list (a1::annotations))]; };
+          body = [{
+              label = "anon";
+              instrs = Array.of_list (i1::instructions);
+              annotations = Some (Array.of_list (a1::annotations));}] };
       functions = fs;
     }
   }
@@ -62,25 +64,26 @@ afunction:
     let annotations, instructions = List.split prog in
     { name = name;
       formals = formals;
-      body = [("anon", Array.of_list instructions)];
-      annotations = [("anon", Array.of_list annotations)]; }
+      body = [{
+          label = "anon";
+          instrs = Array.of_list instructions;
+          annotations = Some (Array.of_list annotations)}]; }
   }
 | FUNCTION name=variable LPAREN formals=separated_list(COMMA, formal_param) RPAREN NEWLINE optional_newlines v1=version vs=list(version)
   {
     let vs = v1 :: vs in
-    let bodies, annots = List.split vs in
     { name = name;
       formals = formals;
-      body = bodies;
-      annotations = annots; }
+      body = vs; }
   }
 
 version:
 | VERSION label=variable NEWLINE optional_newlines prog=list(instruction_line)
   {
     let annotations, instructions = List.split prog in
-    ((label, Array.of_list instructions),
-     (label, Array.of_list annotations))
+    { label = label;
+      instrs = Array.of_list instructions;
+      annotations = Some (Array.of_list annotations); }
   }
 
 instruction_line:

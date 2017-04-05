@@ -152,7 +152,7 @@ let reduce conf =
   | Call (x, f, exs) ->
     let func = Instr.lookup_fun conf.program f in
     if (List.length exs) <> (List.length func.formals) then raise WrongNumberOfArguments else
-    let _, instrs = Instr.active_version func in
+    let version = Instr.active_version func in
     let args = List.combine func.formals exs in
     let env = List.fold_left (fun env arg ->
         begin match[@warning "-4"] arg with
@@ -168,7 +168,7 @@ let reduce conf =
         end) Env.empty args in
     { conf with
       env = env;
-      instrs = instrs;
+      instrs = version.instrs;
       pc = 0;
       continuation = (x, conf.env, conf.instrs, pc') :: conf.continuation
     }
@@ -269,11 +269,11 @@ let reduce conf =
        in
        let env' = List.fold_left add Env.empty osr in
        let func = Instr.lookup_fun conf.program f in
-       let (_, instrs) = Instr.lookup_version func v in
+       let version = Instr.lookup_version func v in
        { conf with
-         pc = resolve instrs l;
+         pc = resolve version.instrs l;
          env = env';
-         instrs = instrs;
+         instrs = version.instrs;
          deopt = Some l;
        }
      end
@@ -286,7 +286,7 @@ let start program input pc : configuration = {
   status = Running;
   deopt = None;
   program = program;
-  instrs = snd (Instr.active_version program.main);
+  instrs = (Instr.active_version program.main).instrs;
   pc = pc;
   continuation = []
 }

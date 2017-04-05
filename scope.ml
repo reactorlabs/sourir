@@ -20,7 +20,7 @@ type inference_state = {
 exception IncompatibleScope of inference_state * inference_state * pc
 exception DuplicateFormalParameter
 
-let infer func version_name : inferred_scope array =
+let infer func version : inferred_scope array =
   let open Analysis in
 
   let to_moded_var = function
@@ -30,7 +30,7 @@ let infer func version_name : inferred_scope array =
   let formals = ModedVarSet.of_list (List.map to_moded_var func.formals) in
   if (List.length func.formals) <> (List.length (VarSet.elements (ModedVarSet.untyped formals))) then
     raise DuplicateFormalParameter else
-  let _, instructions = Instr.lookup_version func version_name in
+  let instructions = version.instrs in
 
   let infer_scope instructions =
     let merge pc cur incom =
@@ -114,18 +114,18 @@ let check (scope : inferred_scope array) annotations =
 exception ScopeExceptionAt of label * label * exn
 
 let check_function (func : afunction) =
-  List.iter (fun (label, instrs) ->
+  List.iter (fun version ->
       let check () =
-        let inferred = infer func label in
-        match List.assoc label func.annotations with
-        | exception Not_found ->
-          let annot = Array.map (fun _ -> None) instrs in
+        let inferred = infer func version in
+        match version.annotations with
+        | None ->
+          let annot = Array.map (fun _ -> None) version.instrs in
           check inferred annot
-        | annot ->
+        | Some annot ->
           check inferred annot
       in
       try check () with
-      | e -> raise (ScopeExceptionAt (func.name, label, e))
+      | e -> raise (ScopeExceptionAt (func.name, version.label, e))
     ) func.body
 
 let check_program (prog : program) =
