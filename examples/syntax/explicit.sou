@@ -1,0 +1,10 @@
+function main ()
+ const x = 1
+ call y = foo ()
+ print y
+
+function foo ()
+version a
+ return 1
+version b
+ stop 0
