@@ -148,30 +148,59 @@ let reduce conf =
     else assert (false)
   in
 
+  let build_call_frame formals actuals =
+    let eval_arg env (formal, actual) =
+      match formal with
+      | Instr.ParamConst x ->
+        let value = eval conf actual in
+        Env.add x (Const value) env
+      | Instr.ParamMut x ->
+        let get_var = function[@warning "-4"]
+          | Simple (Var x) -> x
+          | _ -> assert (false)
+        in
+        let get_addr = function
+          | Mut a as adr -> adr
+          | Const _ -> assert (false)
+        in
+        let var = get_var actual in
+        let adr = get_addr (Env.find var conf.env) in
+        Env.add x adr env
+    in
+    let args = List.combine formals actuals in
+    List.fold_left eval_arg Env.empty args
+  in
+
+  let build_osr_frame osr_def =
+    let add env' = function
+      | OsrConst (x', e) ->
+        Env.add x' (Const (eval conf e)) env'
+      | OsrMut (x', x) ->
+        begin match Env.find x conf.env with
+        | exception Not_found -> raise (Unbound_variable x)
+        | Const _ -> raise Invalid_heap
+        | Mut a -> Env.add x' (Mut a) env'
+        end
+      | OsrMutUndef x' ->
+        let a = Address.fresh () in
+        Env.add x' (Mut a) env'
+    in
+    List.fold_left add Env.empty osr_def
+  in
+
   match instruction with
   | Call (x, f, exs) ->
     let func = Instr.get_fun conf.program f in
     let version = Instr.active_version func in
-    let args = List.combine func.formals exs in
-    let env = List.fold_left (fun env arg ->
-        begin match[@warning "-4"] arg with
-        | Instr.ParamConst x, e ->
-          Env.add x (Const (eval conf e)) env
-        | Instr.ParamMut x, (Simple (Var y)) ->
-          begin match Env.find y conf.env with
-            | Mut a as adr -> Env.add x adr env
-            | Const _ -> assert (false)
-          end
-        | Instr.ParamMut x, e -> assert (false)
-        end) Env.empty args in
-    let pos = (conf.cur_fun, conf.cur_vers, pc') in
+    let call_env = build_call_frame func.formals exs in
+    let cont_pos = (conf.cur_fun, conf.cur_vers, pc') in
     { conf with
-      env = env;
+      env = call_env;
       instrs = version.instrs;
       pc = 0;
       cur_fun = func.name;
       cur_vers = version.label;
-      continuation = (x, conf.env, pos) :: conf.continuation
+      continuation = (x, conf.env, cont_pos) :: conf.continuation
     }
   | Return e ->
      let res = eval conf e in
@@ -254,35 +283,23 @@ let reduce conf =
        trace = v :: conf.trace;
        pc = pc';
      }
-  | Osr (e, f, v, l, osr) ->
+  | Osr (e, f, v, l, osr_def) ->
      let b = get_bool (eval conf e) in
      if not b then
        { conf with
          pc = pc';
        }
      else begin
-       let add env' = function
-         | OsrConst (x', e) ->
-           Env.add x' (Const (eval conf e)) env'
-         | OsrMut (x', x) ->
-           begin match Env.find x conf.env with
-           | exception Not_found -> raise (Unbound_variable x)
-           | Const _ -> raise Invalid_heap
-           | Mut a -> Env.add x' (Mut a) env'
-           end
-         | OsrMutUndef x' ->
-           let a = Address.fresh () in
-           Env.add x' (Mut a) env'
-       in
-       let env' = List.fold_left add Env.empty osr in
-       let func = Instr.get_fun conf.program f in
-       let version = Instr.get_version func v in
+       let osr_env = build_osr_frame osr_def in
+       let osr_func = Instr.get_fun conf.program f in
+       let osr_version = Instr.get_version osr_func v in
+       let osr_instrs = osr_version.instrs in
        { conf with
-         pc = resolve version.instrs l;
-         env = env';
-         instrs = version.instrs;
-         cur_fun = f;
-         cur_vers = v;
+         pc = resolve osr_instrs l;
+         env = osr_env;
+         instrs = osr_instrs;
+         cur_fun = osr_func.name;
+         cur_vers = osr_version.label;
          deopt = Some l;
        }
      end
