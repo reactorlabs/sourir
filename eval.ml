@@ -9,7 +9,8 @@ type environment = binding Env.t
 type heap = heap_value Heap.t
 
 type status = Running | Result of value
-type continuation = variable * environment * instruction_stream * pc
+type position = identifier * label * pc
+type continuation = variable * environment * position
 
 type configuration = {
   input : input;
@@ -17,8 +18,10 @@ type configuration = {
   heap : heap;
   env : environment;
   program : program;
-  instrs : instruction_stream;
   pc : pc;
+  cur_fun : identifier;
+  cur_vers : label;
+  instrs : instruction_stream;
   status : status;
   deopt : string option;
   continuation : continuation list;
@@ -161,23 +164,30 @@ let reduce conf =
           end
         | Instr.ParamMut x, e -> assert (false)
         end) Env.empty args in
+    let pos = (conf.cur_fun, conf.cur_vers, pc') in
     { conf with
       env = env;
       instrs = version.instrs;
       pc = 0;
-      continuation = (x, conf.env, conf.instrs, pc') :: conf.continuation
+      cur_fun = func.name;
+      cur_vers = version.label;
+      continuation = (x, conf.env, pos) :: conf.continuation
     }
   | Return e ->
-     let v = eval conf e in
+     let res = eval conf e in
      begin match conf.continuation with
      | [] ->
        { conf with
-         status = Result v }
-     | (x, env, instrs, pc) :: cont ->
-       let env = Env.add x (Const v) env in
+         status = Result res }
+     | (x, env, (f, v, pc)) :: cont ->
+       let env = Env.add x (Const res) env in
+       let func = Instr.get_fun conf.program f in
+       let version = Instr.get_version func v in
        { conf with
          env = env;
-         instrs = instrs;
+         cur_fun = func.name;
+         cur_vers = version.label;
+         instrs = version.instrs;
          pc = pc;
          continuation = cont; }
      end
@@ -271,6 +281,8 @@ let reduce conf =
          pc = resolve version.instrs l;
          env = env';
          instrs = version.instrs;
+         cur_fun = f;
+         cur_vers = v;
          deopt = Some l;
        }
      end
@@ -283,6 +295,8 @@ let start program input pc : configuration = {
   status = Running;
   deopt = None;
   program = program;
+  cur_fun = "main";
+  cur_vers = (Instr.active_version program.main).label;
   instrs = (Instr.active_version program.main).instrs;
   pc = pc;
   continuation = []
