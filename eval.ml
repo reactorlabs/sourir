@@ -133,6 +133,8 @@ let get_bool (Lit lit : value) =
      let expected, received = Bool, litteral_type other in
      raise (Type_error { expected; received })
 
+exception InvalidArgument
+
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
   let resolve instrs label = Instr.resolve instrs label in
@@ -140,32 +142,28 @@ let reduce conf =
   assert (conf.status = Running);
 
   let instruction =
-    let defaul_exit = (Simple (Lit (Int 0))) in
+    let default_exit = (Simple (Lit (Int 0))) in
     if conf.pc < Array.length conf.instrs
     then conf.instrs.(conf.pc)
     else if conf.continuation = []
-    then Stop defaul_exit
+    then Stop default_exit
     else assert (false)
   in
 
   let build_call_frame formals actuals =
     let eval_arg env (formal, actual) =
-      match formal with
-      | Instr.ParamConst x ->
-        let value = eval conf actual in
+      match[@warning "-4"] formal, actual with
+      | Instr.ParamConst x, ValArg e ->
+        let value = eval conf e in
         Env.add x (Const value) env
-      | Instr.ParamMut x ->
-        let get_var = function[@warning "-4"]
-          | Simple (Var x) -> x
-          | _ -> assert (false)
-        in
+      | Instr.ParamMut x, RefArg var ->
         let get_addr = function
           | Mut a as adr -> adr
-          | Const _ -> assert (false)
+          | Const _ -> raise InvalidArgument
         in
-        let var = get_var actual in
         let adr = get_addr (Env.find var conf.env) in
         Env.add x adr env
+      | _ -> raise InvalidArgument
     in
     let args = List.combine formals actuals in
     List.fold_left eval_arg Env.empty args
@@ -189,10 +187,10 @@ let reduce conf =
   in
 
   match instruction with
-  | Call (x, f, exs) ->
-    let func = Instr.get_fun conf.program f in
+  | Call (x, f, args) ->
+    let func = Instr.lookup_fun conf.program f in
     let version = Instr.active_version func in
-    let call_env = build_call_frame func.formals exs in
+    let call_env = build_call_frame func.formals args in
     let cont_pos = (conf.cur_fun, conf.cur_vers, pc') in
     { conf with
       env = call_env;
@@ -210,7 +208,7 @@ let reduce conf =
          status = Result res }
      | (x, env, (f, v, pc)) :: cont ->
        let env = Env.add x (Const res) env in
-       let func = Instr.get_fun conf.program f in
+       let func = Instr.lookup_fun conf.program f in
        let version = Instr.get_version func v in
        { conf with
          env = env;
@@ -291,7 +289,7 @@ let reduce conf =
        }
      else begin
        let osr_env = build_osr_frame osr_def in
-       let osr_func = Instr.get_fun conf.program f in
+       let osr_func = Instr.lookup_fun conf.program f in
        let osr_version = Instr.get_version osr_func v in
        let osr_instrs = osr_version.instrs in
        { conf with

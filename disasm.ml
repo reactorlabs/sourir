@@ -24,11 +24,16 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
       | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
       | Op ((Plus | Neq | Eq), _)         -> assert(false)
     in
+    let dump_arg arg =
+      match arg with
+      | ValArg e          -> dump_expr e
+      | RefArg x          -> pr buf "&%s" x
+    in
     format_pc buf pc;
     begin match instr with
-    | Call (var, f, exs)              ->
+    | Call (var, f, args)              ->
       pr buf " call %s = %s (" var f;
-      dump_comma_separated dump_expr exs;
+      dump_comma_separated dump_arg args;
       pr buf ")"
     | Stop exp                        -> pr buf " stop "; dump_expr exp
     | Return exp                      -> pr buf " return "; dump_expr exp

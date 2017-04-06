@@ -67,5 +67,6 @@ rule token = parse
   | ":" { COLON }
   | "=" { EQUAL }
   | "<-" { LEFTARROW }
+  | "&" { AMPERSAND }
   | eof { EOF }
   | _ { lexing_error lexbuf }

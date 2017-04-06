@@ -5,7 +5,7 @@ F ::= (lᵥ ↦ V)*                          function body:      can contain mul
 V ::= start ↦ i, I                       a function version: instruction stream with dedicated start
 I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
-Df ::= Function f(x, ...)          function declaration
+Df ::= Function f(mod x, ...)          function declaration
 
 x        variables
 
@@ -17,11 +17,15 @@ Reserved Names:
 main      main function    (execution of program starts here)
 start     start label      (execution of function starts here)
 
+mod ::=
+| const
+| mut
+
 a  addresses
 
 i ::=    instructions
 | const x = e                   constant variable
-| call x = f e*                 function call
+| call x = f arg*               function call
 | mut x = e                     mutable variable
 | x <- e                        assignment
 | branch e l₁ l₂                conditional
@@ -29,6 +33,10 @@ i ::=    instructions
 | print e                       print
 | return e                      return
 | osr(e, f, lᵥ, l, osr-map*)    osr : (can be used for osr-in and osr-out)
+
+arg ::=
+| e
+| &x
 
 e ::=    (simple) expressions
 | lit                   literals
@@ -52,7 +60,7 @@ osr-map ::=    osr mapping declaration
 
 # Natural operational semantics
 
-E ::= (x ↦ const v | x ↦ var a | x ↦ ⊥)*  lexical environment
+E ::= (x ↦ val v | x ↦ var a | x ↦ ⊥)*  lexical environment
 H ::= (l ↦ v)                             mutable heap
 
 T ::= (lit)*                    output trace
@@ -76,12 +84,12 @@ pred I l =
 
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
-    v    if E ∋ (x ↦ const v)
-    H(l) if E ∋ (x ↦ mut l)
+    v    if E ∋ (x ↦ val v)
+    H(a) if E ∋ (x ↦ var a)
 
 Update (partial) function, returns an H:
   (H,E)[x ← v] :=
-    H[E(x) ↦ v] if E ∋ (x ↦ mut l)
+    H[a ↦ v] if E ∋ (x ↦ var a)
 
 ## Evaluation of simple expressions:
 
@@ -96,16 +104,22 @@ Update (partial) function, returns an H:
   osr-env H E (mut x = y)   = (x ↦ a)
     where a = E(y)
 
+## Argument evaluation
+
+  eval-arg H E const  e =  val eval H E e
+  eval-arg H E mut   &x =  var a
+    where E ∋ (x ↦ var a)
+
 ## Reduction relation '-->'
 
   (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
 
   (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
-    when I(l) = (call x = f e*)
+    when I(l) = (call x = f (arg*))
      and Df ∈ dom P
-     and Df  = Function f y*
+     and Df  = Function f (mod y)*
      and I' := hd P(Df)
-     and E' := (y ↦ eval H E e)*
+     and E' := (y ↦ eval-arg H E mod arg)*
      and C' := (x, E, I, succ I l)
 
   (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')

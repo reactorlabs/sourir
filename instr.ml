@@ -33,7 +33,7 @@ type instruction_stream = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
-  | Call of variable * label * (expression list)
+  | Call of variable * label * (argument list)
   | Return of expression
   | Drop of variable
   | Assign of variable * expression
@@ -50,6 +50,9 @@ and osr_def =
   | OsrConst of variable * expression
   | OsrMut of variable * variable
   | OsrMutUndef of variable
+and argument =
+  | ValArg of expression
+  | RefArg of variable
 and expression =
   | Simple of simple_expression
   | Op of primop * simple_expression list
@@ -147,6 +150,10 @@ let expr_vars = function
     List.map simple_expr_vars xs
     |> List.fold_left VarSet.union VarSet.empty
 
+let arg_vars = function
+  | ValArg e -> expr_vars e
+  | RefArg x -> VarSet.singleton x
+
 let declared_vars = function
   | Call (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
@@ -168,7 +175,7 @@ let declared_vars = function
  * Producer: declared_vars *)
 let required_vars = function
   | Call (_x, f, es) ->
-    let vs = List.map expr_vars es in
+    let vs = List.map arg_vars es in
     List.fold_left VarSet.union VarSet.empty vs
   | Stop e
   | Return e -> expr_vars e
@@ -245,7 +252,7 @@ let cleared_vars = function
  * Producer: defined_vars *)
 let used_vars = function
   | Call (_x, _f, es) ->
-    let vs = List.map expr_vars es in
+    let vs = List.map arg_vars es in
     List.fold_left VarSet.union VarSet.empty vs
   | Stop e
   | Return e -> expr_vars e
@@ -305,9 +312,12 @@ type program = {
   functions : afunction list;
 }
 
-let get_fun (prog : program) (f : identifier) : afunction =
+exception FunctionDoesNotExist of identifier
+
+let lookup_fun (prog : program) (f : identifier) : afunction =
   if f = "main" then prog.main else
-  List.find (fun {name} -> name = f) prog.functions
+  try List.find (fun {name} -> name = f) prog.functions with
+  | Not_found -> raise (FunctionDoesNotExist f)
 
 let get_version (func : afunction) (v : label) : version =
   List.find (fun {label} -> label = v) func.body

@@ -48,7 +48,7 @@ let () =
           end;
         | Scope.ExtraneousVariable (xs, pc) ->
           let l = pc+1 in
-          let func = get_fun program f in
+          let func = lookup_fun program f in
           let version = get_version func v in
           let annot = match version.annotations with | Some a -> a | None -> assert(false) in
           let annot_vars = match annot.(pc) with
@@ -79,7 +79,7 @@ let () =
                       l (String.concat ", " xs)
           end;
         | Scope.IncompatibleScope (scope1, scope2, pc) ->
-          let func = get_fun program f in
+          let func = lookup_fun program f in
           let version = get_version func v in
           let instrs = version.instrs in
           Disasm.pretty_print_version stderr (v, instrs);
@@ -95,14 +95,14 @@ let () =
     | Check.MissingMain ->
       Printf.eprintf "Program is missing an explicit or implicit main function\n";
       exit 1
+    | Check.InvalidMain ->
+      Printf.eprintf "Main function cannot have arguments\n";
+      exit 1
     | Check.DuplicateFunctionDeclaration f ->
       Printf.eprintf "Duplicate function declaration %s\n" f;
       exit 1
-    | Check.InvalidFunctionDeclaration f ->
-      Printf.eprintf "Function %s is invalid\n" f;
-      exit 1
     | Check.DuplicateVersion (f, v) ->
-      Printf.eprintf "Version %s in function %s is define twice\n" v f;
+      Printf.eprintf "Version %s in function %s is defined twice\n" v f;
       exit 1
     | Check.EmptyFunction f ->
       Printf.eprintf "Function %s has no body\n" f;

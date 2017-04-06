@@ -26,10 +26,11 @@ let const_prop (func : afunction) : afunction =
   (* Replaces the variable `x` with literal `l` in instruction `instr`. *)
   let convert x l instr =
     let replace = Replace.var_in_exp x l in
+    let replace_arg = Replace.var_in_arg x l in
     match instr with
     | Call (y, f, es) ->
       assert (x <> y);
-      Call (y, f, List.map replace es)
+      Call (y, f, List.map replace_arg es)
     | Stop e ->
       Stop (replace e)
     | Return e ->

@@ -1113,7 +1113,7 @@ let test_functions () =
       return 1
   |pr} 3;
   assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (Simple (Lit (Int 22))))))
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (ValArg (Simple (Lit (Int 22)))))))
     (fun () ->
     test {pr|
        call x = bla (22)
@@ -1123,14 +1123,14 @@ let test_functions () =
     |pr} 22);
   test {pr|
      mut a = 3
-     call x = bla (a)
+     call x = bla (&a)
      return x
     function bla (mut y)
       return y
   |pr} 3;
   test {pr|
      mut a = 3
-     call x = bla (a)
+     call x = bla (&a)
      return a
     function bla (mut y)
      y <- 4
@@ -1144,7 +1144,7 @@ let test_functions () =
        return false
     |pr} 0);
   assert_raises
-    (Check.InvalidFunctionDeclaration "main")
+    (Check.InvalidMain)
     (fun () ->
     test {pr|
       function main (const x)
@@ -1158,9 +1158,41 @@ let test_functions () =
       function bla (const x, const x)
        return false
     |pr} 0);
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (ValArg (Simple (Var "x"))))))
+    (fun () ->
+    test {pr|
+       mut x = 22
+       call y = bla (x)
+      function bla (mut y)
+        return y
+    |pr} 22);
+  test {pr|
+     mut x = 22
+     call y = bla (x)
+     return y
+    function bla (const y)
+      return y
+  |pr} 22;
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (ValArg (Simple (Var "x"))))))
+    (fun () ->
+    test {pr|
+       const x = 22
+       call y = bla (x)
+      function bla (mut y)
+        return y
+    |pr} 22);
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (RefArg "x"))))
+    (fun () ->
+    test {pr|
+       const x = 22
+       call y = bla (&x)
+      function bla (mut y)
+        return y
+    |pr} 22);
   ();;
-
-test_functions ()
 
 let suite =
   "suite">:::

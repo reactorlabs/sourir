@@ -1,19 +1,22 @@
 open Instr
 
+(* These are exceptions at the scope of the program *)
 exception MissingMain
+exception InvalidMain
 exception DuplicateFunctionDeclaration of identifier
-exception InvalidFunctionDeclaration of identifier
 exception DuplicateVersion of identifier * label
 exception EmptyFunction of identifier
 exception DuplicateParameter of identifier * variable
 
+(* The following are exceptions at the scope of a particular
+ * function body. To indicate the position where they occur
+ * they will be wrapped in a ErrorAt exception. *)
 exception ErrorAt of identifier * label * exn
 
-(* Those should always come wrapped in an ErrorAt : *)
 exception FunctionDoesNotExist of identifier
 exception VersionDoesNotExist of identifier * label
 exception InvalidNumArgs of pc
-exception InvalidArgument of pc * expression
+exception InvalidArgument of pc * argument
 exception MissingReturn
 
 
@@ -23,7 +26,7 @@ let well_formed prog =
   (* Check if main exists and expects no arguments *)
   let check_main main =
     if main.name <> "main" then raise MissingMain;
-    if main.formals <> [] then raise (InvalidFunctionDeclaration "main");
+    if main.formals <> [] then raise InvalidMain;
   in
   check_main prog.main;
 
@@ -43,16 +46,18 @@ let well_formed prog =
   let check_formals name formals =
     let formals = List.map (fun f -> match f with
         | ParamConst x -> x | ParamMut x -> x) formals in
-    List.iter (fun f ->
-        if List.length (List.filter (fun f' -> f=f') formals) > 1 then
-          raise (DuplicateParameter (name, f))) formals
+    let check seen var =
+      if VarSet.mem var seen
+      then raise (DuplicateParameter (name, var))
+      else VarSet.add var seen
+    in ignore (List.fold_left check VarSet.empty formals)
   in
 
   let check_version func version =
     let instrs = version.instrs in
 
     if func.name <> "main" then
-    begin if Array.length instrs = 0 then raise MissingReturn else
+      begin if Array.length instrs = 0 then raise MissingReturn;
       begin match[@warning "-4"] instrs.((Array.length instrs) - 1) with
       | Return _ | Stop _ | Goto _ | Branch _ -> ()
       | _ -> raise MissingReturn end
@@ -70,19 +75,17 @@ let well_formed prog =
         if (List.length exs <> List.length func'.formals)
         then raise (InvalidNumArgs pc);
         let check_arg (formal, actual) =
-            match formal with
-            | ParamConst _ -> ()
-            | ParamMut x ->
-              begin match[@warning "-4"] actual with
-              | Simple (Var x) ->
+            match[@warning "-4"] formal, actual with
+            | ParamConst _, ValArg _ -> ()
+            | ParamMut _, RefArg x ->
                 begin match scope.(pc) with
                 | DeadScope -> ()
                 | Scope scope ->
                   ignore (try ModedVarSet.find (Mut_var, x) scope with
-                          | Not_found -> raise (InvalidArgument (pc, actual)))
+                          | Not_found -> raise (InvalidArgument (pc, actual))
+                          | Incomparable -> raise (InvalidArgument (pc, actual)))
                 end
-              | _ -> raise (InvalidArgument (pc, actual))
-              end
+            | _ -> raise (InvalidArgument (pc, actual))
         in
         List.iter check_arg (List.combine func'.formals exs)
 
@@ -100,10 +103,12 @@ let well_formed prog =
   let check_function func =
     if func.body = [] then raise (EmptyFunction func.name);
     check_formals func.name func.formals;
+    let check seen {label} =
+      if VarSet.mem label seen
+      then raise (DuplicateVersion (func.name, label))
+      else VarSet.add label seen
+    in ignore (List.fold_left check VarSet.empty func.body);
     List.iter (fun version ->
-        let all = List.filter (fun {label} -> label=version.label) func.body in
-        if List.length all > 1
-        then raise (DuplicateVersion (func.name, version.label));
         try check_version func version with
         | e -> raise (ErrorAt (func.name, version.label, e))
       ) func.body

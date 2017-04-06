@@ -43,6 +43,12 @@ let in_expression old_name new_name exp : expression =
   | Op (op, exps) ->
     Op (op, List.map in_simple_expression exps)
 
+let in_arg old_name new_name exp : argument =
+  let in_expression = in_expression old_name new_name in
+  match exp with
+  | ValArg e -> ValArg (in_expression e)
+  | RefArg x -> if x = old_name then RefArg new_name else RefArg x
+
 let in_osr old_name new_name osr : osr_def =
   let in_expression = in_expression old_name new_name in
   match osr with
@@ -52,11 +58,12 @@ let in_osr old_name new_name osr : osr_def =
 
 let uses_in_instruction old_name new_name instr : instruction =
   let in_expression = in_expression old_name new_name in
+  let in_arg = in_arg old_name new_name in
   let in_osr = in_osr old_name new_name in
   match instr with
   | Call (x, f, exs) ->
     assert(x != old_name);   (* -> invalid scope *)
-    Call (x, f, List.map in_expression exs)
+    Call (x, f, List.map in_arg exs)
   | Stop e ->
     Stop (in_expression e)
   | Return e ->
