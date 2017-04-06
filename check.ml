@@ -28,16 +28,13 @@ let well_formed prog =
   check_main prog.main;
 
   let lookup_version func label =
-    match List.filter (fun {label=l} -> label = l) func.body with
-    | [] -> raise (VersionDoesNotExist (func.name, label))
-    | [v] -> v
-    | _ -> assert (false)
+    try List.find (fun {label=l} -> label = l) func.body with
+    | Not_found -> raise (VersionDoesNotExist (func.name, label))
   in
   let lookup_fun name =
-    match List.filter (fun {name = l} -> name = l) prog.functions with
-    | [] -> raise (FunctionDoesNotExist name)
-    | [f] -> f
-    | _ -> assert (false)
+    if name = "main" then prog.main else
+    try List.find (fun {name = l} -> name = l) prog.functions with
+    | Not_found -> raise (FunctionDoesNotExist name)
   in
 
   let functions = prog.main :: prog.functions in
@@ -104,15 +101,16 @@ let well_formed prog =
     if func.body = [] then raise (EmptyFunction func.name);
     check_formals func.name func.formals;
     List.iter (fun version ->
-        let all = List.filter (fun {label=o} -> o=version.label) func.body in
-        if List.length all > 1 then raise (DuplicateVersion (func.name, version.label));
+        let all = List.filter (fun {label} -> label=version.label) func.body in
+        if List.length all > 1
+        then raise (DuplicateVersion (func.name, version.label));
         try check_version func version with
         | e -> raise (ErrorAt (func.name, version.label, e))
       ) func.body
   in
 
   List.iter (fun func ->
-      let all = List.filter (fun {name=o} -> func.name=o) functions in
+      let all = List.filter (fun {name} -> name=func.name) functions in
       if List.length all > 1 then raise (DuplicateFunctionDeclaration func.name);
       check_function func;) functions;
   ()

@@ -147,7 +147,7 @@ let reduce conf =
 
   match instruction with
   | Call (x, f, exs) ->
-    let func = Instr.lookup_fun conf.program f in
+    let func = Instr.get_fun conf.program f in
     let version = Instr.active_version func in
     let args = List.combine func.formals exs in
     let env = List.fold_left (fun env arg ->
@@ -265,8 +265,8 @@ let reduce conf =
            Env.add x' (Mut a) env'
        in
        let env' = List.fold_left add Env.empty osr in
-       let func = Instr.lookup_fun conf.program f in
-       let version = Instr.lookup_version func v in
+       let func = Instr.get_fun conf.program f in
+       let version = Instr.get_version func v in
        { conf with
          pc = resolve version.instrs l;
          env = env';

@@ -305,24 +305,12 @@ type program = {
   functions : afunction list;
 }
 
-exception FunctionDoesNotExist of label
-exception AmbiguousFunctionName of label
+let get_fun (prog : program) (f : identifier) : afunction =
+  if f = "main" then prog.main else
+  List.find (fun {name} -> name = f) prog.functions
 
-let lookup_fun (prog : program) (name : label) : afunction =
-  if name = "main" then prog.main else
-  match List.filter (fun {name = l} -> name = l) prog.functions with
-  | [] -> raise (FunctionDoesNotExist name)
-  | [f] -> f
-  | _ -> raise (AmbiguousFunctionName name)
-
-exception VersionDoesNotExist of label
-exception AmbiguousVersionName of label
-
-let lookup_version (func : afunction) (label : label) : version =
-  match List.filter (fun {label=l} -> label = l) func.body with
-  | [] -> raise (VersionDoesNotExist label)
-  | [v] -> v
-  | _ -> raise (AmbiguousVersionName label)
+let get_version (func : afunction) (v : label) : version =
+  List.find (fun {label} -> label = v) func.body
 
 let active_version (func : afunction) : version =
   (List.hd func.body)

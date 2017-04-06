@@ -6,6 +6,12 @@ let line_number buf pc = Printf.bprintf buf "% 6d |" pc
 let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_stream) =
   let dump_instr buf pc instr =
     let pr = Printf.bprintf in
+    let rec dump_comma_separated how what =
+      match what with
+      | [] -> ()
+      | [e] -> how e
+      | e::t -> how e; pr buf ", "; dump_comma_separated how t
+    in
     let simple buf = function
       | Var v             -> pr buf "%s" v
       | Lit lit           -> pr buf "%s" (string_of_litteral lit)
@@ -21,13 +27,8 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     format_pc buf pc;
     begin match instr with
     | Call (var, f, exs)              ->
-      let rec dump_exs = function
-        | [] -> ()
-        | [e] -> dump_expr e
-        | e::t -> dump_expr e; pr buf ", "; dump_exs t
-      in
       pr buf " call %s = %s (" var f;
-      dump_exs exs;
+      dump_comma_separated dump_expr exs;
       pr buf ")"
     | Stop exp                        -> pr buf " stop "; dump_expr exp
     | Return exp                      -> pr buf " return "; dump_expr exp
@@ -61,7 +62,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
 
 let disassemble buf (prog : Instr.program) =
   (* TODO: disassemble annotations *)
-  List.iter (fun {name=name; formals=formals; body=body} ->
+  List.iter (fun {name; formals; body} ->
       let formals = List.map (fun x -> match x with
           | ParamMut x -> "mut "^x
           | ParamConst x -> "const "^x) formals in

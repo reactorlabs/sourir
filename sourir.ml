@@ -48,8 +48,8 @@ let () =
           end;
         | Scope.ExtraneousVariable (xs, pc) ->
           let l = pc+1 in
-          let func = lookup_fun program f in
-          let version = lookup_version func v in
+          let func = get_fun program f in
+          let version = get_version func v in
           let annot = match version.annotations with | Some a -> a | None -> assert(false) in
           let annot_vars = match annot.(pc) with
             | None | Some (AtLeastScope _) ->
@@ -79,8 +79,8 @@ let () =
                       l (String.concat ", " xs)
           end;
         | Scope.IncompatibleScope (scope1, scope2, pc) ->
-          let func = lookup_fun program f in
-          let version = lookup_version func v in
+          let func = get_fun program f in
+          let version = get_version func v in
           let instrs = version.instrs in
           Disasm.pretty_print_version stderr (v, instrs);
           Scope.explain_incompatible_scope stderr scope1 scope2 pc;
