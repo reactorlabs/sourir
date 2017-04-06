@@ -18,6 +18,7 @@ let no_input = IO.no_input
 let input = IO.list_input
 
 let run prog input pred () =
+  Check.well_formed prog;
   Scope.check_program prog;
   let final_conf = Eval.run_forever input prog in
   assert (pred final_conf)
@@ -1075,17 +1076,18 @@ let test_functions () =
     function bla ()
      return 1
   |pr} 1;
-  assert_raises Eval.WrongNumberOfArguments (fun () ->
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.InvalidNumArgs 0))
+    (fun () ->
     test {pr|
        call x = bla (1)
       function bla ()
     |pr} 1);
-  assert_raises Eval.MissingReturn (fun () ->
-    test {pr|
-       call x = bla ()
-       return x
-      function bla ()
-    |pr} 1);
+  test {pr|
+     call x = bla ()
+     return x
+    function bla ()
+  |pr} 0;
   test {pr|
      call x = bla (22)
      return x
@@ -1101,7 +1103,9 @@ let test_functions () =
     function one ()
       return 1
   |pr} 3;
-  assert_raises Eval.InvalidArgument (fun () ->
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (Simple (Lit (Int 22))))))
+    (fun () ->
     test {pr|
        call x = bla (22)
        return x
@@ -1123,6 +1127,28 @@ let test_functions () =
      y <- 4
      return false
   |pr} 4;
+  assert_raises
+    (Check.MissingMain)
+    (fun () ->
+    test {pr|
+      function bla ()
+       return false
+    |pr} 0);
+  assert_raises
+    (Check.InvalidFunctionDeclaration "main")
+    (fun () ->
+    test {pr|
+      function main (const x)
+       return false
+    |pr} 0);
+  assert_raises
+    (Check.DuplicateParameter ("bla", "x"))
+    (fun () ->
+    test {pr|
+      call x = bla (1, 2)
+      function bla (const x, const x)
+       return false
+    |pr} 0);
   ();;
 
 let suite =

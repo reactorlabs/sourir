@@ -85,9 +85,45 @@ let () =
           Disasm.pretty_print_version stderr (v, instrs);
           Scope.explain_incompatible_scope stderr scope1 scope2 pc;
           flush stderr;
-        | _ -> assert(false) end;
+        | _ -> assert(false)
+        end;
         exit 1
       end
+    end;
+
+    begin try Check.well_formed program with
+    | Check.MissingMain ->
+      Printf.eprintf "Program is missing an explicit or implicit main function\n";
+      exit 1
+    | Check.DuplicateFunctionDeclaration f ->
+      Printf.eprintf "Duplicate function declaration %s\n" f;
+      exit 1
+    | Check.InvalidFunctionDeclaration f ->
+      Printf.eprintf "Function %s is invalid\n" f;
+      exit 1
+    | Check.DuplicateVersion (f, v) ->
+      Printf.eprintf "Version %s in function %s is define twice\n" v f;
+      exit 1
+    | Check.EmptyFunction f ->
+      Printf.eprintf "Function %s has no body\n" f;
+      exit 1
+    | Check.DuplicateParameter (f, x) ->
+      Printf.eprintf "Function %s : parameter %s is given twice\n" f x;
+      exit 1
+    | Check.ErrorAt (f, v, e) ->
+      Printf.eprintf "Error in function %s version %s: " f v;
+      begin match[@warning "-4"] e with
+      | Check.FunctionDoesNotExist f' ->
+        Printf.eprintf "called function %s does not exist\n" f';
+      | Check.VersionDoesNotExist (f', v') ->
+        Printf.eprintf "osr target %s %s does not exist\n" f' v';
+      | Check.InvalidNumArgs pc ->
+        Printf.eprintf "at line %d: invalid number of arguments\n" (pc+1);
+      | Check.InvalidArgument (pc, expression) ->
+        Printf.eprintf "at line %d: invalid argument\n" (pc+1);
+      | _ -> assert(false)
+      end;
+      exit 1
     end;
 
     let program = if prune

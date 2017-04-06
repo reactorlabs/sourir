@@ -45,7 +45,10 @@ program_code:
   {
     let fs = f1 :: fs in
     let main = (try List.find (fun {name = n} -> n = "main") fs with
-        | Not_found -> (Printf.printf ("missing main function\n"); exit 1)
+        | Not_found -> {
+            (* This is a bit dodgy, but will be caught and reported by the checker later *)
+            name = "invalid"; formals = []; body = [];
+          }
       ) in
     let rest = List.filter (fun {name = n} -> n <> "main") fs in
     { main = main;

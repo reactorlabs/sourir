@@ -130,10 +130,6 @@ let get_bool (Lit lit : value) =
      let expected, received = Bool, litteral_type other in
      raise (Type_error { expected; received })
 
-exception WrongNumberOfArguments
-exception MissingReturn
-exception InvalidArgument
-
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
   let resolve instrs label = Instr.resolve instrs label in
@@ -145,13 +141,12 @@ let reduce conf =
     then conf.instrs.(conf.pc)
     else if conf.continuation = []
     then Stop
-    else raise MissingReturn
+    else Return (Simple (Lit (Int 0)))
   in
 
   match instruction with
   | Call (x, f, exs) ->
     let func = Instr.lookup_fun conf.program f in
-    if (List.length exs) <> (List.length func.formals) then raise WrongNumberOfArguments else
     let version = Instr.active_version func in
     let args = List.combine func.formals exs in
     let env = List.fold_left (fun env arg ->
@@ -161,10 +156,9 @@ let reduce conf =
         | Instr.ParamMut x, (Simple (Var y)) ->
           begin match Env.find y conf.env with
             | Mut a as adr -> Env.add x adr env
-            | Const _ -> raise InvalidArgument
+            | Const _ -> assert (false)
           end
-        | Instr.ParamMut x, e ->
-          raise InvalidArgument
+        | Instr.ParamMut x, e -> assert (false)
         end) Env.empty args in
     { conf with
       env = env;

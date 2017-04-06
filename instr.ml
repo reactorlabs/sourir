@@ -270,6 +270,12 @@ let used_vars = function
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
+module Identifier = struct
+  type t = string
+  let compare = String.compare
+end
+type identifier = Identifier.t
+
 type scope_annotation =
   | ExactScope of VarSet.t
   | AtLeastScope of VarSet.t
@@ -290,7 +296,7 @@ type version = {
   annotations : annotations option;
 }
 type afunction = {
-  name : label;
+  name : identifier;
   formals : formal_parameter list;
   body : version list;
 }
