@@ -14,6 +14,7 @@ exception FunctionDoesNotExist of identifier
 exception VersionDoesNotExist of identifier * label
 exception InvalidNumArgs of pc
 exception InvalidArgument of pc * expression
+exception MissingReturn
 
 
 module IdentifierSet = Set.Make(Identifier)
@@ -52,6 +53,13 @@ let well_formed prog =
 
   let check_version func version =
     let instrs = version.instrs in
+
+    if func.name <> "main" then
+    begin if Array.length instrs = 0 then raise MissingReturn else
+      begin match[@warning "-4"] instrs.((Array.length instrs) - 1) with
+      | Return _ | Stop _ | Goto _ | Branch _ -> ()
+      | _ -> raise MissingReturn end
+    end;
 
     let scope = Scope.infer func version in
 

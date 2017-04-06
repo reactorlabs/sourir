@@ -30,6 +30,8 @@ let const_prop (func : afunction) : afunction =
     | Call (y, f, es) ->
       assert (x <> y);
       Call (y, f, List.map replace es)
+    | Stop e ->
+      Stop (replace e)
     | Return e ->
       Return (replace e)
     | Decl_const (y, e) ->
@@ -57,7 +59,7 @@ let const_prop (func : afunction) : afunction =
     | Read y ->
       assert (x <> y);
       instr
-    | Label _ | Goto _ | Stop | Comment _ -> instr in
+    | Label _ | Goto _ | Comment _ -> instr in
 
   (* Finds the target pcs to perform constant propagation. *)
   let rec find_targets instrs x worklist acc =

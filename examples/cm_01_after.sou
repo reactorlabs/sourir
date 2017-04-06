@@ -20,7 +20,7 @@ version active
  w2 <- (w2 + one)
  print w2
  print x
- stop
+ stop 0
 
 version old
  # Based on a whiteboard example that also involves branch pruning
@@ -47,4 +47,4 @@ end:
  w2 <- (w2 + one)
  print w2
  print x
- stop
+ stop 0

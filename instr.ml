@@ -44,7 +44,7 @@ and instruction =
   | Goto of label
   | Print of expression
   | Osr of expression * label * label * label * osr_def list
-  | Stop
+  | Stop of expression
   | Comment of string
 and osr_def =
   | OsrConst of variable * expression
@@ -162,7 +162,7 @@ let declared_vars = function
     | Print _
     | Osr _
     | Comment _
-    | Stop) -> ModedVarSet.empty
+    | Stop _) -> ModedVarSet.empty
 
 (* Which variables need to be in scope
  * Producer: declared_vars *)
@@ -170,6 +170,7 @@ let required_vars = function
   | Call (_x, f, es) ->
     let vs = List.map expr_vars es in
     List.fold_left VarSet.union VarSet.empty vs
+  | Stop e
   | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
@@ -187,7 +188,6 @@ let required_vars = function
         | OsrMutUndef _ -> Simple (Lit Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
-  | Stop -> VarSet.empty
 
 let defined_vars = function
   | Call (x, _, _)
@@ -205,7 +205,7 @@ let defined_vars = function
   | Comment _
   | Print _
   | Osr _
-  | Stop -> ModedVarSet.empty
+  | Stop _ -> ModedVarSet.empty
 
 let dropped_vars = function
   | Drop x -> VarSet.singleton x
@@ -222,7 +222,7 @@ let dropped_vars = function
   | Comment _
   | Print _
   | Osr _
-  | Stop -> VarSet.empty
+  | Stop _ -> VarSet.empty
 
 let cleared_vars = function
   | Clear x -> VarSet.singleton x
@@ -239,7 +239,7 @@ let cleared_vars = function
   | Comment _
   | Print _
   | Osr _
-  | Stop -> VarSet.empty
+  | Stop _ -> VarSet.empty
 
 (* Which variables need to be defined
  * Producer: defined_vars *)
@@ -247,6 +247,7 @@ let used_vars = function
   | Call (_x, _f, es) ->
     let vs = List.map expr_vars es in
     List.fold_left VarSet.union VarSet.empty vs
+  | Stop e
   | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
@@ -260,8 +261,7 @@ let used_vars = function
   | Label _
   | Goto _
   | Comment _
-  | Read _
-  | Stop -> VarSet.empty
+  | Read _ -> VarSet.empty
   | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
         | OsrConst (_, e) -> e
@@ -335,8 +335,3 @@ module Value = struct
   let int n : value = Lit (Int n)
   let bool b : value = Lit (Bool b)
 end
-
-let instr_at instrs pc =
-  if Array.length instrs = pc then Stop
-  else if Array.length instrs < pc then invalid_arg "instr_at"
-  else instrs.(pc)

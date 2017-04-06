@@ -29,6 +29,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
       pr buf " call %s = %s (" var f;
       dump_exs exs;
       pr buf ")"
+    | Stop exp                        -> pr buf " stop "; dump_expr exp
     | Return exp                      -> pr buf " return "; dump_expr exp
     | Decl_const (var, exp)           -> pr buf " const %s = " var; dump_expr exp
     | Decl_mut (var, Some exp)        -> pr buf " mut %s = " var; dump_expr exp
@@ -45,20 +46,13 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
       pr buf " osr ";
       dump_expr exp;
       pr buf " %s %s %s [" f v l;
-      let rec dump_vars vs =
-        let dump_var = function
-          | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
-          | OsrMut (x, y) -> pr buf "mut %s = %s" x y;
-          | OsrMutUndef x -> pr buf "mut %s" x
-        in
-        match vs with
-          | [] -> ()
-          | hd :: [] -> dump_var hd
-          | hd :: tail -> dump_var hd; pr buf ", "; dump_vars tail
+      let dump_var = function
+        | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
+        | OsrMut (x, y) -> pr buf "mut %s = %s" x y;
+        | OsrMutUndef x -> pr buf "mut %s" x
       in
-      dump_vars vars;
+      dump_comma_separated dump_var vars;
       pr buf "]"
-    | Stop                            -> pr buf " stop"
     | Comment str                     -> pr buf " #%s" str
     end;
     pr buf "\n"

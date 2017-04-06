@@ -113,6 +113,8 @@ let () =
     | Check.ErrorAt (f, v, e) ->
       Printf.eprintf "Error in function %s version %s: " f v;
       begin match[@warning "-4"] e with
+      | Check.MissingReturn ->
+        Printf.eprintf "missing return statement\n";
       | Check.FunctionDoesNotExist f' ->
         Printf.eprintf "called function %s does not exist\n" f';
       | Check.VersionDoesNotExist (f', v') ->
@@ -164,12 +166,10 @@ let () =
     let open Eval in
     match conf.status with
     | Running -> assert(false)
-    | Stopped None
-      -> exit 0
-    | Stopped (Some (Lit (Int n))) ->
+    | Result (Lit (Int n)) ->
       exit n
-    | Stopped (Some (Lit (Bool b))) ->
+    | Result (Lit (Bool b)) ->
       exit (if b then 1 else 0)
-    | Stopped (Some (Lit Nil)) ->
+    | Result (Lit Nil) ->
       exit 0
 

@@ -8,7 +8,7 @@ type trace = value list
 type environment = binding Env.t
 type heap = heap_value Heap.t
 
-type status = Running | Stopped of value option
+type status = Running | Result of value
 type continuation = variable * environment * instruction_stream * pc
 
 type configuration = {
@@ -137,11 +137,12 @@ let reduce conf =
   assert (conf.status = Running);
 
   let instruction =
+    let defaul_exit = (Simple (Lit (Int 0))) in
     if conf.pc < Array.length conf.instrs
     then conf.instrs.(conf.pc)
     else if conf.continuation = []
-    then Stop
-    else Return (Simple (Lit (Int 0)))
+    then Stop defaul_exit
+    else assert (false)
   in
 
   match instruction with
@@ -171,7 +172,7 @@ let reduce conf =
      begin match conf.continuation with
      | [] ->
        { conf with
-         status = Stopped (Some v) }
+         status = Result v }
      | (x, env, instrs, pc) :: cont ->
        let env = Env.add x (Const v) env in
        { conf with
@@ -180,10 +181,12 @@ let reduce conf =
          pc = pc;
          continuation = cont; }
      end
+  | Stop e ->
+     let v = eval conf e in
+     { conf with
+       status = Result v }
   | Comment _ -> { conf with
                    pc = pc' }
-  | Stop -> { conf with
-              status = Stopped None }
   | Decl_const (x, e) ->
      let v = eval conf e in
      { conf with
@@ -288,7 +291,7 @@ let start program input pc : configuration = {
 let stop conf =
   match conf.status with
   | Running -> false
-  | Stopped _ -> true
+  | Result _ -> true
 
 let rec reduce_bounded (conf, n) =
   if n = 0 then conf

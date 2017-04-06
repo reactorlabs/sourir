@@ -19,4 +19,4 @@ l2:
   x <- (x + three)
 end:
   print x
-  stop
+  stop 0

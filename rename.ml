@@ -24,7 +24,7 @@ let fresh_label instrs label =
 
 let fresh_version_label (func : afunction) label =
   let cand i = label ^ "_" ^ (string_of_int i) in
-  let existing = List.map (fun {label=l} -> l) func.body in
+  let existing = List.map (fun {label} -> label) func.body in
   let rec find i =
     let cand_lab = cand i in
     if not (List.mem cand_lab existing)
@@ -57,6 +57,8 @@ let uses_in_instruction old_name new_name instr : instruction =
   | Call (x, f, exs) ->
     assert(x != old_name);   (* -> invalid scope *)
     Call (x, f, List.map in_expression exs)
+  | Stop e ->
+    Stop (in_expression e)
   | Return e ->
     Return (in_expression e)
   | Decl_const (x, exp) ->
@@ -84,7 +86,7 @@ let uses_in_instruction old_name new_name instr : instruction =
     assert (x != old_name);
     instr
 
-  | Label _ | Goto _ | Stop | Comment _ ->
+  | Label _ | Goto _ | Comment _ ->
     assert (VarSet.is_empty (used_vars instr));
     instr
 

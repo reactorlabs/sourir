@@ -8,7 +8,7 @@ let trace_is li =
 let has_var x v =
   fun conf -> Eval.(lookup conf.heap conf.env x = v)
 let returns n =
-  fun conf -> Eval.(conf.status = Stopped (Some (Lit (Int n))))
+  fun conf -> Eval.(conf.status = Result (Lit (Int n)))
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
@@ -39,13 +39,13 @@ let parse str : program =
 let test_print = parse
 " print 1
   print 2
-  stop
+  stop 0
 "
 
 let test_decl_const = parse
 " const x  = 1
   print x
-  stop
+  stop 0
 "
 
 let test_mut = parse
@@ -53,7 +53,7 @@ let test_mut = parse
   print x
   x <- 2
   print x
-  stop
+  stop 0
 "
 
 let test_jump = parse
@@ -71,7 +71,7 @@ let test_overloading = parse
   b <- false
  jump:
   x <- 2
-  stop
+  stop 0
 "
 
 let test_add a b = parse (
@@ -100,7 +100,7 @@ loop_body:
   goto loop
 continue:
   drop ax
-  stop
+  stop 0
 ")
 
 let test_broken_scope_1 = parse
@@ -360,7 +360,7 @@ let test_pred = parse
   branch x l1 l2
  l2:
   branch x l1 l3
-  stop
+  stop 0
   goto l1
 "
 
@@ -463,7 +463,7 @@ start:
     fs:
       branch (c==4) tr2 fs2
       tr2:
-        stop
+        stop 0
     fs2:
       w <- 4
       goto ct
@@ -490,7 +490,7 @@ let do_test_codemotion = function () ->
        x <- (x + y)
        branch (x==10) end loop
       end:
-       stop
+       stop 0
       bla:
        const z = 1
        mut x = 1
@@ -503,7 +503,7 @@ let do_test_codemotion = function () ->
        x <- (x + y_1)
        branch (x == 10) end loop
       end:
-       stop
+       stop 0
       bla:
        const z = 1
        mut y_1 = z
@@ -579,7 +579,7 @@ let do_test_minimize_lifetime = function () ->
       x:
        const b = 3
        print b
-       stop
+       stop 0
   " in
   let expected = parse "
        mut a = 12
@@ -597,7 +597,7 @@ let do_test_minimize_lifetime = function () ->
        const b = 3
        print b
        drop b
-       stop
+       stop 0
   " in
   let res = { t with main = Transform.minimize_lifetimes t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
@@ -640,10 +640,10 @@ let do_test_const_prop_driver () =
    l3:
     print y
     drop y
-    stop
+    stop 0
    l4:
     drop y
-    stop
+    stop 0
   |input} {expect|
     const x = 1
     branch (1==1) l1 l2
@@ -660,10 +660,10 @@ let do_test_const_prop_driver () =
    l3:
     print 1
     drop y
-    stop
+    stop 0
    l4:
     drop y
-    stop
+    stop 0
   |expect};
   (* Test with booleans, updating mut vars, and branching *)
   test {input|
@@ -683,7 +683,7 @@ let do_test_const_prop_driver () =
     goto fin
    fin:
     print c
-    stop
+    stop 0
   |input} {expect|
     const a = 1
     const b = 2
@@ -701,7 +701,7 @@ let do_test_const_prop_driver () =
     goto fin
    fin:
     print c
-    stop
+    stop 0
   |expect};
   (* Test with a loop *)
   test {input|
@@ -713,7 +713,7 @@ let do_test_const_prop_driver () =
     branch (x==n) end loop
    end:
     print z
-    stop
+    stop 0
    bla:
     const z = 1
     mut x = 1
@@ -728,7 +728,7 @@ let do_test_const_prop_driver () =
     branch (x==10) end loop
    end:
     print 1
-    stop
+    stop 0
    bla:
     const z = 1
     mut x = 1
@@ -759,7 +759,7 @@ let do_test_const_prop_driver () =
    fin:
     const y = (x + x)
     print y
-    stop
+    stop 0
   |input} {expect|
     const x = 1
     const t = true
@@ -783,7 +783,7 @@ let do_test_const_prop_driver () =
    fin:
     const y = (1 + 1)
     print y
-    stop
+    stop 0
   |expect};
   ()
 
@@ -803,7 +803,7 @@ let do_test_pull_drop () =
       branch e l1 l2
      l1:
       drop x
-      stop
+      stop 0
      l2:
       drop x
     " in
@@ -813,7 +813,7 @@ let do_test_pull_drop () =
       drop x
       branch e l1 l2
      l1:
-      stop
+      stop 0
      l2:
   " in
   test t 2 "x" e;
@@ -822,7 +822,7 @@ let do_test_pull_drop () =
       mut x
       branch e l1 l2
      l1:
-      stop
+      stop 0
      l2:
       drop x
     " in
@@ -899,7 +899,7 @@ let do_test_push_drop () =
     mut x = 1
     branch (1==1) l1 l2
    l1:
-    stop
+    stop 0
    l2:
     drop x
     " in
@@ -908,7 +908,7 @@ let do_test_push_drop () =
     mut x = 1
     branch (x==1) l1 l2
    l1:
-    stop
+    stop 0
    l2:
     drop x
     " in
@@ -1005,22 +1005,22 @@ let do_test_drop_driver () =
    la:
     print 1
     drop x
-    stop
+    stop 0
    lb:
     print 2
     drop x
-    stop
+    stop 0
   |given} {expect|
     const x = 1
     branch (x == 1) la lb
    la:
     drop x
     print 1
-    stop
+    stop 0
    lb:
     drop x
     print 2
-    stop
+    stop 0
   |expect};
   test "x" {given|
     const x = 1
@@ -1040,7 +1040,7 @@ let do_test_drop_driver () =
     goto die_ende
   die_ende:
     drop x
-    stop
+    stop 0
   |given} {expect|
      branch (1 == 1) la lb
     la:
@@ -1061,7 +1061,7 @@ let do_test_drop_driver () =
      print 3
      goto die_ende
     die_ende:
-     stop
+     stop 0
   |expect};
   ()
 
@@ -1083,11 +1083,20 @@ let test_functions () =
        call x = bla (1)
       function bla ()
     |pr} 1);
+  assert_raises
+    (Check.ErrorAt ("bla", "anon", Check.MissingReturn))
+    (fun () ->
+    test {pr|
+       call x = bla ()
+       return x
+      function bla ()
+    |pr} 0);
   test {pr|
      call x = bla ()
      return x
     function bla ()
-  |pr} 0;
+      return 123
+  |pr} 123;
   test {pr|
      call x = bla (22)
      return x
@@ -1151,6 +1160,8 @@ let test_functions () =
     |pr} 0);
   ();;
 
+test_functions ()
+
 let suite =
   "suite">:::
   ["mut">:: run test_mut no_input
@@ -1211,8 +1222,8 @@ let suite =
    "scope1broken2">:: infer_broken_scope
      (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
    "scope_uninitialized">:: do_test_scope_uninitialized;
-   "parser">:: test_parse_disasm   ("stop\n");
-   "parser1">:: test_parse_disasm  ("const x = 3\nprint x\nstop\n");
+   "parser">:: test_parse_disasm   ("stop 0\n");
+   "parser1">:: test_parse_disasm  ("const x = 3\nprint x\nstop 0\n");
    "parser2">:: test_parse_disasm  ("goto l\nx <- 3\nl:\n");
    "parser3">:: test_parse_disasm  ("const x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");

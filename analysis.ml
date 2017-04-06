@@ -16,7 +16,7 @@ let successors_at (instrs : instruction_stream) pc : pc list =
       let is_last = pc' = Array.length instrs in
       if is_last then [] else [pc']
     (* those are the instructions which manipulate controlflow:  *)
-    | Stop | Return _ -> []
+    | Stop _ | Return _ -> []
     | Goto l -> [resolve l]
     | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
   in

@@ -142,8 +142,8 @@ instruction:
 | OSR
   e=expression f=label v=label l=label LBRACKET xs=separated_list(COMMA, osr_def) RBRACKET
   { Osr (e, f, v, l, xs) }
-| STOP
-  { Stop }
+| STOP e=expression
+  { Stop e }
 | s=COMMENT
   { Comment s }
 

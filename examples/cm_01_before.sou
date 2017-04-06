@@ -22,4 +22,4 @@ end:
   w2 <- (w2 + one)
   print w2
   print x
-  stop
+  stop 0
