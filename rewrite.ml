@@ -52,7 +52,7 @@ let push_instr cond instrs pc : push_status =
   let edit new_instrs =
     Edit.subst instrs pc_above 2 new_instrs in
   match[@warning "-4"] instr with
-  | Stop ->
+  | Stop _ | Return _ ->
     (* we are coming from the predecessors, cannot reach a Stop! *)
     assert false
   | Label label
@@ -109,10 +109,11 @@ type pull_status =
 
 let try_pull instrs pc_branch : pull_status =
   let succs = Analysis.successors instrs in
+  if pc_branch = Array.length instrs then Blocked else
   let instr_after_label pc =
     assert (match[@warning "-4"] instrs.(pc) with
         | Label _ -> true | _ -> false);
-    instr_at instrs (pc+1) in
+    instrs.(pc+1) in
   let to_pull = List.map instr_after_label succs.(pc_branch) in
   let sample_instr = List.hd to_pull in
   let can_pull = List.for_all ((=) sample_instr) to_pull in

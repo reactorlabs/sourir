@@ -6,6 +6,12 @@ let line_number buf pc = Printf.bprintf buf "% 6d |" pc
 let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_stream) =
   let dump_instr buf pc instr =
     let pr = Printf.bprintf in
+    let rec dump_comma_separated how what =
+      match what with
+      | [] -> ()
+      | [e] -> how e
+      | e::t -> how e; pr buf ", "; dump_comma_separated how t
+    in
     let simple buf = function
       | Var v             -> pr buf "%s" v
       | Lit lit           -> pr buf "%s" (string_of_literal lit)
@@ -18,8 +24,19 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
       | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
       | Op ((Plus | Neq | Eq), _)         -> assert(false)
     in
+    let dump_arg arg =
+      match arg with
+      | ValArg e          -> dump_expr e
+      | RefArg x          -> pr buf "&%s" x
+    in
     format_pc buf pc;
     begin match instr with
+    | Call (var, f, args)              ->
+      pr buf " call %s = %s (" var f;
+      dump_comma_separated dump_arg args;
+      pr buf ")"
+    | Stop exp                        -> pr buf " stop "; dump_expr exp
+    | Return exp                      -> pr buf " return "; dump_expr exp
     | Decl_const (var, exp)           -> pr buf " const %s = " var; dump_expr exp
     | Decl_mut (var, Some exp)        -> pr buf " mut %s = " var; dump_expr exp
     | Decl_mut (var, None)            -> pr buf " mut %s" var
@@ -31,24 +48,17 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print "; dump_expr exp
     | Read var                        -> pr buf " read %s" var
-    | Osr (exp, v, l, vars)           ->
+    | Osr (exp, f, v, l, vars)        ->
       pr buf " osr ";
       dump_expr exp;
-      pr buf " %s %s [" v l;
-      let rec dump_vars vs =
-        let dump_var = function
-          | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
-          | OsrMut (x, y) -> pr buf "mut %s = %s" x y;
-          | OsrMutUndef x -> pr buf "mut %s" x
-        in
-        match vs with
-          | [] -> ()
-          | hd :: [] -> dump_var hd
-          | hd :: tail -> dump_var hd; pr buf ", "; dump_vars tail
+      pr buf " %s %s %s [" f v l;
+      let dump_var = function
+        | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
+        | OsrMut (x, y) -> pr buf "mut %s = %s" x y;
+        | OsrMutUndef x -> pr buf "mut %s" x
       in
-      dump_vars vars;
+      dump_comma_separated dump_var vars;
       pr buf "]"
-    | Stop                            -> pr buf " stop"
     | Comment str                     -> pr buf " #%s" str
     end;
     pr buf "\n"
@@ -56,9 +66,17 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
   Array.iteri (dump_instr buf) prog
 
 let disassemble buf (prog : Instr.program) =
-  List.iter (fun (name, version) ->
-      Printf.bprintf buf "version %s\n" name;
-      disassemble_instrs buf version) prog
+  (* TODO: disassemble annotations *)
+  List.iter (fun {name; formals; body} ->
+      let formals = List.map (fun x -> match x with
+          | ParamMut x -> "mut "^x
+          | ParamConst x -> "const "^x) formals in
+      let formals = String.concat ", " formals in
+      Printf.bprintf buf "function %s (%s)\n" name formals;
+      List.iter (fun version ->
+          Printf.bprintf buf "version %s\n" version.label;
+          disassemble_instrs buf version.instrs) body
+    ) (prog.main :: prog.functions)
 
 let disassemble_s (prog : Instr.program) =
   let b = Buffer.create 1024 in

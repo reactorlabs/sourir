@@ -33,6 +33,8 @@ type instruction_stream = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
+  | Call of variable * label * (argument list)
+  | Return of expression
   | Drop of variable
   | Assign of variable * expression
   | Clear of variable
@@ -41,13 +43,16 @@ and instruction =
   | Label of label
   | Goto of label
   | Print of expression
-  | Osr of expression * label * label * osr_def list
-  | Stop
+  | Osr of expression * label * label * label * osr_def list
+  | Stop of expression
   | Comment of string
 and osr_def =
   | OsrConst of variable * expression
   | OsrMut of variable * variable
   | OsrMutUndef of variable
+and argument =
+  | ValArg of expression
+  | RefArg of variable
 and expression =
   | Simple of simple_expression
   | Op of primop * simple_expression list
@@ -145,11 +150,17 @@ let expr_vars = function
     List.map simple_expr_vars xs
     |> List.fold_left VarSet.union VarSet.empty
 
+let arg_vars = function
+  | ValArg e -> expr_vars e
+  | RefArg x -> VarSet.singleton x
+
 let declared_vars = function
+  | Call (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
   | (Assign _
     | Drop _
+    | Return _
     | Clear _
     | Branch _
     | Label _
@@ -158,11 +169,16 @@ let declared_vars = function
     | Print _
     | Osr _
     | Comment _
-    | Stop) -> ModedVarSet.empty
+    | Stop _) -> ModedVarSet.empty
 
 (* Which variables need to be in scope
  * Producer: declared_vars *)
 let required_vars = function
+  | Call (_x, f, es) ->
+    let vs = List.map arg_vars es in
+    List.fold_left VarSet.union VarSet.empty vs
+  | Stop e
+  | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
@@ -172,21 +188,22 @@ let required_vars = function
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
   | Print e -> expr_vars e
-  | Osr (e, _, _, osr) ->
+  | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
         | OsrConst (_, e) -> e
         | OsrMut (_, x) -> Simple (Var x)
         | OsrMutUndef _ -> Simple (Lit Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
-  | Stop -> VarSet.empty
 
 let defined_vars = function
+  | Call (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, Some _)
   | Assign (x ,_)
   | Read x -> ModedVarSet.singleton (Mut_var, x)
   | Decl_mut (_, None)
+  | Return _
   | Drop _
   | Clear _
   | Branch _
@@ -195,10 +212,12 @@ let defined_vars = function
   | Comment _
   | Print _
   | Osr _
-  | Stop -> ModedVarSet.empty
+  | Stop _ -> ModedVarSet.empty
 
 let dropped_vars = function
   | Drop x -> VarSet.singleton x
+  | Return _
+  | Call _
   | Decl_const _
   | Decl_mut _
   | Assign _
@@ -210,10 +229,12 @@ let dropped_vars = function
   | Comment _
   | Print _
   | Osr _
-  | Stop -> VarSet.empty
+  | Stop _ -> VarSet.empty
 
 let cleared_vars = function
   | Clear x -> VarSet.singleton x
+  | Return _
+  | Call _
   | Decl_const _
   | Decl_mut _
   | Assign _
@@ -225,11 +246,16 @@ let cleared_vars = function
   | Comment _
   | Print _
   | Osr _
-  | Stop -> VarSet.empty
+  | Stop _ -> VarSet.empty
 
 (* Which variables need to be defined
  * Producer: defined_vars *)
 let used_vars = function
+  | Call (_x, _f, es) ->
+    let vs = List.map arg_vars es in
+    List.fold_left VarSet.union VarSet.empty vs
+  | Stop e
+  | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
@@ -242,9 +268,8 @@ let used_vars = function
   | Label _
   | Goto _
   | Comment _
-  | Read _
-  | Stop -> VarSet.empty
-  | Osr (e, _, _, osr) ->
+  | Read _ -> VarSet.empty
+  | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
         | OsrConst (_, e) -> e
         | OsrMut (_, x) -> Simple (Var x)
@@ -252,23 +277,59 @@ let used_vars = function
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
-type 'a dict = (string * 'a) list
+module Identifier = struct
+  type t = string
+  let compare = String.compare
+end
+type identifier = Identifier.t
 
-type version = label * instruction_stream
-type program = version list
+type scope_annotation =
+  | ExactScope of VarSet.t
+  | AtLeastScope of VarSet.t
 
-let active_version (prog : program) : version =
-  (List.hd prog)
+type inferred_scope =
+  | DeadScope
+  | Scope of ModedVarSet.t
 
-let replace_active_version (prog : program) (repl : version) =
-  repl :: (List.tl prog)
+type annotations = scope_annotation option array
+
+type formal_parameter =
+  | ParamConst of variable
+  | ParamMut of variable
+
+type version = {
+  label : label;
+  instrs : instruction_stream;
+  annotations : annotations option;
+}
+type afunction = {
+  name : identifier;
+  formals : formal_parameter list;
+  body : version list;
+}
+type program = {
+  main : afunction;
+  functions : afunction list;
+}
+
+exception FunctionDoesNotExist of identifier
+
+let lookup_fun (prog : program) (f : identifier) : afunction =
+  if f = "main" then prog.main else
+  try List.find (fun {name} -> name = f) prog.functions with
+  | Not_found -> raise (FunctionDoesNotExist f)
+
+let get_version (func : afunction) (v : label) : version =
+  List.find (fun {label} -> label = v) func.body
+
+let active_version (func : afunction) : version =
+  (List.hd func.body)
+
+let replace_active_version (func : afunction) (repl : version) : afunction =
+  { func with
+    body = repl :: (List.tl func.body); }
 
 module Value = struct
   let int n : value = Lit (Int n)
   let bool b : value = Lit (Bool b)
 end
-
-let instr_at instrs pc =
-  if Array.length instrs = pc then Stop
-  else if Array.length instrs < pc then invalid_arg "instr_at"
-  else instrs.(pc)

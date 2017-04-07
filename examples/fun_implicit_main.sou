@@ -1,0 +1,5 @@
+call x = foo ()
+print x
+
+function foo ()
+return 0

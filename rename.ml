@@ -22,9 +22,9 @@ let fresh_label instrs label =
     then cand_lab else find (i+1) in
   find 1
 
-let fresh_version_label (prog:program) label =
+let fresh_version_label (func : afunction) label =
   let cand i = label ^ "_" ^ (string_of_int i) in
-  let existing = fst (List.split prog) in
+  let existing = List.map (fun {label} -> label) func.body in
   let rec find i =
     let cand_lab = cand i in
     if not (List.mem cand_lab existing)
@@ -43,6 +43,12 @@ let in_expression old_name new_name exp : expression =
   | Op (op, exps) ->
     Op (op, List.map in_simple_expression exps)
 
+let in_arg old_name new_name exp : argument =
+  let in_expression = in_expression old_name new_name in
+  match exp with
+  | ValArg e -> ValArg (in_expression e)
+  | RefArg x -> if x = old_name then RefArg new_name else RefArg x
+
 let in_osr old_name new_name osr : osr_def =
   let in_expression = in_expression old_name new_name in
   match osr with
@@ -52,8 +58,16 @@ let in_osr old_name new_name osr : osr_def =
 
 let uses_in_instruction old_name new_name instr : instruction =
   let in_expression = in_expression old_name new_name in
+  let in_arg = in_arg old_name new_name in
   let in_osr = in_osr old_name new_name in
   match instr with
+  | Call (x, f, exs) ->
+    assert(x != old_name);   (* -> invalid scope *)
+    Call (x, f, List.map in_arg exs)
+  | Stop e ->
+    Stop (in_expression e)
+  | Return e ->
+    Return (in_expression e)
   | Decl_const (x, exp) ->
     assert(x != old_name);   (* -> invalid scope *)
     Decl_const (x, in_expression exp)
@@ -70,8 +84,8 @@ let uses_in_instruction old_name new_name instr : instruction =
     Print (in_expression exp)
   | Branch (exp, l1, l2) ->
     Branch (in_expression exp, l1, l2)
-  | Osr (exp, v, l, osrs) ->
-    Osr (in_expression exp, v, l,
+  | Osr (exp, f, v, l, osrs) ->
+    Osr (in_expression exp, f, v, l,
          List.map in_osr osrs)
 
   | Decl_mut (x, None)
@@ -79,7 +93,7 @@ let uses_in_instruction old_name new_name instr : instruction =
     assert (x != old_name);
     instr
 
-  | Label _ | Goto _ | Stop | Comment _ ->
+  | Label _ | Goto _ | Comment _ ->
     assert (VarSet.is_empty (used_vars instr));
     instr
 

@@ -17,4 +17,4 @@ end:
   # This statement was moved
   x <- (x + three)
   print x
-  stop
+  stop 0

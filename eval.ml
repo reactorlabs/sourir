@@ -8,7 +8,9 @@ type trace = value list
 type environment = binding Env.t
 type heap = heap_value Heap.t
 
-type status = Running | Stopped
+type status = Running | Result of value
+type position = identifier * label * pc
+type continuation = variable * environment * position
 
 type configuration = {
   input : input;
@@ -16,10 +18,13 @@ type configuration = {
   heap : heap;
   env : environment;
   program : program;
-  instrs : instruction_stream;
   pc : pc;
+  cur_fun : identifier;
+  cur_vers : label;
+  instrs : instruction_stream;
   status : status;
   deopt : string option;
+  continuation : continuation list;
 }
 
 type literal_type = Nil | Bool | Int
@@ -128,21 +133,97 @@ let get_bool (Lit lit : value) =
      let expected, received = Bool, literal_type other in
      raise (Type_error { expected; received })
 
-let instruction conf =
-  if conf.pc >= Array.length conf.instrs
-  then Stop
-  else conf.instrs.(conf.pc)
+exception InvalidArgument
 
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
   let resolve instrs label = Instr.resolve instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
-  match instruction conf with
+
+  let instruction =
+    let default_exit = (Simple (Lit (Int 0))) in
+    if conf.pc < Array.length conf.instrs
+    then conf.instrs.(conf.pc)
+    else if conf.continuation = []
+    then Stop default_exit
+    else assert (false)
+  in
+
+  let build_call_frame formals actuals =
+    let eval_arg env (formal, actual) =
+      match[@warning "-4"] formal, actual with
+      | Instr.ParamConst x, ValArg e ->
+        let value = eval conf e in
+        Env.add x (Const value) env
+      | Instr.ParamMut x, RefArg var ->
+        let get_addr = function
+          | Mut a as adr -> adr
+          | Const _ -> raise InvalidArgument
+        in
+        let adr = get_addr (Env.find var conf.env) in
+        Env.add x adr env
+      | _ -> raise InvalidArgument
+    in
+    let args = List.combine formals actuals in
+    List.fold_left eval_arg Env.empty args
+  in
+
+  let build_osr_frame osr_def =
+    let add env' = function
+      | OsrConst (x', e) ->
+        Env.add x' (Const (eval conf e)) env'
+      | OsrMut (x', x) ->
+        begin match Env.find x conf.env with
+        | exception Not_found -> raise (Unbound_variable x)
+        | Const _ -> raise Invalid_heap
+        | Mut a -> Env.add x' (Mut a) env'
+        end
+      | OsrMutUndef x' ->
+        let a = Address.fresh () in
+        Env.add x' (Mut a) env'
+    in
+    List.fold_left add Env.empty osr_def
+  in
+
+  match instruction with
+  | Call (x, f, args) ->
+    let func = Instr.lookup_fun conf.program f in
+    let version = Instr.active_version func in
+    let call_env = build_call_frame func.formals args in
+    let cont_pos = (conf.cur_fun, conf.cur_vers, pc') in
+    { conf with
+      env = call_env;
+      instrs = version.instrs;
+      pc = 0;
+      cur_fun = func.name;
+      cur_vers = version.label;
+      continuation = (x, conf.env, cont_pos) :: conf.continuation
+    }
+  | Return e ->
+     let res = eval conf e in
+     begin match conf.continuation with
+     | [] ->
+       { conf with
+         status = Result res }
+     | (x, env, (f, v, pc)) :: cont ->
+       let env = Env.add x (Const res) env in
+       let func = Instr.lookup_fun conf.program f in
+       let version = Instr.get_version func v in
+       { conf with
+         env = env;
+         cur_fun = func.name;
+         cur_vers = version.label;
+         instrs = version.instrs;
+         pc = pc;
+         continuation = cont; }
+     end
+  | Stop e ->
+     let v = eval conf e in
+     { conf with
+       status = Result v }
   | Comment _ -> { conf with
                    pc = pc' }
-  | Stop -> { conf with
-              status = Stopped }
   | Decl_const (x, e) ->
      let v = eval conf e in
      { conf with
@@ -200,32 +281,23 @@ let reduce conf =
        trace = v :: conf.trace;
        pc = pc';
      }
-  | Osr (e, v, l, osr) ->
+  | Osr (e, f, v, l, osr_def) ->
      let b = get_bool (eval conf e) in
      if not b then
        { conf with
          pc = pc';
        }
      else begin
-       let add env' = function
-         | OsrConst (x', e) ->
-           Env.add x' (Const (eval conf e)) env'
-         | OsrMut (x', x) ->
-           begin match Env.find x conf.env with
-           | exception Not_found -> raise (Unbound_variable x)
-           | Const _ -> raise Invalid_heap
-           | Mut a -> Env.add x' (Mut a) env'
-           end
-         | OsrMutUndef x' ->
-           let a = Address.fresh () in
-           Env.add x' (Mut a) env'
-       in
-       let env' = List.fold_left add Env.empty osr in
-       let instrs = List.assoc v conf.program in
+       let osr_env = build_osr_frame osr_def in
+       let osr_func = Instr.lookup_fun conf.program f in
+       let osr_version = Instr.get_version osr_func v in
+       let osr_instrs = osr_version.instrs in
        { conf with
-         pc = resolve instrs l;
-         env = env';
-         instrs = instrs;
+         pc = resolve osr_instrs l;
+         env = osr_env;
+         instrs = osr_instrs;
+         cur_fun = osr_func.name;
+         cur_vers = osr_version.label;
          deopt = Some l;
        }
      end
@@ -238,12 +310,17 @@ let start program input pc : configuration = {
   status = Running;
   deopt = None;
   program = program;
-  instrs = snd (Instr.active_version program);
-  pc;
+  cur_fun = "main";
+  cur_vers = (Instr.active_version program.main).label;
+  instrs = (Instr.active_version program.main).instrs;
+  pc = pc;
+  continuation = []
 }
 
 let stop conf =
-  conf.status = Stopped
+  match conf.status with
+  | Running -> false
+  | Result _ -> true
 
 let rec reduce_bounded (conf, n) =
   if n = 0 then conf

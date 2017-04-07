@@ -43,18 +43,18 @@ let remove_unreachable_code (instrs : instruction_stream) : instruction_stream =
   in
   remove_unreachable 0 []
 
-let branch_prune (prog : program) : program =
-  let (old_name, instrs) = Instr.active_version prog in
-  let new_version_name = Rename.fresh_version_label prog old_name in
-  let scope = Scope.infer instrs in
+let branch_prune (func : afunction) : afunction =
+  let version = Instr.active_version func in
+  let instrs = version.instrs in
+  let scope = Scope.infer func version in
   let live = Analysis.live instrs in
   let rec branch_prune pc acc =
     if pc = Array.length instrs then
       Array.of_list (List.rev acc)
     else
       match scope.(pc) with
-      | Scope.Dead -> assert(false)
-      | Scope.Scope scope ->
+      | DeadScope -> assert(false)
+      | Scope scope ->
         let pc' = pc + 1 in
         begin match[@warning "-4"] instrs.(pc) with
         | Branch (exp, l1, l2) ->
@@ -69,14 +69,18 @@ let branch_prune (prog : program) : program =
               (ModedVarSet.elements scope)
           in
           branch_prune pc'
-            (Goto l2 :: Osr (exp, old_name, l1, osr) :: acc)
+            (Goto l2 :: Osr (exp, func.name, version.label, l1, osr) :: acc)
         | i ->
           branch_prune pc' (i::acc)
         end
   in
   let final = branch_prune 0 [] in
-  let cleanup = remove_empty_jmp (remove_unreachable_code final) in
-  (new_version_name, cleanup) :: prog
+  let cleanup = {
+    label = Rename.fresh_version_label func version.label;
+    instrs = remove_empty_jmp (remove_unreachable_code final);
+    annotations = None } in
+  { func with
+    body = cleanup :: func.body }
 
 
 let remove_fallthroughs_to_label instrs =
@@ -109,8 +113,9 @@ let remove_fallthroughs_to_label instrs =
  * We only look at our own use-def chain. Thus the transformation renames the
  * variable to avoid overriding unrelated uses of the same name.
  *)
-let hoist_assignment prog =
-  let (old_name, instrs) = Instr.active_version prog in
+let hoist_assignment (func : afunction) : afunction =
+  let version = Instr.active_version func in
+  let instrs = version.instrs in
   let reaching = Analysis.reaching instrs in
   let uses = Analysis.used instrs in
   let dominates = Analysis.dominates instrs in
@@ -139,12 +144,16 @@ let hoist_assignment prog =
   in
 
   match find_possible_move 0 with
-  | None -> prog
+  | None -> func
   | Some (from_pc, to_pc) ->
     let copy = Array.copy instrs in
     Rename.freshen_assign copy from_pc;
     Edit.move copy from_pc to_pc;
-    Instr.replace_active_version prog (old_name, copy)
+    let res = {
+      label = version.label;
+      instrs = copy;
+      annotations = None } in
+    Instr.replace_active_version func res
 
 let remove_unused_vars instrs =
   let open Analysis in
@@ -167,9 +176,9 @@ let remove_drops instrs =
         | Drop _ -> false | _ -> true)
       (Array.to_list instrs))
 
-let minimize_lifetimes prog =
-  let (old_name, instrs) = Instr.active_version prog in
-  let instrs = remove_unused_vars instrs in
+let minimize_lifetimes (func : afunction) : afunction =
+  let version = Instr.active_version func in
+  let instrs = remove_unused_vars version.instrs in
   let instrs = remove_drops instrs in
   let predecessors = Analysis.predecessors instrs in
   let required = Analysis.required_vars instrs in
@@ -189,4 +198,8 @@ let minimize_lifetimes prog =
       drops @ instrs.(pc) :: result (pc+1)
   in
   let dropped = Array.of_list (result 0) in
-  Instr.replace_active_version prog (old_name, dropped)
+  let res = {
+    label = version.label;
+    instrs = dropped;
+    annotations = None; } in
+  Instr.replace_active_version func res

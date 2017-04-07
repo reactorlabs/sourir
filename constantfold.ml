@@ -11,9 +11,8 @@ open Instr
  * is replaced by the literal `l`. Afterwards, the variable `x` is no longer
  * used, and the declaration can be removed by running `minimize_lifetimes`.
  *)
-let const_prop prog =
-  let (name, instrs) = Instr.active_version prog in
-
+let const_prop (func : afunction) : afunction =
+  let version = Instr.active_version func in
   (* Finds the declarations that can be used for constant propagation.
      Returns a list of (pc, x, l) where `const x = l` is defined at pc `pc`. *)
   let rec find_candidates instrs pc acc =
@@ -27,7 +26,15 @@ let const_prop prog =
   (* Replaces the variable `x` with literal `l` in instruction `instr`. *)
   let convert x l instr =
     let replace = Replace.var_in_exp x l in
+    let replace_arg = Replace.var_in_arg x l in
     match instr with
+    | Call (y, f, es) ->
+      assert (x <> y);
+      Call (y, f, List.map replace_arg es)
+    | Stop e ->
+      Stop (replace e)
+    | Return e ->
+      Return (replace e)
     | Decl_const (y, e) ->
       assert (x <> y);
       Decl_const (y, replace e)
@@ -39,21 +46,21 @@ let const_prop prog =
       Assign (y, replace e)
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
-    | Osr (exp, l1, l2, env) ->
+    | Osr (exp, f, v, l, env) ->
       (* Replace all expressions in the osr environment. *)
       let env' = List.map (fun osr_def ->
         match[@warning "-4"] osr_def with
         | OsrConst (y, e) -> OsrConst (y, replace e)
         | _ -> osr_def) env
       in
-      Osr (replace exp, l1, l2, env')
+      Osr (replace exp, f, v, l, env')
     | Drop y
     | Decl_mut (y, None)
     | Clear y
     | Read y ->
       assert (x <> y);
       instr
-    | Label _ | Goto _ | Stop | Comment _ -> instr in
+    | Label _ | Goto _ | Comment _ -> instr in
 
   (* Finds the target pcs to perform constant propagation. *)
   let rec find_targets instrs x worklist acc =
@@ -96,5 +103,9 @@ let const_prop prog =
     List.fold_left propagate instrs candidates
   in
 
-  let result = work instrs in
-  Instr.replace_active_version prog (name, result)
+  let result = {
+    label = version.label;
+    instrs = work version.instrs;
+    annotations = None
+  } in
+  Instr.replace_active_version func result

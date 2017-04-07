@@ -14,7 +14,10 @@ let keyword_table = [
   "read", READ;
   "drop", DROP;
   "clear", CLEAR;
+  "return", RETURN;
+  "call", CALL;
   "version", VERSION;
+  "function", FUNCTION;
 ]
 
 let id_or_keyword id =
@@ -64,5 +67,6 @@ rule token = parse
   | ":" { COLON }
   | "=" { EQUAL }
   | "<-" { LEFTARROW }
+  | "&" { AMPERSAND }
   | eof { EOF }
   | _ { lexing_error lexbuf }

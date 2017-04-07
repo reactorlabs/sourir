@@ -11,3 +11,9 @@ let var_in_exp var (exp : simple_expression) (in_exp : expression) : expression 
   | Simple se -> Simple (in_simple_expression se)
   | Op (op, exps) ->
     Op (op, List.map in_simple_expression exps)
+
+let var_in_arg var (exp : simple_expression) (in_arg : argument) : argument =
+  let replace = var_in_exp var exp in
+  match in_arg with
+    | ValArg e -> ValArg (replace e)
+    | RefArg x as a -> assert (var <> x); a

@@ -17,24 +17,20 @@ type inference_state = {
   info : scope_info;
 }
 
-type scope_annotation =
-  | Exact of VarSet.t
-  | At_least of VarSet.t
-
-type inferred_scope =
-  | Dead
-  | Scope of ModedVarSet.t
-
-type annotations = scope_annotation option array
-type annotated_program = (instruction_stream * annotations) Instr.dict
-
-let drop_annots : annotated_program -> program =
-  List.map (fun (name, (instrs, annot)) -> (name, instrs))
-
 exception IncompatibleScope of inference_state * inference_state * pc
+exception DuplicateFormalParameter
 
-let infer instructions : inferred_scope array =
+let infer func version : inferred_scope array =
   let open Analysis in
+
+  let to_moded_var = function
+    | ParamConst x -> (Const_var, x)
+    | ParamMut x -> (Mut_var, x)
+  in
+  let formals = ModedVarSet.of_list (List.map to_moded_var func.formals) in
+  if (List.length func.formals) <> (List.length (VarSet.elements (ModedVarSet.untyped formals))) then
+    raise DuplicateFormalParameter else
+  let instructions = version.instrs in
 
   let infer_scope instructions =
     let merge pc cur incom =
@@ -47,7 +43,10 @@ let infer instructions : inferred_scope array =
       let instr = instructions.(pc) in
       let added = Instr.declared_vars instr in
       let info = cur.info in
-      let shadowed = ModedVarSet.inter info added in
+      let shadowed =
+        try ModedVarSet.inter info added with
+        | Incomparable -> raise (DuplicateVariable (ModedVarSet.untyped added, pc))
+      in
       if not (ModedVarSet.is_empty shadowed) then
         raise (DuplicateVariable (ModedVarSet.untyped shadowed, pc));
       let updated = ModedVarSet.union info added in
@@ -55,7 +54,7 @@ let infer instructions : inferred_scope array =
       let final_info = ModedVarSet.diff_untyped updated dropped in
       { sources = PcSet.singleton pc; info = final_info; }
     in
-    let initial_state = { sources = PcSet.empty; info = ModedVarSet.empty; } in
+    let initial_state = { sources = PcSet.empty; info = formals; } in
     let res = Analysis.forward_analysis initial_state instructions merge update in
     fun pc -> (res pc).info in
 
@@ -73,15 +72,14 @@ let infer instructions : inferred_scope array =
          that only declared variables are defined. *)
       ModedVarSet.diff_untyped updated (VarSet.union dropped cleared)
     in
-    let initial_state = ModedVarSet.empty in
-    Analysis.forward_analysis initial_state instructions merge update in
+    Analysis.forward_analysis formals instructions merge update in
 
   let inferred = infer_scope instructions in
   let initialized = check_initialized instructions in
 
   let resolve pc instr =
     match inferred pc, initialized pc with
-    | exception Analysis.UnreachableCode _ -> Dead
+    | exception Analysis.UnreachableCode _ -> DeadScope
     | declared, defined ->
       let defined' = ModedVarSet.untyped defined in
       let declared' = ModedVarSet.untyped declared in
@@ -98,15 +96,15 @@ let infer instructions : inferred_scope array =
 let check (scope : inferred_scope array) annotations =
   let check_at pc scope =
     match scope with
-    | Dead -> ()
+    | DeadScope -> ()
     | Scope scope ->
       begin match annotations.(pc) with
         | None -> ()
-        | Some (At_least vars) ->
+        | Some (AtLeastScope vars) ->
           let declared = ModedVarSet.untyped scope in
           if not (VarSet.subset vars declared)
           then raise (UndeclaredVariable (VarSet.diff vars declared, pc))
-        | Some (Exact vars) ->
+        | Some (ExactScope vars) ->
           let declared = ModedVarSet.untyped scope in
           if not (VarSet.subset vars declared)
           then raise (UndeclaredVariable (VarSet.diff vars declared, pc));
@@ -115,6 +113,27 @@ let check (scope : inferred_scope array) annotations =
       end
   in
   Array.iteri check_at scope
+
+exception ScopeExceptionAt of label * label * exn
+
+let check_function (func : afunction) =
+  List.iter (fun version ->
+      let check () =
+        let inferred = infer func version in
+        match version.annotations with
+        | None ->
+          let annot = Array.map (fun _ -> None) version.instrs in
+          check inferred annot
+        | Some annot ->
+          check inferred annot
+      in
+      try check () with
+      | e -> raise (ScopeExceptionAt (func.name, version.label, e))
+    ) func.body
+
+let check_program (prog : program) =
+  List.iter (fun func ->
+      check_function func) (prog.main :: prog.functions)
 
 let explain_incompatible_scope outchan s1 s2 pc =
   let buf = Buffer.create 100 in
@@ -166,7 +185,3 @@ let explain_incompatible_scope outchan s1 s2 pc =
   print_only buf "former" (ModedVarSet.diff s1.info s2.info) "latter";
   print_only buf "latter" (ModedVarSet.diff s2.info s1.info) "former";
   Buffer.output_buffer outchan buf
-
-let active_version (prog : annotated_program) : (label * instruction_stream * annotations) =
-  let (name, stream) = (List.hd prog) in
-  (name, fst stream, snd stream)
