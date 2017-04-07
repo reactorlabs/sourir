@@ -28,9 +28,12 @@ let const_prop (func : afunction) : afunction =
     let replace = Replace.var_in_exp x l in
     let replace_arg = Replace.var_in_arg x l in
     match instr with
+    | StaticCall (y, f, es) ->
+      assert (x <> y);
+      StaticCall (y, f, List.map replace_arg es)
     | Call (y, f, es) ->
       assert (x <> y);
-      Call (y, f, List.map replace_arg es)
+      Call (y, replace f, List.map replace_arg es)
     | Stop e ->
       Stop (replace e)
     | Return e ->

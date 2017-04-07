@@ -8,7 +8,7 @@ let trace_is li =
 let has_var x v =
   fun conf -> Eval.(lookup conf.heap conf.env x = v)
 let returns n =
-  fun conf -> Eval.(conf.status = Result (Int n))
+  fun conf -> Eval.(conf.status = Result n)
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
@@ -1066,8 +1066,10 @@ let do_test_drop_driver () =
   ()
 
 let test_functions () =
-  let test str exp =
-    run (parse str) no_input (returns exp) () in
+  let test str n =
+    run (parse str) no_input (returns (Int n)) () in
+  let test_p str out =
+    run (parse str) no_input (trace_is [out]) () in
   test "return 1\n" 1;
   test "return (1+1)\n" 2;
   test {pr|
@@ -1192,17 +1194,83 @@ let test_functions () =
       function bla (mut y)
         return y
     |pr} 22);
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.FunctionDoesNotExist "x"))
+    (fun () ->
+    test {pr|
+       call y = x ()
+    |pr} 0);
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.FunctionDoesNotExist "x"))
+    (fun () ->
+    test {pr|
+       const x = &&x
+    |pr} 0);
+  test_p {pr|
+     mut x = &&bla
+     call y = *x (x)
+     print y
+    function bla (const y)
+      return y
+  |pr} "&bla";
+  test {pr|
+     mut x = &&bla
+     call y = *x (&&bla2)
+     return y
+    function bla (const y)
+      call r = *y ()
+      return r
+    function bla2 ()
+      return 33
+  |pr} 33;
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_ref "x"))))
+    (fun () ->
+    test {pr|
+       const x = 22
+       call y = *&&bla (&x)
+      function bla (mut y)
+        return y
+    |pr} 22);
+  let open Eval in
+  assert_raises (Eval.Type_error {expected = Eval.FunRef; received = Eval.Int})
+    (fun () ->
+     test {pr|
+       mut x = 1
+       call y = *x ()
+       return y
+    |pr} 33);
+  assert_raises
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (2, (Arg_by_ref "x"))))
+    (fun () ->
+    test {pr|
+       const x = 22
+       const func = &&bla
+       call y = *func (&x)
+      function bla (mut y)
+        return y
+    |pr} 22);
+  assert_raises
+    (Eval.InvalidArgument)
+    (fun () ->
+    test {pr|
+       const x = 22
+       const func = &&bla
+       call y = *func (x)
+      function bla (mut y)
+        return y
+    |pr} 22);
   ();;
 
 let suite =
   "suite">:::
   ["mut">:: run test_mut no_input
      (has_var "x" (Value.int 2)
-      &&& (trace_is Value.[int 1; int 2]));
+      &&& (trace_is ["1"; "2"]));
    "decl_const">:: run test_decl_const no_input
      (has_var "x" (Value.int 1));
    "print">:: run test_print no_input
-     (trace_is Value.[int 1; int 2]);
+     (trace_is ["1"; "2"]);
    "jump">:: run test_jump no_input
      (has_var "x" (Value.bool true));
    "jump (oo)" >:: run test_overloading no_input
@@ -1220,7 +1288,7 @@ let suite =
    "loops">:: run (test_sum 5) no_input
      (has_var "sum" (Value.int 10));
    "read">:: run test_read_print (input [Value.bool false; Value.int 1])
-     (trace_is [Value.int 1; Value.bool false]);
+     (trace_is ["1"; "false"]);
    "mut_undeclared">::
    (fun () -> assert_raises (Eval.Unbound_variable "b")
        (run_unchecked test_read_print_err

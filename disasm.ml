@@ -32,6 +32,12 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     format_pc buf pc;
     begin match instr with
     | Call (var, f, args)              ->
+      pr buf " call %s = *"var;
+      dump_expr f;
+      pr buf " (";
+      dump_comma_separated dump_arg args;
+      pr buf ")"
+    | StaticCall (var, f, args)        ->
       pr buf " call %s = %s (" var f;
       dump_comma_separated dump_arg args;
       pr buf ")"

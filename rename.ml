@@ -63,7 +63,10 @@ let uses_in_instruction old_name new_name instr : instruction =
   match instr with
   | Call (x, f, exs) ->
     assert(x != old_name);   (* -> invalid scope *)
-    Call (x, f, List.map in_arg exs)
+    Call (x, in_expression f, List.map in_arg exs)
+  | StaticCall (x, f, exs) ->
+    assert(x != old_name);   (* -> invalid scope *)
+    StaticCall (x, f, List.map in_arg exs)
   | Stop e ->
     Stop (in_expression e)
   | Return e ->

@@ -65,37 +65,93 @@ let well_formed prog =
 
     let scope = Scope.infer func version in
 
+    let check_static_arg pc actual =
+      match actual with
+      | Arg_by_val _ -> ()
+      | Arg_by_ref x ->
+        begin match scope.(pc) with
+        | DeadScope -> ()
+        | Scope scope ->
+          ignore (try ModedVarSet.find (Mut_var, x) scope with
+                  | Not_found -> raise (InvalidArgument (pc, actual))
+                  | Incomparable -> raise (InvalidArgument (pc, actual)))
+        end in
+
+    let check_signature pc func args =
+      if (List.length args <> List.length func.formals)
+      then raise (InvalidNumArgs pc);
+      let check_arg (formal, actual) =
+        match[@warning "-4"] formal, actual with
+        | Const_val_param _, Arg_by_val _
+        | Mut_ref_param _, Arg_by_ref _ -> ()
+        | _ -> raise (InvalidArgument (pc, actual)) in
+      List.iter check_arg (List.combine func.formals args) in
+
+    let check_fun_ref instr =
+      let check_simple_expr = function
+        | Var _
+        | Lit (Nil | Bool _ | Int _) -> ()
+        | Lit (FunRef x) -> ignore (lookup_fun x) in
+      let check_expr = function
+        | Simple e -> check_simple_expr e
+        | Op (_op, xs) ->
+          List.iter check_simple_expr xs in
+      let check_arg = function
+        | Arg_by_val e -> check_expr e
+        | Arg_by_ref x -> () in
+      let check_osr = function
+        | Osr_const (_, e) -> check_expr e
+        | Osr_mut _ | Osr_mut_undef _ -> () in
+      match instr with
+      | StaticCall (_x, _f, es) ->
+        List.iter check_arg es
+      | Call (_x, f, es) ->
+        (check_expr f;
+         List.iter check_arg es)
+      | Decl_const (_, e)
+      | Decl_mut (_, Some e)
+      | Assign (_, e)
+      | Branch (e, _, _)
+      | Print e
+      | Stop e
+      | Return e ->
+        check_expr e
+      | Decl_mut (_, None)
+      | Drop _ | Clear _ | Read _
+      | Label _ | Goto _ | Comment _ -> ()
+      | Osr (e, _, _, _, osr) ->
+        check_expr e;
+        List.iter check_osr osr
+    in
+
     (* Check correctness of calls and osrs *)
     let check_instr pc instr =
       match[@warning "-4"] instr with
       | Call (x, f, exs) ->
-        (* check if the function exists and if the actual arguments
-         * are compatible with the formals *)
+        (* Check call-by-name args are mut *)
+        List.iter (check_static_arg pc) exs;
+        (* if it's a static call check that the function exists and if the
+         * actual arguments are compatible with the formals *)
+        begin match[@warning "-4"] f with
+        | (Simple (Lit (FunRef f))) ->
+          let func' = lookup_fun f in
+          check_signature pc func' exs
+        | _ -> ()
+        end;
+        check_fun_ref instr
+      | StaticCall (x, f, exs) ->
+        (* Check call-by-name args are mut *)
+        List.iter (check_static_arg pc) exs;
         let func' = lookup_fun f in
-        if (List.length exs <> List.length func'.formals)
-        then raise (InvalidNumArgs pc);
-        let check_arg (formal, actual) =
-            match[@warning "-4"] formal, actual with
-            | Const_val_param _, Arg_by_val _ -> ()
-            | Mut_ref_param _, Arg_by_ref x ->
-                begin match scope.(pc) with
-                | DeadScope -> ()
-                | Scope scope ->
-                  ignore (try ModedVarSet.find (Mut_var, x) scope with
-                          | Not_found -> raise (InvalidArgument (pc, actual))
-                          | Incomparable -> raise (InvalidArgument (pc, actual)))
-                end
-            | _ -> raise (InvalidArgument (pc, actual))
-        in
-        List.iter check_arg (List.combine func'.formals exs)
-
+        check_signature pc func' exs;
+        check_fun_ref instr
       | Osr (e, f, v, l, osr) ->
         (* function and version mentioned in the osr need to exist *)
         let func = lookup_fun f in
         let vers = lookup_version func v in
         let _ = Instr.resolve vers.instrs l in
-        ()
-      | _ -> ()
+        check_fun_ref instr
+      | _ -> check_fun_ref instr
     in
     Array.iteri check_instr instrs
   in

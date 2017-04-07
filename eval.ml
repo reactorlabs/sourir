@@ -4,7 +4,7 @@ module Env = Map.Make(Variable)
 module Heap = Map.Make(Address)
 
 type input = IO.input
-type trace = value list
+type trace = string list
 type environment = binding Env.t
 type heap = heap_value Heap.t
 
@@ -108,7 +108,7 @@ let value_neq (v1 : value) (v2 : value) =
 
 let eval_simple prog heap env = function
   | Var x -> lookup heap env x
-  | Lit (FunRef f) -> FunRef (ref (lookup_fun prog f))
+  | Lit (FunRef f) -> FunRef (lookup_fun prog f)
   | Lit (Int i) -> Int i
   | Lit (Bool b) -> Bool b
   | Lit Nil -> Nil
@@ -130,7 +130,15 @@ let get_bool (v : value) =
      let expected, received = Bool, value_type other in
      raise (Type_error { expected; received })
 
+let get_fun (v : value) =
+  match v with
+  | FunRef f -> f
+  | (Nil | Int _ | Bool _) as other ->
+     let expected, received = FunRef, value_type other in
+     raise (Type_error { expected; received })
+
 exception InvalidArgument
+exception InvalidNumArgs
 
 let reduce conf =
   let eval conf e = eval conf.program conf.heap conf.env e in
@@ -184,8 +192,22 @@ let reduce conf =
   in
 
   match instruction with
-  | Call (x, f, args) ->
+  | StaticCall (x, f, args) ->
     let func = Instr.lookup_fun conf.program f in
+    let version = Instr.active_version func in
+    let call_env = build_call_frame func.formals args in
+    let cont_pos = (conf.cur_fun, conf.cur_vers, pc') in
+    { conf with
+      env = call_env;
+      instrs = version.instrs;
+      pc = 0;
+      cur_fun = func.name;
+      cur_vers = version.label;
+      continuation = (x, conf.env, cont_pos) :: conf.continuation
+    }
+  | Call (x, f, args) ->
+    let func = get_fun(eval conf f) in
+    if List.length func.formals <> List.length args then raise InvalidNumArgs;
     let version = Instr.active_version func in
     let call_env = build_call_frame func.formals args in
     let cont_pos = (conf.cur_fun, conf.cur_vers, pc') in
@@ -275,7 +297,7 @@ let reduce conf =
   | Print e ->
      let v = eval conf e in
      { conf with
-       trace = v :: conf.trace;
+       trace = (string_of_value v) :: conf.trace;
        pc = pc';
      }
   | Osr (e, f, v, l, osr_def) ->
@@ -343,7 +365,7 @@ let rec reduce_interactive conf =
     let conf = reduce conf in
     begin match conf.trace with
       | [] -> ()
-      | vs -> print_endline (String.concat " " (List.map string_of_value vs))
+      | vs -> print_endline (String.concat " " vs)
     end;
     reduce_interactive { conf with trace = [] }
   end
