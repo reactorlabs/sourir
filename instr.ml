@@ -22,6 +22,46 @@ end
 type variable = Variable.t
 type label = Label.t
 
+module VarSet = Set.Make(Variable)
+
+type variable_type = Mut_var | Const_var
+
+type moded_var = variable_type * variable
+
+exception Incomparable
+
+module ModedVar = struct
+  type t = moded_var
+  let compare (ma, a) (mb, b) =
+    match String.compare a b with
+    | 0 ->
+      if ma = mb then 0 else raise Incomparable
+    | c -> c
+end
+
+module ModedVarSet = struct
+  include Set.Make(ModedVar)
+
+  let vars set = List.map snd (elements set)
+  let untyped set = VarSet.of_list (vars set)
+
+  let muts set =
+    let muts = filter (fun (m,v) -> m = Mut_var) set in
+    untyped muts
+
+  let diff_untyped typed untyped =
+    filter (fun (_m, x) -> not (VarSet.mem x untyped)) typed
+
+  let inter_untyped typed untyped =
+    filter (fun (_m, x) -> VarSet.mem x untyped) typed
+end
+
+module Identifier = struct
+  type t = string
+  let compare = String.compare
+end
+type identifier = Identifier.t
+
 module Pc = struct
   type t = int
   let compare (x : int) y = Pervasives.compare x y
@@ -63,13 +103,46 @@ and literal =
   | Nil
   | Bool of bool
   | Int of int
+  | FunRef of string
 and primop =
   | Eq
   | Neq
   | Plus
 
+type scope_annotation =
+  | ExactScope of VarSet.t
+  | AtLeastScope of VarSet.t
+
+type inferred_scope =
+  | DeadScope
+  | Scope of ModedVarSet.t
+
+type annotations = scope_annotation option array
+
+type formal_parameter =
+  | Const_val_param of variable
+  | Mut_ref_param of variable
+
+type version = {
+  label : label;
+  instrs : instruction_stream;
+  annotations : annotations option;
+}
+type afunction = {
+  name : identifier;
+  formals : formal_parameter list;
+  body : version list;
+}
+type program = {
+  main : afunction;
+  functions : afunction list;
+}
+
 type value =
-  | Lit of literal
+  | Nil
+  | Bool of bool
+  | Int of int
+  | FunRef of afunction ref
 
 type heap_value =
   | Undefined
@@ -85,17 +158,31 @@ let string_of_literal : literal -> string = function
   | Nil -> "nil"
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
+  | FunRef f -> "&"^f
+
+let string_of_value : value -> string = function
+  | Nil -> "nil"
+  | Bool b -> string_of_bool b
+  | Int n -> string_of_int n
+  | FunRef f -> "&" ^ (!f).name
 
 let literal_of_string : string -> literal = function
   | "nil" -> Nil
   | "true" -> Bool true
   | "false" -> Bool false
+  | n when String.sub n 0 1 = "&" ->
+    FunRef (String.sub n 1 ((String.length n)-1))
   | n ->
     try Int (int_of_string n) with _ ->
       Printf.kprintf invalid_arg "literal_of_string %S" n
 
-let string_of_value (Lit lit) = string_of_literal lit
-let value_of_string str : value = Lit (literal_of_string str)
+let value_of_string : string -> value = function
+  | "nil" -> Nil
+  | "true" -> Bool true
+  | "false" -> Bool false
+  | n ->
+    try Int (int_of_string n) with _ ->
+      Printf.kprintf invalid_arg "litteral_of_string %S" n
 
 exception Unbound_label of label
 
@@ -105,40 +192,6 @@ let resolve (code : instruction_stream) (label : string) =
     else if code.(i) = Label label then i
     else loop (i + 1)
   in loop 0
-
-module VarSet = Set.Make(Variable)
-
-type variable_type = Mut_var | Const_var
-
-type moded_var = variable_type * variable
-
-exception Incomparable
-
-module ModedVar = struct
-  type t = moded_var
-  let compare (ma, a) (mb, b) =
-    match String.compare a b with
-    | 0 ->
-      if ma = mb then 0 else raise Incomparable
-    | c -> c
-end
-
-module ModedVarSet = struct
-  include Set.Make(ModedVar)
-
-  let vars set = List.map snd (elements set)
-  let untyped set = VarSet.of_list (vars set)
-
-  let muts set =
-    let muts = filter (fun (m,v) -> m = Mut_var) set in
-    untyped muts
-
-  let diff_untyped typed untyped =
-    filter (fun (_m, x) -> not (VarSet.mem x untyped)) typed
-
-  let inter_untyped typed untyped =
-    filter (fun (_m, x) -> VarSet.mem x untyped) typed
-end
 
 let simple_expr_vars = function
   | Var x -> VarSet.singleton x
@@ -277,41 +330,6 @@ let used_vars = function
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
-module Identifier = struct
-  type t = string
-  let compare = String.compare
-end
-type identifier = Identifier.t
-
-type scope_annotation =
-  | ExactScope of VarSet.t
-  | AtLeastScope of VarSet.t
-
-type inferred_scope =
-  | DeadScope
-  | Scope of ModedVarSet.t
-
-type annotations = scope_annotation option array
-
-type formal_parameter =
-  | Const_val_param of variable
-  | Mut_ref_param of variable
-
-type version = {
-  label : label;
-  instrs : instruction_stream;
-  annotations : annotations option;
-}
-type afunction = {
-  name : identifier;
-  formals : formal_parameter list;
-  body : version list;
-}
-type program = {
-  main : afunction;
-  functions : afunction list;
-}
-
 exception FunctionDoesNotExist of identifier
 
 let lookup_fun (prog : program) (f : identifier) : afunction =
@@ -330,6 +348,6 @@ let replace_active_version (func : afunction) (repl : version) : afunction =
     body = repl :: (List.tl func.body); }
 
 module Value = struct
-  let int n : value = Lit (Int n)
-  let bool b : value = Lit (Bool b)
+  let int n : value = Int n
+  let bool b : value = Bool b
 end

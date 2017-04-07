@@ -27,11 +27,12 @@ type configuration = {
   continuation : continuation list;
 }
 
-type literal_type = Nil | Bool | Int
-let literal_type : literal -> literal_type = function
+type value_type = Nil | Bool | Int | FunRef
+let value_type : value -> value_type = function
   | Nil -> Nil
   | Bool _ -> Bool
   | Int _ -> Int
+  | FunRef _ -> FunRef
 
 exception Unbound_variable of variable
 exception Undefined_variable of variable
@@ -41,13 +42,13 @@ exception Invalid_update
 exception Invalid_clear
 
 type type_error = {
-  expected : literal_type;
-  received : literal_type;
+  expected : value_type;
+  received : value_type;
 }
 exception Type_error of type_error
 type product_type_error = {
-  expected : literal_type * literal_type;
-  received : literal_type * literal_type;
+  expected : value_type * value_type;
+  received : value_type * value_type;
 }
 exception ProductType_error of product_type_error
 
@@ -84,59 +85,55 @@ let clear heap env x =
   | Val _ -> raise Invalid_clear
   | Ref a -> Heap.add a Undefined heap
 
-let literal_eq (lit1 : literal) (lit2 : literal) =
-  match lit1, lit2 with
+let value_eq (v1 : value) (v2 : value) =
+  match v1, v2 with
   | Nil, Nil -> true
   | Nil, _ | _, Nil -> false
   | Bool b1, Bool b2 -> b1 = b2
   | Bool _, _ | _, Bool _ -> false
   | Int n1, Int n2 -> n1 = n2
+  | Int _, _ | _, Int _ -> false
+  | FunRef f1, FunRef f2 -> f1 = f2
 
-let literal_plus (lit1 : literal) (lit2 : literal) =
-  match lit1, lit2 with
+let value_plus (v1 : value) (v2 : value) =
+  match v1, v2 with
   | Int n1, Int n2 -> n1 + n2
-  | (Int _ | Nil | Bool _) as x1, x2 ->
+  | (Int _ | Nil | Bool _ | FunRef _) as x1, x2 ->
       let expected = (Int, Int) in
-      let received = literal_type x1, literal_type x2 in
+      let received = value_type x1, value_type x2 in
       raise (ProductType_error { expected; received })
 
+let value_neq (v1 : value) (v2 : value) =
+  not (value_eq v1 v2)
 
-let value_eq (Lit lit1) (Lit lit2) = literal_eq lit1 lit2
-let value_neq (Lit lit1) (Lit lit2) = not (literal_eq lit1 lit2)
-let value_plus (Lit lit1) (Lit lit2) = literal_plus lit1 lit2
-
-let eval_simple heap env = function
+let eval_simple prog heap env = function
   | Var x -> lookup heap env x
-  | Lit lit -> Lit lit
+  | Lit (FunRef f) -> FunRef (ref (lookup_fun prog f))
+  | Lit (Int i) -> Int i
+  | Lit (Bool b) -> Bool b
+  | Lit Nil -> Nil
 
-let rec eval heap env = function
-  | Simple e -> eval_simple heap env e
+let rec eval prog heap env = function
+  | Simple e -> eval_simple prog heap env e
   | Op (op, es) ->
-    begin match op, List.map (eval_simple heap env) es with
-    | Eq, [v1; v2] -> Lit (Bool (value_eq v1 v2))
-    | Neq, [v1; v2] -> Lit (Bool (value_neq v1 v2))
-    | Plus, [v1; v2] -> Lit (Int (value_plus v1 v2))
+    begin match op, List.map (eval_simple prog heap env) es with
+    | Eq, [v1; v2] -> Bool (value_eq v1 v2)
+    | Neq, [v1; v2] -> Bool (value_neq v1 v2)
+    | Plus, [v1; v2] -> Int (value_plus v1 v2)
     | (Eq | Neq | Plus), _vs -> raise (Arity_error op)
     end
 
-let get_int (Lit lit : value) =
-  match lit with
-  | Int n -> n
-  | (Nil | Bool _) as other ->
-     let expected, received = Int, literal_type other in
-     raise (Type_error { expected; received })
-
-let get_bool (Lit lit : value) =
-  match lit with
+let get_bool (v : value) =
+  match v with
   | Bool b -> b
-  | (Nil | Int _) as other ->
-     let expected, received = Bool, literal_type other in
+  | (Nil | Int _ | FunRef _) as other ->
+     let expected, received = Bool, value_type other in
      raise (Type_error { expected; received })
 
 exception InvalidArgument
 
 let reduce conf =
-  let eval conf e = eval conf.heap conf.env e in
+  let eval conf e = eval conf.program conf.heap conf.env e in
   let resolve instrs label = Instr.resolve instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);

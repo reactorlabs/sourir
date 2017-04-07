@@ -8,7 +8,7 @@ let trace_is li =
 let has_var x v =
   fun conf -> Eval.(lookup conf.heap conf.env x = v)
 let returns n =
-  fun conf -> Eval.(conf.status = Result (Lit (Int n)))
+  fun conf -> Eval.(conf.status = Result (Int n))
 
 let (&&&) p1 p2 conf = (p1 conf) && (p2 conf)
 
