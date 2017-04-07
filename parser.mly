@@ -146,9 +146,8 @@ instruction:
   { Clear x }
 | PRINT e=expression
   { Print e }
-| OSR
-  e=expression f=label v=label l=label LBRACKET xs=separated_list(COMMA, osr_def) RBRACKET
-  { Osr (e, f, v, l, xs) }
+| OSR LBRACKET cs=separated_list(COMMA, expression) RBRACKET LPAREN f=label COMMA v=label COMMA l=label RPAREN LBRACKET xs=separated_list(COMMA, osr_def) RBRACKET
+  { Osr {cond=cs; target= {func=f; version=v; label=l}; map=xs} }
 | STOP e=expression
   { Stop e }
 | s=COMMENT

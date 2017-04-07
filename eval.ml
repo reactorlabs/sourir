@@ -337,32 +337,32 @@ let reduce conf =
       pc = pc';
     }
   | Print e ->
-     let v = eval conf e in
-     { conf with
-       trace = v :: conf.trace;
-       pc = pc';
-     }
-  | Osr (e, f, v, l, osr_def) ->
-     let b = get_bool (eval conf e) in
-     if not b then
-       { conf with
-         pc = pc';
-       }
-     else begin
-       let osr_env, heap' = build_osr_frame osr_def conf.env conf.heap in
-       let osr_func = Instr.lookup_fun conf.program f in
-       let osr_version = Instr.get_version osr_func v in
-       let osr_instrs = osr_version.instrs in
-       { conf with
-         pc = resolve osr_instrs l;
-         env = osr_env;
-         heap = heap';
-         instrs = osr_instrs;
-         cur_fun = osr_func.name;
-         cur_vers = osr_version.label;
-         deopt = Some l;
-       }
-     end
+    let v = eval conf e in
+    { conf with
+      trace = v :: conf.trace;
+      pc = pc';
+    }
+  | Osr {cond; target={func;version; label}; map} ->
+    let triggered = List.exists (fun cond -> get_bool (eval conf cond)) cond in
+    if not triggered then
+      { conf with
+        pc = pc';
+      }
+    else begin
+      let osr_env, heap' = build_osr_frame map conf.env conf.heap in
+      let func = Instr.lookup_fun conf.program func in
+      let version = Instr.get_version func version in
+      let instrs = version.instrs in
+      { conf with
+        pc = resolve instrs label;
+        env = osr_env;
+        heap = heap';
+        instrs = instrs;
+        cur_fun = func.name;
+        cur_vers = version.label;
+        deopt = Some label;
+      }
+    end
 
 let start program input pc : configuration = {
   input;

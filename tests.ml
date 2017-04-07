@@ -291,7 +291,7 @@ version anon_1
  mut x = 9
  mut y = 10
  mut r = 1
- osr (x == y) main anon l1 [mut r, mut x, mut y]
+ osr [(x == y)] (main, anon, l1) [mut r, mut x, mut y]
  r <- 3
  print r
  clear r
@@ -1329,7 +1329,7 @@ let do_test_deopt () =
     function main ()
     version a
      const x = 1
-     osr (x==1) main b l [const y=42]
+     osr [(x==1)] (main, b, l) [const y=42]
      return x
 
     version b
@@ -1345,7 +1345,7 @@ let do_test_deopt () =
      return aliased
     function foo(mut x)
     version vers_a
-     osr (1==1) foo vers_b st [mut x = &x]
+     osr [(1==1)] (foo,vers_b,st) [mut x = &x]
      return 0
     version vers_b
      st:
@@ -1360,7 +1360,7 @@ let do_test_deopt () =
      return aliased
     function foo(mut x)
     version vers_a
-     osr (1==1) foo vers_b st [mut x = x]
+     osr [(1==1)] (foo,vers_b,st) [mut x = x]
      return 0
     version vers_b
      st:
@@ -1374,15 +1374,13 @@ let do_test_deopt () =
      return x
     function foo()
     version vers_a
-     osr (1==1) foo vers_b st [mut x = (41 + 1)]
+     osr [(1==1)] (foo,vers_b,st) [mut x = (41 + 1)]
      return 0
     version vers_b
      mut x = 0
      st:
      return x
   |pr} 42;
-
-
   ()
 
 let suite =
@@ -1451,7 +1449,7 @@ let suite =
    "parser3">:: test_parse_disasm  ("const x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr (x == y) f v l [const x = x, mut y = &x, mut v, const x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr [(x == y)] (f, v, l) [const x = x, mut y = &x, mut v, const x = (1+2)]\nl:\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
    "parser7">:: test_parse_disasm  ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";

@@ -69,6 +69,8 @@ end
 
 type pc = Pc.t
 
+type unique_pos = {func : label; version : label; label : label;}
+
 type instructions = instruction array
 and instruction =
   | Decl_const of variable * expression
@@ -84,8 +86,8 @@ and instruction =
   | Label of label
   | Goto of label
   | Print of expression
-  | Osr of expression * label * label * label * osr_def list
   | Stop of expression
+  | Osr of {cond : expression list; target : unique_pos; map : osr_def list; }
   | Comment of string
 and osr_def =
   | Osr_const of variable * expression
@@ -182,6 +184,10 @@ let arg_vars = function
   | Arg_by_val e -> expr_vars e
   | Arg_by_ref x -> VarSet.singleton x
 
+let list_vars ls =
+  let vs = List.map expr_vars ls in
+  List.fold_left VarSet.union VarSet.empty vs
+
 let declared_vars = function
   | Call (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
@@ -222,14 +228,13 @@ let required_vars = function
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
   | Print e -> expr_vars e
-  | Osr (e, _, _, _, osr) ->
+  | Osr {cond; map} ->
     let exps = List.map (function
         | Osr_const (_, e) -> e
         | Osr_mut (_, e) -> e
         | Osr_mut_ref (_, x) -> Simple (Var x)
-        | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
-    let exps_vars = List.map expr_vars exps in
-    List.fold_left VarSet.union (expr_vars e) exps_vars
+        | Osr_mut_undef _ -> Simple (Constant Nil)) map in
+    VarSet.union (list_vars cond) (list_vars exps)
 
 let defined_vars = function
   | Call (x, _, _)
@@ -312,14 +317,13 @@ let used_vars = function
   | Goto _
   | Comment _
   | Read _ -> VarSet.empty
-  | Osr (e, _, _, _, osr) ->
+  | Osr {cond; map} ->
     let exps = List.map (function
         | Osr_const (_, e) -> e
         | Osr_mut (_, e) -> e
         | Osr_mut_ref (_, x) -> Simple (Var x)
-        | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
-    let exps_vars = List.map expr_vars exps in
-    List.fold_left VarSet.union (expr_vars e) exps_vars
+        | Osr_mut_undef _ -> Simple (Constant Nil)) map in
+    VarSet.union (list_vars cond) (list_vars exps)
 
 exception FunctionDoesNotExist of identifier
 

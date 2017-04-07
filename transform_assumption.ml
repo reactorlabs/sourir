@@ -28,7 +28,8 @@ let insert_branch_pruning_assumption (func : afunction) : version option =
                 Osr_mut_undef x)
             (ModedVarSet.elements scope)
         in
-        Insert [Osr (exp, func.name, version.label, l1, osr); Goto l2]
+        let target = { func=func.name; version=version.label; label=l1 } in
+        Insert [Osr {cond=[exp]; target; map=osr}; Goto l2]
       | _ -> Unchanged
       end
   in

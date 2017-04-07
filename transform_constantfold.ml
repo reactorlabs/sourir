@@ -48,18 +48,19 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       Array_assign (y, replace i, replace e)
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
-    | Osr (exp, tf, tv, tl, env) ->
+    | Osr {cond; target; map} ->
       (* Replace all expressions in the osr environment. *)
-      let env' = List.map (fun osr_def ->
+      let map = List.map (fun osr_def ->
         match osr_def with
         | Osr_const (y, e) -> Osr_const (y, replace e)
         | Osr_mut (y, e) -> Osr_mut (y, replace e)
         | Osr_mut_ref (y, z) -> if x=z then Osr_mut (y, Simple l) else osr_def
-        | Osr_mut_undef y -> Osr_mut_undef y) env
+        | Osr_mut_undef y -> Osr_mut_undef y) map
       in
-      Osr (replace exp, tf, tv, tl, env')
-    | Drop y
+      let cond = List.map replace cond in
+      Osr {cond; target; map}
     | Decl_mut (y, None)
+    | Drop y
     | Clear y
     | Read y ->
       assert (x <> y);
@@ -138,11 +139,11 @@ let make_constant (({formals; instrs} as inp) : analysis_input) : instructions o
       then begin
         let fixup pc =
           let fixup_instr pc = function[@warning "-4"]
-            | Osr (e, f, v, l, osr) ->
+            | Osr {cond; target; map} ->
               let fixup_def = function[@warning "-4"]
                 | Osr_mut_ref (x, y) when var = y -> Osr_mut (x, Simple (Var var))
                 | d -> d in
-              changes.(pc) <- Replace (Osr (e, f, v, l, List.map fixup_def osr))
+              changes.(pc) <- Replace (Osr {cond; target; map = List.map fixup_def map})
             | _ -> () in
           match[@warning "-4"] changes.(pc) with
           | Unchanged -> fixup_instr pc instrs.(pc)
