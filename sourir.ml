@@ -170,6 +170,6 @@ let () =
       exit n
     | Result (Bool b) ->
       exit (if b then 1 else 0)
-    | Result Nil | Result FunRef _ ->
+    | Result Nil | Result Fun_ref _ ->
       exit 0
 

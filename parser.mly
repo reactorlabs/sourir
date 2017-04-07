@@ -179,6 +179,6 @@ infixop:
 
 lit:
   | NIL { (Nil : literal) }
-  | AMPERSAND AMPERSAND f=variable { (FunRef f : literal) }
+  | AMPERSAND AMPERSAND f=variable { (Fun_ref f : literal) }
   | b=BOOL { (Bool b : literal) }
   | n=INT { (Int n : literal) }

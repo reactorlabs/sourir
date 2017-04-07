@@ -27,12 +27,12 @@ type configuration = {
   continuation : continuation list;
 }
 
-type value_type = Nil | Bool | Int | FunRef
+type value_type = Nil | Bool | Int | Fun_ref
 let value_type : value -> value_type = function
   | Nil -> Nil
   | Bool _ -> Bool
   | Int _ -> Int
-  | FunRef _ -> FunRef
+  | Fun_ref _ -> Fun_ref
 
 exception Unbound_variable of variable
 exception Undefined_variable of variable
@@ -93,12 +93,12 @@ let value_eq (v1 : value) (v2 : value) =
   | Bool _, _ | _, Bool _ -> false
   | Int n1, Int n2 -> n1 = n2
   | Int _, _ | _, Int _ -> false
-  | FunRef f1, FunRef f2 -> f1 = f2
+  | Fun_ref f1, Fun_ref f2 -> f1 = f2
 
 let value_plus (v1 : value) (v2 : value) =
   match v1, v2 with
   | Int n1, Int n2 -> n1 + n2
-  | (Int _ | Nil | Bool _ | FunRef _) as x1, x2 ->
+  | (Int _ | Nil | Bool _ | Fun_ref _) as x1, x2 ->
       let expected = (Int, Int) in
       let received = value_type x1, value_type x2 in
       raise (ProductType_error { expected; received })
@@ -108,7 +108,7 @@ let value_neq (v1 : value) (v2 : value) =
 
 let eval_simple prog heap env = function
   | Var x -> lookup heap env x
-  | Lit (FunRef f) -> FunRef (lookup_fun prog f)
+  | Lit (Fun_ref f) -> Fun_ref (lookup_fun prog f)
   | Lit (Int i) -> Int i
   | Lit (Bool b) -> Bool b
   | Lit Nil -> Nil
@@ -126,15 +126,15 @@ let rec eval prog heap env = function
 let get_bool (v : value) =
   match v with
   | Bool b -> b
-  | (Nil | Int _ | FunRef _) as other ->
+  | (Nil | Int _ | Fun_ref _) as other ->
      let expected, received = Bool, value_type other in
      raise (Type_error { expected; received })
 
 let get_fun (v : value) =
   match v with
-  | FunRef f -> f
+  | Fun_ref f -> f
   | (Nil | Int _ | Bool _) as other ->
-     let expected, received = FunRef, value_type other in
+     let expected, received = Fun_ref, value_type other in
      raise (Type_error { expected; received })
 
 exception InvalidArgument

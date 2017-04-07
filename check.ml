@@ -91,7 +91,7 @@ let well_formed prog =
       let check_simple_expr = function
         | Var _
         | Lit (Nil | Bool _ | Int _) -> ()
-        | Lit (FunRef x) -> ignore (lookup_fun x) in
+        | Lit (Fun_ref x) -> ignore (lookup_fun x) in
       let check_expr = function
         | Simple e -> check_simple_expr e
         | Op (_op, xs) ->
@@ -133,7 +133,7 @@ let well_formed prog =
         (* if it's a static call check that the function exists and if the
          * actual arguments are compatible with the formals *)
         begin match[@warning "-4"] f with
-        | (Simple (Lit (FunRef f))) ->
+        | (Simple (Lit (Fun_ref f))) ->
           let func' = lookup_fun f in
           check_signature pc func' exs
         | _ -> ()

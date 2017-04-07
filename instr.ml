@@ -104,7 +104,7 @@ and literal =
   | Nil
   | Bool of bool
   | Int of int
-  | FunRef of string
+  | Fun_ref of string
 and primop =
   | Eq
   | Neq
@@ -143,7 +143,7 @@ type value =
   | Nil
   | Bool of bool
   | Int of int
-  | FunRef of afunction
+  | Fun_ref of afunction
 
 type heap_value =
   | Undefined
@@ -159,20 +159,20 @@ let string_of_literal : literal -> string = function
   | Nil -> "nil"
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
-  | FunRef f -> "&"^f
+  | Fun_ref f -> "&&"^f
 
 let string_of_value : value -> string = function
   | Nil -> "nil"
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
-  | FunRef f -> "&" ^ f.name
+  | Fun_ref f -> "&&" ^ f.name
 
 let literal_of_string : string -> literal = function
   | "nil" -> Nil
   | "true" -> Bool true
   | "false" -> Bool false
   | n when String.sub n 0 1 = "&" ->
-    FunRef (String.sub n 1 ((String.length n)-1))
+    Fun_ref (String.sub n 1 ((String.length n)-1))
   | n ->
     try Int (int_of_string n) with _ ->
       Printf.kprintf invalid_arg "literal_of_string %S" n

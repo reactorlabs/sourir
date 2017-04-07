@@ -1212,7 +1212,7 @@ let test_functions () =
      print y
     function bla (const y)
       return y
-  |pr} "&bla";
+  |pr} "&&bla";
   test {pr|
      mut x = &&bla
      call y = *x (&&bla2)
@@ -1233,7 +1233,7 @@ let test_functions () =
         return y
     |pr} 22);
   let open Eval in
-  assert_raises (Eval.Type_error {expected = Eval.FunRef; received = Eval.Int})
+  assert_raises (Eval.Type_error {expected = Eval.Fun_ref; received = Eval.Int})
     (fun () ->
      test {pr|
        mut x = 1
