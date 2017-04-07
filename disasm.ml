@@ -8,7 +8,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     let pr = Printf.bprintf in
     let simple buf = function
       | Var v             -> pr buf "%s" v
-      | Lit lit           -> pr buf "%s" (string_of_litteral lit)
+      | Lit lit           -> pr buf "%s" (string_of_literal lit)
     in
     let dump_expr exp =
       match exp with

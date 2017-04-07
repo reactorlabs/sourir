@@ -22,8 +22,8 @@ type configuration = {
   deopt : string option;
 }
 
-type litteral_type = Nil | Bool | Int
-let litteral_type : litteral -> litteral_type = function
+type literal_type = Nil | Bool | Int
+let literal_type : literal -> literal_type = function
   | Nil -> Nil
   | Bool _ -> Bool
   | Int _ -> Int
@@ -36,13 +36,13 @@ exception Invalid_update
 exception Invalid_clear
 
 type type_error = {
-  expected : litteral_type;
-  received : litteral_type;
+  expected : literal_type;
+  received : literal_type;
 }
 exception Type_error of type_error
 type product_type_error = {
-  expected : litteral_type * litteral_type;
-  received : litteral_type * litteral_type;
+  expected : literal_type * literal_type;
+  received : literal_type * literal_type;
 }
 exception ProductType_error of product_type_error
 
@@ -79,7 +79,7 @@ let clear heap env x =
   | Const _ -> raise Invalid_clear
   | Mut a -> Heap.add a Undefined heap
 
-let litteral_eq (lit1 : litteral) (lit2 : litteral) =
+let literal_eq (lit1 : literal) (lit2 : literal) =
   match lit1, lit2 with
   | Nil, Nil -> true
   | Nil, _ | _, Nil -> false
@@ -87,18 +87,18 @@ let litteral_eq (lit1 : litteral) (lit2 : litteral) =
   | Bool _, _ | _, Bool _ -> false
   | Int n1, Int n2 -> n1 = n2
 
-let litteral_plus (lit1 : litteral) (lit2 : litteral) =
+let literal_plus (lit1 : literal) (lit2 : literal) =
   match lit1, lit2 with
   | Int n1, Int n2 -> n1 + n2
   | (Int _ | Nil | Bool _) as x1, x2 ->
       let expected = (Int, Int) in
-      let received = litteral_type x1, litteral_type x2 in
+      let received = literal_type x1, literal_type x2 in
       raise (ProductType_error { expected; received })
 
 
-let value_eq (Lit lit1) (Lit lit2) = litteral_eq lit1 lit2
-let value_neq (Lit lit1) (Lit lit2) = not (litteral_eq lit1 lit2)
-let value_plus (Lit lit1) (Lit lit2) = litteral_plus lit1 lit2
+let value_eq (Lit lit1) (Lit lit2) = literal_eq lit1 lit2
+let value_neq (Lit lit1) (Lit lit2) = not (literal_eq lit1 lit2)
+let value_plus (Lit lit1) (Lit lit2) = literal_plus lit1 lit2
 
 let eval_simple heap env = function
   | Var x -> lookup heap env x
@@ -118,14 +118,14 @@ let get_int (Lit lit : value) =
   match lit with
   | Int n -> n
   | (Nil | Bool _) as other ->
-     let expected, received = Int, litteral_type other in
+     let expected, received = Int, literal_type other in
      raise (Type_error { expected; received })
 
 let get_bool (Lit lit : value) =
   match lit with
   | Bool b -> b
   | (Nil | Int _) as other ->
-     let expected, received = Bool, litteral_type other in
+     let expected, received = Bool, literal_type other in
      raise (Type_error { expected; received })
 
 let instruction conf =
