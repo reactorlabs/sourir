@@ -58,9 +58,9 @@ program_code:
 
 formal_param:
 | CONST x=variable
-    { ParamConst x }
+    { Const_val_param x }
 | MUT x=variable
-    { ParamMut x }
+    { Mut_ref_param x }
 
 afunction:
 | FUNCTION name=variable LPAREN formals=separated_list(COMMA, formal_param) RPAREN NEWLINE optional_newlines prog=list(instruction_line)
@@ -107,11 +107,11 @@ scope:
 
 osr_def:
 | CONST x=variable EQUAL e=expression
-    { OsrConst (x, e) }
+    { Osr_const (x, e) }
 | MUT x=variable
-    { OsrMutUndef x }
+    { Osr_mut_undef x }
 | MUT x=variable EQUAL y=variable
-    { OsrMut (x, y) }
+    { Osr_mut (x, y) }
 
 instruction:
 | CALL x=variable EQUAL f=variable LPAREN args=separated_list(COMMA, argument) RPAREN
@@ -153,8 +153,8 @@ simple_expression:
   | x=variable { Var x }
 
 argument:
-  | AMPERSAND x=variable { RefArg x }
-  | e=expression { ValArg e }
+  | AMPERSAND x=variable { Arg_by_ref x }
+  | e=expression { Arg_by_val e }
 
 expression:
   | e = simple_expression { Simple e }

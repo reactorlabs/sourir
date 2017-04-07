@@ -45,7 +45,7 @@ let well_formed prog =
   (* Formals args shall not contain duplicate variables *)
   let check_formals name formals =
     let formals = List.map (fun f -> match f with
-        | ParamConst x -> x | ParamMut x -> x) formals in
+        | Const_val_param x -> x | Mut_ref_param x -> x) formals in
     let check seen var =
       if VarSet.mem var seen
       then raise (DuplicateParameter (name, var))
@@ -76,8 +76,8 @@ let well_formed prog =
         then raise (InvalidNumArgs pc);
         let check_arg (formal, actual) =
             match[@warning "-4"] formal, actual with
-            | ParamConst _, ValArg _ -> ()
-            | ParamMut _, RefArg x ->
+            | Const_val_param _, Arg_by_val _ -> ()
+            | Mut_ref_param _, Arg_by_ref x ->
                 begin match scope.(pc) with
                 | DeadScope -> ()
                 | Scope scope ->

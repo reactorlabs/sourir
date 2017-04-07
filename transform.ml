@@ -60,12 +60,12 @@ let branch_prune (func : afunction) : afunction =
         | Branch (exp, l1, l2) ->
           let osr = List.map (function
               | (Const_var, x) ->
-                OsrConst (x, (Simple (Var x)))
+                Osr_const (x, (Simple (Var x)))
               | (Mut_var, x) ->
                 if List.mem x (live pc) then
-                  OsrMut (x, x)
+                  Osr_mut (x, x)
                 else
-                  OsrMutUndef x)
+                  Osr_mut_undef x)
               (ModedVarSet.elements scope)
           in
           branch_prune pc'

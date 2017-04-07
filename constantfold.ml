@@ -50,7 +50,7 @@ let const_prop (func : afunction) : afunction =
       (* Replace all expressions in the osr environment. *)
       let env' = List.map (fun osr_def ->
         match[@warning "-4"] osr_def with
-        | OsrConst (y, e) -> OsrConst (y, replace e)
+        | Osr_const (y, e) -> Osr_const (y, replace e)
         | _ -> osr_def) env
       in
       Osr (replace exp, f, v, l, env')

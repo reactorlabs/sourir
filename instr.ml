@@ -47,12 +47,12 @@ and instruction =
   | Stop of expression
   | Comment of string
 and osr_def =
-  | OsrConst of variable * expression
-  | OsrMut of variable * variable
-  | OsrMutUndef of variable
+  | Osr_const of variable * expression
+  | Osr_mut of variable * variable
+  | Osr_mut_undef of variable
 and argument =
-  | ValArg of expression
-  | RefArg of variable
+  | Arg_by_val of expression
+  | Arg_by_ref of variable
 and expression =
   | Simple of simple_expression
   | Op of primop * simple_expression list
@@ -78,8 +78,8 @@ type heap_value =
 type address = Address.t
 
 type binding =
-  | Const of value
-  | Mut of address
+  | Val of value
+  | Ref of address
 
 let string_of_literal : literal -> string = function
   | Nil -> "nil"
@@ -151,8 +151,8 @@ let expr_vars = function
     |> List.fold_left VarSet.union VarSet.empty
 
 let arg_vars = function
-  | ValArg e -> expr_vars e
-  | RefArg x -> VarSet.singleton x
+  | Arg_by_val e -> expr_vars e
+  | Arg_by_ref x -> VarSet.singleton x
 
 let declared_vars = function
   | Call (x, _, _)
@@ -190,9 +190,9 @@ let required_vars = function
   | Print e -> expr_vars e
   | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
-        | OsrConst (_, e) -> e
-        | OsrMut (_, x) -> Simple (Var x)
-        | OsrMutUndef _ -> Simple (Lit Nil)) osr in
+        | Osr_const (_, e) -> e
+        | Osr_mut (_, x) -> Simple (Var x)
+        | Osr_mut_undef _ -> Simple (Lit Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
@@ -271,9 +271,9 @@ let used_vars = function
   | Read _ -> VarSet.empty
   | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
-        | OsrConst (_, e) -> e
-        | OsrMut (_, x) -> Simple (Var x)
-        | OsrMutUndef _ -> Simple (Lit Nil)) osr in
+        | Osr_const (_, e) -> e
+        | Osr_mut (_, x) -> Simple (Var x)
+        | Osr_mut_undef _ -> Simple (Lit Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
@@ -294,8 +294,8 @@ type inferred_scope =
 type annotations = scope_annotation option array
 
 type formal_parameter =
-  | ParamConst of variable
-  | ParamMut of variable
+  | Const_val_param of variable
+  | Mut_ref_param of variable
 
 type version = {
   label : label;

@@ -1113,7 +1113,7 @@ let test_functions () =
       return 1
   |pr} 3;
   assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (ValArg (Simple (Lit (Int 22)))))))
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (Arg_by_val (Simple (Lit (Int 22)))))))
     (fun () ->
     test {pr|
        call x = bla (22)
@@ -1159,7 +1159,7 @@ let test_functions () =
        return false
     |pr} 0);
   assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (ValArg (Simple (Var "x"))))))
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_val (Simple (Var "x"))))))
     (fun () ->
     test {pr|
        mut x = 22
@@ -1175,7 +1175,7 @@ let test_functions () =
       return y
   |pr} 22;
   assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (ValArg (Simple (Var "x"))))))
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_val (Simple (Var "x"))))))
     (fun () ->
     test {pr|
        const x = 22
@@ -1184,7 +1184,7 @@ let test_functions () =
         return y
     |pr} 22);
   assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (RefArg "x"))))
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_ref "x"))))
     (fun () ->
     test {pr|
        const x = 22

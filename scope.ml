@@ -24,8 +24,8 @@ let infer func version : inferred_scope array =
   let open Analysis in
 
   let to_moded_var = function
-    | ParamConst x -> (Const_var, x)
-    | ParamMut x -> (Mut_var, x)
+    | Const_val_param x -> (Const_var, x)
+    | Mut_ref_param x -> (Mut_var, x)
   in
   let formals = ModedVarSet.of_list (List.map to_moded_var func.formals) in
   if (List.length func.formals) <> (List.length (VarSet.elements (ModedVarSet.untyped formals))) then

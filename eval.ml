@@ -54,8 +54,8 @@ exception ProductType_error of product_type_error
 let lookup heap env x =
   match Env.find x env with
   | exception Not_found -> raise (Unbound_variable x)
-  | Const v -> v
-  | Mut a ->
+  | Val v -> v
+  | Ref a ->
     begin match Heap.find a heap with
     | exception Not_found -> raise Invalid_heap
     | Undefined -> raise (Undefined_variable x)
@@ -65,8 +65,8 @@ let lookup heap env x =
 let update heap env x v =
   match Env.find x env with
   | exception Not_found -> raise (Unbound_variable x)
-  | Const _ -> raise Invalid_update
-  | Mut a ->
+  | Val _ -> raise Invalid_update
+  | Ref a ->
     begin match Heap.find a heap with
     | exception Not_found -> raise Invalid_heap
     | _ -> Heap.add a (Value v) heap
@@ -75,14 +75,14 @@ let update heap env x v =
 let drop heap env x =
   match Env.find x env with
   | exception Not_found -> raise (Unbound_variable x)
-  | Const _ -> (heap, Env.remove x env)
-  | Mut a -> (Heap.remove a heap, Env.remove x env)
+  | Val _ -> (heap, Env.remove x env)
+  | Ref a -> (Heap.remove a heap, Env.remove x env)
 
 let clear heap env x =
   match Env.find x env with
   | exception Not_found -> raise (Unbound_variable x)
-  | Const _ -> raise Invalid_clear
-  | Mut a -> Heap.add a Undefined heap
+  | Val _ -> raise Invalid_clear
+  | Ref a -> Heap.add a Undefined heap
 
 let literal_eq (lit1 : literal) (lit2 : literal) =
   match lit1, lit2 with
@@ -153,13 +153,13 @@ let reduce conf =
   let build_call_frame formals actuals =
     let eval_arg env (formal, actual) =
       match[@warning "-4"] formal, actual with
-      | Instr.ParamConst x, ValArg e ->
+      | Instr.Const_val_param x, Arg_by_val e ->
         let value = eval conf e in
-        Env.add x (Const value) env
-      | Instr.ParamMut x, RefArg var ->
+        Env.add x (Val value) env
+      | Instr.Mut_ref_param x, Arg_by_ref var ->
         let get_addr = function
-          | Mut a as adr -> adr
-          | Const _ -> raise InvalidArgument
+          | Ref a as adr -> adr
+          | Val _ -> raise InvalidArgument
         in
         let adr = get_addr (Env.find var conf.env) in
         Env.add x adr env
@@ -171,17 +171,17 @@ let reduce conf =
 
   let build_osr_frame osr_def =
     let add env' = function
-      | OsrConst (x', e) ->
-        Env.add x' (Const (eval conf e)) env'
-      | OsrMut (x', x) ->
+      | Osr_const (x', e) ->
+        Env.add x' (Val (eval conf e)) env'
+      | Osr_mut (x', x) ->
         begin match Env.find x conf.env with
         | exception Not_found -> raise (Unbound_variable x)
-        | Const _ -> raise Invalid_heap
-        | Mut a -> Env.add x' (Mut a) env'
+        | Val _ -> raise Invalid_heap
+        | Ref a -> Env.add x' (Ref a) env'
         end
-      | OsrMutUndef x' ->
+      | Osr_mut_undef x' ->
         let a = Address.fresh () in
-        Env.add x' (Mut a) env'
+        Env.add x' (Ref a) env'
     in
     List.fold_left add Env.empty osr_def
   in
@@ -207,7 +207,7 @@ let reduce conf =
        { conf with
          status = Result res }
      | (x, env, (f, v, pc)) :: cont ->
-       let env = Env.add x (Const res) env in
+       let env = Env.add x (Val res) env in
        let func = Instr.lookup_fun conf.program f in
        let version = Instr.get_version func v in
        { conf with
@@ -227,7 +227,7 @@ let reduce conf =
   | Decl_const (x, e) ->
      let v = eval conf e in
      { conf with
-       env = Env.add x (Const v) conf.env;
+       env = Env.add x (Val v) conf.env;
        pc = pc';
      }
   | Decl_mut (x, Some e) ->
@@ -235,14 +235,14 @@ let reduce conf =
      let v = eval conf e in
      { conf with
        heap = Heap.add a (Value v) conf.heap;
-       env = Env.add x (Mut a) conf.env;
+       env = Env.add x (Ref a) conf.env;
        pc = pc';
      }
   | Decl_mut (x, None) ->
      let a = Address.fresh () in
      { conf with
        heap = Heap.add a Undefined conf.heap;
-       env = Env.add x (Mut a) conf.env;
+       env = Env.add x (Ref a) conf.env;
        pc = pc';
      }
   | Drop x ->
