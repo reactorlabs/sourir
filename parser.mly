@@ -124,6 +124,6 @@ infixop:
   (* | GTE { Gte } *)
 
 lit:
-  | NIL { (Nil : litteral) }
-  | b=BOOL { (Bool b : litteral) }
-  | n=INT { (Int n : litteral) }
+  | NIL { (Nil : literal) }
+  | b=BOOL { (Bool b : literal) }
+  | n=INT { (Int n : literal) }

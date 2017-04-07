@@ -35,7 +35,7 @@ e ::=    (simple) expressions
 | x                     variables
 | primop(x, ...)        primitive operation (pure)
 
-lit ::=  litterals
+lit ::=  literals
 | nil
 | true | false
 | 0 | 1 | 2 | ...
