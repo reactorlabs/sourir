@@ -46,15 +46,15 @@ let in_expression old_name new_name exp : expression =
 let in_arg old_name new_name exp : argument =
   let in_expression = in_expression old_name new_name in
   match exp with
-  | ValArg e -> ValArg (in_expression e)
-  | RefArg x -> if x = old_name then RefArg new_name else RefArg x
+  | Arg_by_val e -> Arg_by_val (in_expression e)
+  | Arg_by_ref x -> if x = old_name then Arg_by_ref new_name else Arg_by_ref x
 
 let in_osr old_name new_name osr : osr_def =
   let in_expression = in_expression old_name new_name in
   match osr with
-  | OsrConst (x, exp) -> OsrConst (x, in_expression exp)
-  | OsrMut (x, y) -> if y = old_name then OsrMut (x, new_name) else osr
-  | OsrMutUndef _ -> osr
+  | Osr_const (x, exp) -> Osr_const (x, in_expression exp)
+  | Osr_mut (x, y) -> if y = old_name then Osr_mut (x, new_name) else osr
+  | Osr_mut_undef _ -> osr
 
 let uses_in_instruction old_name new_name instr : instruction =
   let in_expression = in_expression old_name new_name in

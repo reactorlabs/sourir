@@ -60,7 +60,7 @@ osr-map ::=    osr mapping declaration
 
 # Natural operational semantics
 
-E ::= (x ↦ val v | x ↦ var a | x ↦ ⊥)*  lexical environment
+E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
 H ::= (l ↦ v)                             mutable heap
 
 T ::= (lit)*                    output trace
@@ -85,11 +85,11 @@ pred I l =
 Lookup (partial) function, returns a v:
   (H,E)[x] :=
     v    if E ∋ (x ↦ val v)
-    H(a) if E ∋ (x ↦ var a)
+    H(a) if E ∋ (x ↦ ref a)
 
 Update (partial) function, returns an H:
   (H,E)[x ← v] :=
-    H[a ↦ v] if E ∋ (x ↦ var a)
+    H[a ↦ v] if E ∋ (x ↦ ref a)
 
 ## Evaluation of simple expressions:
 
@@ -107,8 +107,8 @@ Update (partial) function, returns an H:
 ## Argument evaluation
 
   eval-arg H E const  e =  val eval H E e
-  eval-arg H E mut   &x =  var a
-    where E ∋ (x ↦ var a)
+  eval-arg H E mut   &x =  ref a
+    where E ∋ (x ↦ ref a)
 
 ## Reduction relation '-->'
 

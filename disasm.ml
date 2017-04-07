@@ -26,8 +26,8 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     in
     let dump_arg arg =
       match arg with
-      | ValArg e          -> dump_expr e
-      | RefArg x          -> pr buf "&%s" x
+      | Arg_by_val e      -> dump_expr e
+      | Arg_by_ref x      -> pr buf "&%s" x
     in
     format_pc buf pc;
     begin match instr with
@@ -53,9 +53,9 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
       dump_expr exp;
       pr buf " %s %s %s [" f v l;
       let dump_var = function
-        | OsrConst (x, e) -> pr buf "const %s = " x; dump_expr e;
-        | OsrMut (x, y) -> pr buf "mut %s = %s" x y;
-        | OsrMutUndef x -> pr buf "mut %s" x
+        | Osr_const (x, e) -> pr buf "const %s = " x; dump_expr e;
+        | Osr_mut (x, y)   -> pr buf "mut %s = %s" x y;
+        | Osr_mut_undef x  -> pr buf "mut %s" x
       in
       dump_comma_separated dump_var vars;
       pr buf "]"
@@ -69,8 +69,8 @@ let disassemble buf (prog : Instr.program) =
   (* TODO: disassemble annotations *)
   List.iter (fun {name; formals; body} ->
       let formals = List.map (fun x -> match x with
-          | ParamMut x -> "mut "^x
-          | ParamConst x -> "const "^x) formals in
+          | Mut_ref_param x -> "mut "^x
+          | Const_val_param x -> "const "^x) formals in
       let formals = String.concat ", " formals in
       Printf.bprintf buf "function %s (%s)\n" name formals;
       List.iter (fun version ->
