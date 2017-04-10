@@ -1073,7 +1073,7 @@ let test_functions () =
   test "return 1\n" 1;
   test "return (1+1)\n" 2;
   test {pr|
-     call x = &&bla ()
+     call x = 'bla ()
      return x
     function bla ()
      return 1
@@ -1082,32 +1082,32 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.InvalidNumArgs 0))
     (fun () ->
     test {pr|
-       call x = &&bla (1)
+       call x = 'bla (1)
       function bla ()
     |pr} 1);
   assert_raises
     (Check.ErrorAt ("bla", "anon", Check.MissingReturn))
     (fun () ->
     test {pr|
-       call x = &&bla ()
+       call x = 'bla ()
        return x
       function bla ()
     |pr} 0);
   test {pr|
-     call x = &&bla ()
+     call x = 'bla ()
      return x
     function bla ()
       return 123
   |pr} 123;
   test {pr|
-     call x = &&bla (22)
+     call x = 'bla (22)
      return x
     function bla (const y)
       return y
   |pr} 22;
   test {pr|
-     call one = &&one ()
-     call three = &&pl (one, 2)
+     call one = 'one ()
+     call three = 'pl (one, 2)
      return three
     function pl (const y, const z)
       return (y+z)
@@ -1118,21 +1118,21 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (Arg_by_val (Simple (Constant (Int 22)))))))
     (fun () ->
     test {pr|
-       call x = &&bla (22)
+       call x = 'bla (22)
        return x
       function bla (mut y)
         return y
     |pr} 22);
   test {pr|
      mut a = 3
-     call x = &&bla (&a)
+     call x = 'bla (&a)
      return x
     function bla (mut y)
       return y
   |pr} 3;
   test {pr|
      mut a = 3
-     call x = &&bla (&a)
+     call x = 'bla (&a)
      return a
     function bla (mut y)
      y <- 4
@@ -1156,7 +1156,7 @@ let test_functions () =
     (Check.DuplicateParameter ("bla", "x"))
     (fun () ->
     test {pr|
-      call x = &&bla (1, 2)
+      call x = 'bla (1, 2)
       function bla (const x, const x)
        return false
     |pr} 0);
@@ -1165,13 +1165,13 @@ let test_functions () =
     (fun () ->
     test {pr|
        mut x = 22
-       call y = &&bla (x)
+       call y = 'bla (x)
       function bla (mut y)
         return y
     |pr} 22);
   test {pr|
      mut x = 22
-     call y = &&bla (x)
+     call y = 'bla (x)
      return y
     function bla (const y)
       return y
@@ -1181,7 +1181,7 @@ let test_functions () =
     (fun () ->
     test {pr|
        const x = 22
-       call y = &&bla (x)
+       call y = 'bla (x)
       function bla (mut y)
         return y
     |pr} 22);
@@ -1190,7 +1190,7 @@ let test_functions () =
     (fun () ->
     test {pr|
        const x = 22
-       call y = &&bla (&x)
+       call y = 'bla (&x)
       function bla (mut y)
         return y
     |pr} 22);
@@ -1198,24 +1198,24 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.FunctionDoesNotExist "x"))
     (fun () ->
     test {pr|
-       call y = &&x ()
+       call y = 'x ()
     |pr} 0);
   assert_raises
     (Check.ErrorAt ("main", "anon", Check.FunctionDoesNotExist "x"))
     (fun () ->
     test {pr|
-       const x = &&x
+       const x = 'x
     |pr} 0);
   test_p {pr|
-     mut x = &&bla
+     mut x = 'bla
      call y = x (x)
      print y
     function bla (const y)
       return y
   |pr} [(Fun_ref "bla")];
   test {pr|
-     mut x = &&bla
-     call y = x (&&bla2)
+     mut x = 'bla
+     call y = x ('bla2)
      return y
     function bla (const y)
       call r = y ()
@@ -1228,7 +1228,7 @@ let test_functions () =
     (fun () ->
     test {pr|
        const x = 22
-       call y = &&bla (&x)
+       call y = 'bla (&x)
       function bla (mut y)
         return y
     |pr} 22);
@@ -1245,7 +1245,7 @@ let test_functions () =
     (fun () ->
     test {pr|
        const x = 22
-       const func = &&bla
+       const func = 'bla
        call y = func (&x)
       function bla (mut y)
         return y
@@ -1255,7 +1255,7 @@ let test_functions () =
     (fun () ->
     test {pr|
        const x = 22
-       const func = &&bla
+       const func = 'bla
        call y = func (x)
       function bla (mut y)
         return y

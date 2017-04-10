@@ -2,7 +2,7 @@
 %token<bool> BOOL
 %token<int> INT
 %token<string> IDENTIFIER
-%token AMPERSAND
+%token AMPERSAND SINGLE_QUOTE
 %token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
@@ -177,6 +177,6 @@ infixop:
 
 lit:
   | NIL { (Nil : value) }
-  | AMPERSAND AMPERSAND f=variable { (Fun_ref f : value) }
+  | SINGLE_QUOTE f=variable { (Fun_ref f : value) }
   | b=BOOL { (Bool b : value) }
   | n=INT { (Int n : value) }

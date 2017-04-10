@@ -1,5 +1,5 @@
-const afunref = &&foo
-call res = afunref (&&bar)
+const afunref = 'foo
+call res = afunref ('bar)
 print res
 
 function foo (const a)
