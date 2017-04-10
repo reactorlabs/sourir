@@ -1,11 +1,11 @@
 # The formal language
 
-P ::= Function main  ↦ F, (Df ↦ F)*      program:            main function and other functions
+P ::= Function main ()  ↦ F, (Df ↦ F)*   program:            main function and other functions
 F ::= (lᵥ ↦ V)*                          function body:      can contain multiple versions
 V ::= start ↦ i, I                       a function version: instruction stream with dedicated start
 I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
-Df ::= Function f((mod x)*)          function declaration
+Df ::= Function f (formal*)              function declaration (signature)
 
 x        variables
 
@@ -17,15 +17,15 @@ Reserved Names:
 main      main function    (execution of program starts here)
 start     start label      (execution of function starts here)
 
-mod ::=
-| const
-| mut
+formal ::=      formal argument
+| const x
+| mut x
 
 a  addresses
 
 i ::=    instructions
 | const x = e                   constant variable
-| call x = fun (arg*)           function call
+| call x = e (arg*)             function call
 | mut x = e                     mutable variable
 | x <- e                        assignment
 | branch e l₁ l₂                conditional
@@ -38,14 +38,10 @@ arg ::=
 | e
 | &x
 
-fun ::=
-| *e
-| f
-
 e ::=    (simple) expressions
 | lit                   literals
 | x                     variables
-| &&f                   function reference
+| 'f                    function reference
 | primop(x, ...)        primitive operation (pure)
 
 lit ::=  literals
@@ -101,9 +97,9 @@ Update (partial) function, returns an H:
   eval P H E x = (H,E)[x]
   eval P H E lit = lit
   eval P H E primop(v, ...) = 〚primop〛(v, ...)
-  eval P H E &&f            = f
-     and Df ∈ dom P
-     and Df  = Function f (mod y)*
+  eval P H E 'f             = f
+    where Df ∈ dom P
+      and Df  = Function f (formal*)
 
 ## Osr transformation of environment
 
@@ -123,16 +119,8 @@ Update (partial) function, returns an H:
   (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
 
   (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
-    when I(l) = (call x = f (arg*))
-     and Df ∈ dom P
-     and Df  = Function f ((mod y)*)
-     and I' := hd P(Df)
-     and E' := (y ↦ eval-arg P H E mod arg)*
-     and C' := (x, E, I, succ I l)
-
-  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
-    when I(l) = (call x = *ef (arg*))
-     and f  := eval P H E ef
+    when I(l) = (call x = e (arg*))
+     and f  := eval P H E e
      and Df ∈ dom P
      and Df  = Function f ((mod y)*)
      and I' := hd P(Df)
@@ -170,7 +158,7 @@ Update (partial) function, returns an H:
      and l' := if v = true  then l₁
                if v = false then l₂
 
-  step   osr(e, f^, lᵥ^, l^, (osr-map, ...)) (P, I, T, H, E, l)
+  step   osr(e, f^, lᵥ^, l^, (osr-map*)) (P, I, T, H, E, l)
        = (I', T, H, E', l')
     when v := eval P H E e
      and if v = false then
@@ -179,10 +167,10 @@ Update (partial) function, returns an H:
          E' := E
      and if v = true then
          Df ∈ dom P
-         Df  = Function f^ _
+         Df  = Function f^ (formal*)
          I' := P(Df, lᵥ^)
          l' := l^
-         E' := (osr-env P H E osr-map, ...)
+         E' := (osr-env P H E osr-map)*
 
 # Scopes
 
