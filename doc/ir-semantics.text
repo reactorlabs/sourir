@@ -5,7 +5,7 @@ F ::= (lᵥ ↦ V)*                          function body:      can contain mul
 V ::= start ↦ i, I                       a function version: instruction stream with dedicated start
 I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
-Df ::= Function f(mod x, ...)          function declaration
+Df ::= Function f((mod x)*)          function declaration
 
 x        variables
 
@@ -25,7 +25,7 @@ a  addresses
 
 i ::=    instructions
 | const x = e                   constant variable
-| call x = f arg*               function call
+| call x = fun (arg*)           function call
 | mut x = e                     mutable variable
 | x <- e                        assignment
 | branch e l₁ l₂                conditional
@@ -38,9 +38,14 @@ arg ::=
 | e
 | &x
 
+fun ::=
+| *e
+| f
+
 e ::=    (simple) expressions
 | lit                   literals
 | x                     variables
+| &&f                   function reference
 | primop(x, ...)        primitive operation (pure)
 
 lit ::=  literals
@@ -93,21 +98,24 @@ Update (partial) function, returns an H:
 
 ## Evaluation of simple expressions:
 
-  eval H E x = (H,E)[x]
-  eval H E lit = lit
-  eval H E primop(v, ...) = 〚primop〛(v, ...)
+  eval P H E x = (H,E)[x]
+  eval P H E lit = lit
+  eval P H E primop(v, ...) = 〚primop〛(v, ...)
+  eval P H E &&f            = f
+     and Df ∈ dom P
+     and Df  = Function f (mod y)*
 
 ## Osr transformation of environment
 
-  osr-env H E (const x = e) = (x ↦ eval H E e)
-  osr-env H E (mut x)       = (x ↦ ⊥)
-  osr-env H E (mut x = y)   = (x ↦ a)
+  osr-env P H E (const x = e) = (x ↦ eval P H E e)
+  osr-env P H E (mut x)       = (x ↦ ⊥)
+  osr-env P H E (mut x = y)   = (x ↦ a)
     where a = E(y)
 
 ## Argument evaluation
 
-  eval-arg H E const  e =  val eval H E e
-  eval-arg H E mut   &x =  ref a
+  eval-arg P H E const  e =  val eval P H E e
+  eval-arg P H E mut   &x =  ref a
     where E ∋ (x ↦ ref a)
 
 ## Reduction relation '-->'
@@ -117,14 +125,23 @@ Update (partial) function, returns an H:
   (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
     when I(l) = (call x = f (arg*))
      and Df ∈ dom P
-     and Df  = Function f (mod y)*
+     and Df  = Function f ((mod y)*)
      and I' := hd P(Df)
-     and E' := (y ↦ eval-arg H E mod arg)*
+     and E' := (y ↦ eval-arg P H E mod arg)*
+     and C' := (x, E, I, succ I l)
+
+  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
+    when I(l) = (call x = *ef (arg*))
+     and f  := eval P H E ef
+     and Df ∈ dom P
+     and Df  = Function f ((mod y)*)
+     and I' := hd P(Df)
+     and E' := (y ↦ eval-arg P H E mod arg)*
      and C' := (x, E, I, succ I l)
 
   (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
     when I(l) = (return e)
-     and v   := eval H E e
+     and v   := eval P H E e
      and C'   = (x', E', I', l')
      and E'' := E'[x' ↦ v]
 
@@ -132,30 +149,30 @@ Update (partial) function, returns an H:
 
   step   (const x = e) (P, I, T, H, E, l)
        = (I, T, H, E[x ↦ v], succ I l)
-    when v := eval H E e
+    when v := eval P H E e
 
   step   (mut x = e) (P, I, T, H, E, l)
        = (I, T, H[a ↦ v], E[x ↦ a], succ I l)
-    when v := eval H E e
+    when v := eval P H E e
      and a - fresh
 
   step   (x ← e) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← v], E, succ I l)
-    when v := eval H E e
+    when v := eval P H E e
 
   step   (print e) (P, I, T, H, E, l)
        = (I, (T, v), H, E, succ I l)
-    when v := eval H E e
+    when v := eval P H E e
 
   step   (branch e l₁ l₂) (P, I, T, H, E, l)
        = (I, T, H, E, l')
-    when v  := eval H E e
+    when v  := eval P H E e
      and l' := if v = true  then l₁
                if v = false then l₂
 
   step   osr(e, f^, lᵥ^, l^, (osr-map, ...)) (P, I, T, H, E, l)
        = (I', T, H, E', l')
-    when v := eval H E e
+    when v := eval P H E e
      and if v = false then
          I' := I
          l' := l
@@ -165,7 +182,7 @@ Update (partial) function, returns an H:
          Df  = Function f^ _
          I' := P(Df, lᵥ^)
          l' := l^
-         E' := (osr-env H E osr-map, ...)
+         E' := (osr-env P H E osr-map, ...)
 
 # Scopes
 

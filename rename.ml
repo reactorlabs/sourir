@@ -33,7 +33,7 @@ let fresh_version_label (func : afunction) label =
 
 let in_simple_expression old_name new_name (exp:simple_expression) : simple_expression =
   match exp with
-  | Lit _ -> exp
+  | Constant _ -> exp
   | Var x -> if x = old_name then Var new_name else exp
 
 let in_expression old_name new_name exp : expression =
@@ -63,7 +63,7 @@ let uses_in_instruction old_name new_name instr : instruction =
   match instr with
   | Call (x, f, exs) ->
     assert(x != old_name);   (* -> invalid scope *)
-    Call (x, f, List.map in_arg exs)
+    Call (x, in_expression f, List.map in_arg exs)
   | Stop e ->
     Stop (in_expression e)
   | Return e ->

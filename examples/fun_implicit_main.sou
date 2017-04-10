@@ -1,4 +1,4 @@
-call x = foo ()
+call x = 'foo ()
 print x
 
 function foo ()

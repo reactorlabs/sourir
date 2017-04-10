@@ -2,7 +2,7 @@ open Instr
 
 let var_in_simple_exp var (exp : simple_expression) (in_exp : simple_expression) : simple_expression =
   match in_exp with
-  | Lit _ -> in_exp
+  | Constant _ -> in_exp
   | Var x -> if x = var then exp else in_exp
 
 let var_in_exp var (exp : simple_expression) (in_exp : expression) : expression =

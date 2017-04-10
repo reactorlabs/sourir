@@ -22,90 +22,6 @@ end
 type variable = Variable.t
 type label = Label.t
 
-module Pc = struct
-  type t = int
-  let compare (x : int) y = Pervasives.compare x y
-end
-
-type pc = Pc.t
-
-type instruction_stream = instruction array
-and instruction =
-  | Decl_const of variable * expression
-  | Decl_mut of variable * (expression option)
-  | Call of variable * label * (argument list)
-  | Return of expression
-  | Drop of variable
-  | Assign of variable * expression
-  | Clear of variable
-  | Read of variable
-  | Branch of expression * label * label
-  | Label of label
-  | Goto of label
-  | Print of expression
-  | Osr of expression * label * label * label * osr_def list
-  | Stop of expression
-  | Comment of string
-and osr_def =
-  | Osr_const of variable * expression
-  | Osr_mut of variable * variable
-  | Osr_mut_undef of variable
-and argument =
-  | Arg_by_val of expression
-  | Arg_by_ref of variable
-and expression =
-  | Simple of simple_expression
-  | Op of primop * simple_expression list
-and simple_expression =
-  | Lit of literal
-  | Var of variable
-and literal =
-  | Nil
-  | Bool of bool
-  | Int of int
-and primop =
-  | Eq
-  | Neq
-  | Plus
-
-type value =
-  | Lit of literal
-
-type heap_value =
-  | Undefined
-  | Value of value
-
-type address = Address.t
-
-type binding =
-  | Val of value
-  | Ref of address
-
-let string_of_literal : literal -> string = function
-  | Nil -> "nil"
-  | Bool b -> string_of_bool b
-  | Int n -> string_of_int n
-
-let literal_of_string : string -> literal = function
-  | "nil" -> Nil
-  | "true" -> Bool true
-  | "false" -> Bool false
-  | n ->
-    try Int (int_of_string n) with _ ->
-      Printf.kprintf invalid_arg "literal_of_string %S" n
-
-let string_of_value (Lit lit) = string_of_literal lit
-let value_of_string str : value = Lit (literal_of_string str)
-
-exception Unbound_label of label
-
-let resolve (code : instruction_stream) (label : string) =
-  let rec loop i =
-    if i >= Array.length code then raise (Unbound_label label)
-    else if code.(i) = Label label then i
-    else loop (i + 1)
-  in loop 0
-
 module VarSet = Set.Make(Variable)
 
 type variable_type = Mut_var | Const_var
@@ -140,9 +56,125 @@ module ModedVarSet = struct
     filter (fun (_m, x) -> VarSet.mem x untyped) typed
 end
 
+module Identifier = struct
+  type t = string
+  let compare = String.compare
+end
+type identifier = Identifier.t
+
+module Pc = struct
+  type t = int
+  let compare (x : int) y = Pervasives.compare x y
+end
+
+type pc = Pc.t
+
+type instruction_stream = instruction array
+and instruction =
+  | Decl_const of variable * expression
+  | Decl_mut of variable * (expression option)
+  | Call of variable * expression * (argument list)
+  | Return of expression
+  | Drop of variable
+  | Assign of variable * expression
+  | Clear of variable
+  | Read of variable
+  | Branch of expression * label * label
+  | Label of label
+  | Goto of label
+  | Print of expression
+  | Osr of expression * label * label * label * osr_def list
+  | Stop of expression
+  | Comment of string
+and osr_def =
+  | Osr_const of variable * expression
+  | Osr_mut of variable * variable
+  | Osr_mut_undef of variable
+and argument =
+  | Arg_by_val of expression
+  | Arg_by_ref of variable
+and expression =
+  | Simple of simple_expression
+  | Op of primop * simple_expression list
+and simple_expression =
+  | Constant of value
+  | Var of variable
+and value =
+  | Nil
+  | Bool of bool
+  | Int of int
+  | Fun_ref of string
+and primop =
+  | Eq
+  | Neq
+  | Plus
+
+type scope_annotation =
+  | ExactScope of VarSet.t
+  | AtLeastScope of VarSet.t
+
+type inferred_scope =
+  | DeadScope
+  | Scope of ModedVarSet.t
+
+type annotations = scope_annotation option array
+
+type formal_parameter =
+  | Const_val_param of variable
+  | Mut_ref_param of variable
+
+type version = {
+  label : label;
+  instrs : instruction_stream;
+  annotations : annotations option;
+}
+type afunction = {
+  name : identifier;
+  formals : formal_parameter list;
+  body : version list;
+}
+type program = {
+  main : afunction;
+  functions : afunction list;
+}
+
+type heap_value =
+  | Undefined
+  | Value of value
+
+type address = Address.t
+
+type binding =
+  | Val of value
+  | Ref of address
+
+let string_of_value : value -> string = function
+  | Nil -> "nil"
+  | Bool b -> string_of_bool b
+  | Int n -> string_of_int n
+  | Fun_ref f -> "'" ^ f
+
+let value_of_string : string -> value = function
+  | "nil" -> Nil
+  | "true" -> Bool true
+  | "false" -> Bool false
+  (* Should we allow function literals as user input? *)
+  | n ->
+    try Int (int_of_string n) with _ ->
+      Printf.kprintf invalid_arg "value_of_string %S" n
+
+exception Unbound_label of label
+
+let resolve (code : instruction_stream) (label : string) =
+  let rec loop i =
+    if i >= Array.length code then raise (Unbound_label label)
+    else if code.(i) = Label label then i
+    else loop (i + 1)
+  in loop 0
+
 let simple_expr_vars = function
   | Var x -> VarSet.singleton x
-  | Lit _ -> VarSet.empty
+  | Constant _ -> VarSet.empty
 
 let expr_vars = function
   | Simple e -> simple_expr_vars e
@@ -175,8 +207,9 @@ let declared_vars = function
  * Producer: declared_vars *)
 let required_vars = function
   | Call (_x, f, es) ->
+    let s = expr_vars f in
     let vs = List.map arg_vars es in
-    List.fold_left VarSet.union VarSet.empty vs
+    List.fold_left VarSet.union s vs
   | Stop e
   | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
@@ -192,7 +225,7 @@ let required_vars = function
     let exps = List.map (function
         | Osr_const (_, e) -> e
         | Osr_mut (_, x) -> Simple (Var x)
-        | Osr_mut_undef _ -> Simple (Lit Nil)) osr in
+        | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
@@ -251,9 +284,10 @@ let cleared_vars = function
 (* Which variables need to be defined
  * Producer: defined_vars *)
 let used_vars = function
-  | Call (_x, _f, es) ->
+  | Call (_x, f, es) ->
+    let v = expr_vars f in
     let vs = List.map arg_vars es in
-    List.fold_left VarSet.union VarSet.empty vs
+    List.fold_left VarSet.union v vs
   | Stop e
   | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e
@@ -273,44 +307,9 @@ let used_vars = function
     let exps = List.map (function
         | Osr_const (_, e) -> e
         | Osr_mut (_, x) -> Simple (Var x)
-        | Osr_mut_undef _ -> Simple (Lit Nil)) osr in
+        | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
-
-module Identifier = struct
-  type t = string
-  let compare = String.compare
-end
-type identifier = Identifier.t
-
-type scope_annotation =
-  | ExactScope of VarSet.t
-  | AtLeastScope of VarSet.t
-
-type inferred_scope =
-  | DeadScope
-  | Scope of ModedVarSet.t
-
-type annotations = scope_annotation option array
-
-type formal_parameter =
-  | Const_val_param of variable
-  | Mut_ref_param of variable
-
-type version = {
-  label : label;
-  instrs : instruction_stream;
-  annotations : annotations option;
-}
-type afunction = {
-  name : identifier;
-  formals : formal_parameter list;
-  body : version list;
-}
-type program = {
-  main : afunction;
-  functions : afunction list;
-}
 
 exception FunctionDoesNotExist of identifier
 
@@ -330,6 +329,6 @@ let replace_active_version (func : afunction) (repl : version) : afunction =
     body = repl :: (List.tl func.body); }
 
 module Value = struct
-  let int n : value = Lit (Int n)
-  let bool b : value = Lit (Bool b)
+  let int n : value = Int n
+  let bool b : value = Bool b
 end

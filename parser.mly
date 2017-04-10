@@ -2,7 +2,7 @@
 %token<bool> BOOL
 %token<int> INT
 %token<string> IDENTIFIER
-%token AMPERSAND
+%token AMPERSAND SINGLE_QUOTE
 %token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
@@ -114,7 +114,7 @@ osr_def:
     { Osr_mut (x, y) }
 
 instruction:
-| CALL x=variable EQUAL f=variable LPAREN args=separated_list(COMMA, argument) RPAREN
+| CALL x=variable EQUAL f=expression LPAREN args=separated_list(COMMA, argument) RPAREN
   { Call (x, f, args) }
 | RETURN e=expression
   { Return e }
@@ -149,7 +149,7 @@ instruction:
   { Comment s }
 
 simple_expression:
-  | lit=lit { Lit lit }
+  | v=lit { Constant v }
   | x=variable { Var x }
 
 argument:
@@ -176,6 +176,7 @@ infixop:
   (* | GTE { Gte } *)
 
 lit:
-  | NIL { (Nil : literal) }
-  | b=BOOL { (Bool b : literal) }
-  | n=INT { (Int n : literal) }
+  | NIL { (Nil : value) }
+  | SINGLE_QUOTE f=variable { (Fun_ref f : value) }
+  | b=BOOL { (Bool b : value) }
+  | n=INT { (Int n : value) }

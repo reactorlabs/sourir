@@ -166,10 +166,10 @@ let () =
     let open Eval in
     match conf.status with
     | Running -> assert(false)
-    | Result (Lit (Int n)) ->
+    | Result (Int n) ->
       exit n
-    | Result (Lit (Bool b)) ->
+    | Result (Bool b) ->
       exit (if b then 1 else 0)
-    | Result (Lit Nil) ->
+    | Result Nil | Result Fun_ref _ ->
       exit 0
 
