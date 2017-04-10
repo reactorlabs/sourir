@@ -33,7 +33,7 @@ let fresh_version_label (func : afunction) label =
 
 let in_simple_expression old_name new_name (exp:simple_expression) : simple_expression =
   match exp with
-  | Lit _ -> exp
+  | Constant _ -> exp
   | Var x -> if x = old_name then Var new_name else exp
 
 let in_expression old_name new_name exp : expression =

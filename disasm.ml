@@ -14,7 +14,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     in
     let simple buf = function
       | Var v             -> pr buf "%s" v
-      | Lit lit           -> pr buf "%s" (string_of_literal lit)
+      | Constant c        -> pr buf "%s" (string_of_value c)
     in
     let dump_expr exp =
       match exp with

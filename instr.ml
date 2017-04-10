@@ -97,9 +97,9 @@ and expression =
   | Simple of simple_expression
   | Op of primop * simple_expression list
 and simple_expression =
-  | Lit of literal
+  | Constant of value
   | Var of variable
-and literal =
+and value =
   | Nil
   | Bool of bool
   | Int of int
@@ -138,12 +138,6 @@ type program = {
   functions : afunction list;
 }
 
-type value =
-  | Nil
-  | Bool of bool
-  | Int of int
-  | Fun_ref of afunction
-
 type heap_value =
   | Undefined
   | Value of value
@@ -154,35 +148,20 @@ type binding =
   | Val of value
   | Ref of address
 
-let string_of_literal : literal -> string = function
-  | Nil -> "nil"
-  | Bool b -> string_of_bool b
-  | Int n -> string_of_int n
-  | Fun_ref f -> "&&"^f
-
 let string_of_value : value -> string = function
   | Nil -> "nil"
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
-  | Fun_ref f -> "&&" ^ f.name
-
-let literal_of_string : string -> literal = function
-  | "nil" -> Nil
-  | "true" -> Bool true
-  | "false" -> Bool false
-  | n when String.sub n 0 1 = "&" ->
-    Fun_ref (String.sub n 1 ((String.length n)-1))
-  | n ->
-    try Int (int_of_string n) with _ ->
-      Printf.kprintf invalid_arg "literal_of_string %S" n
+  | Fun_ref f -> "&&" ^ f
 
 let value_of_string : string -> value = function
   | "nil" -> Nil
   | "true" -> Bool true
   | "false" -> Bool false
+  (* Should we allow function literals as user input? *)
   | n ->
     try Int (int_of_string n) with _ ->
-      Printf.kprintf invalid_arg "litteral_of_string %S" n
+      Printf.kprintf invalid_arg "value_of_string %S" n
 
 exception Unbound_label of label
 
@@ -195,7 +174,7 @@ let resolve (code : instruction_stream) (label : string) =
 
 let simple_expr_vars = function
   | Var x -> VarSet.singleton x
-  | Lit _ -> VarSet.empty
+  | Constant _ -> VarSet.empty
 
 let expr_vars = function
   | Simple e -> simple_expr_vars e
@@ -246,7 +225,7 @@ let required_vars = function
     let exps = List.map (function
         | Osr_const (_, e) -> e
         | Osr_mut (_, x) -> Simple (Var x)
-        | Osr_mut_undef _ -> Simple (Lit Nil)) osr in
+        | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 
@@ -328,7 +307,7 @@ let used_vars = function
     let exps = List.map (function
         | Osr_const (_, e) -> e
         | Osr_mut (_, x) -> Simple (Var x)
-        | Osr_mut_undef _ -> Simple (Lit Nil)) osr in
+        | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
 

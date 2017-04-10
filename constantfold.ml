@@ -18,7 +18,7 @@ let const_prop (func : afunction) : afunction =
   let rec find_candidates instrs pc acc =
     if pc = Array.length instrs then acc
     else match[@warning "-4"] instrs.(pc) with
-    | Decl_const (x, Simple(Lit(l))) ->
+    | Decl_const (x, Simple(Constant(l))) ->
         find_candidates instrs (pc+1) ((pc, x, l) :: acc)
     | _ -> find_candidates instrs (pc+1) acc
   in
@@ -96,7 +96,7 @@ let const_prop (func : afunction) : afunction =
       let succs = successors_at instrs pc in
       let targets = find_targets instrs x succs PcSet.empty in
       let instrs = Array.copy instrs in
-      let convert_at pc = instrs.(pc) <- convert x (Lit(l)) instrs.(pc) in
+      let convert_at pc = instrs.(pc) <- convert x (Constant(l)) instrs.(pc) in
       PcSet.iter convert_at targets;
       instrs
     in

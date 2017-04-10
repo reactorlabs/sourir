@@ -4,7 +4,7 @@ module Env = Map.Make(Variable)
 module Heap = Map.Make(Address)
 
 type input = IO.input
-type trace = string list
+type trace = value list
 type environment = binding Env.t
 type heap = heap_value Heap.t
 
@@ -27,8 +27,8 @@ type configuration = {
   continuation : continuation list;
 }
 
-type value_type = Nil | Bool | Int | Fun_ref
-let value_type : value -> value_type = function
+type type_tag = Nil | Bool | Int | Fun_ref
+let get_tag : value -> type_tag = function
   | Nil -> Nil
   | Bool _ -> Bool
   | Int _ -> Int
@@ -42,13 +42,13 @@ exception Invalid_update
 exception Invalid_clear
 
 type type_error = {
-  expected : value_type;
-  received : value_type;
+  expected : type_tag;
+  received : type_tag;
 }
 exception Type_error of type_error
 type product_type_error = {
-  expected : value_type * value_type;
-  received : value_type * value_type;
+  expected : type_tag * type_tag;
+  received : type_tag * type_tag;
 }
 exception ProductType_error of product_type_error
 
@@ -100,7 +100,7 @@ let value_plus (v1 : value) (v2 : value) =
   | Int n1, Int n2 -> n1 + n2
   | (Int _ | Nil | Bool _ | Fun_ref _) as x1, x2 ->
       let expected = (Int, Int) in
-      let received = value_type x1, value_type x2 in
+      let received = get_tag x1, get_tag x2 in
       raise (ProductType_error { expected; received })
 
 let value_neq (v1 : value) (v2 : value) =
@@ -108,10 +108,7 @@ let value_neq (v1 : value) (v2 : value) =
 
 let eval_simple prog heap env = function
   | Var x -> lookup heap env x
-  | Lit (Fun_ref f) -> Fun_ref (lookup_fun prog f)
-  | Lit (Int i) -> Int i
-  | Lit (Bool b) -> Bool b
-  | Lit Nil -> Nil
+  | Constant c -> c
 
 let rec eval prog heap env = function
   | Simple e -> eval_simple prog heap env e
@@ -127,14 +124,14 @@ let get_bool (v : value) =
   match v with
   | Bool b -> b
   | (Nil | Int _ | Fun_ref _) as other ->
-     let expected, received = Bool, value_type other in
+     let expected, received = Bool, get_tag other in
      raise (Type_error { expected; received })
 
 let get_fun (v : value) =
   match v with
   | Fun_ref f -> f
   | (Nil | Int _ | Bool _) as other ->
-     let expected, received = Fun_ref, value_type other in
+     let expected, received = Fun_ref, get_tag other in
      raise (Type_error { expected; received })
 
 exception InvalidArgument
@@ -147,7 +144,7 @@ let reduce conf =
   assert (conf.status = Running);
 
   let instruction =
-    let default_exit = (Simple (Lit (Int 0))) in
+    let default_exit = (Simple (Constant (Int 0))) in
     if conf.pc < Array.length conf.instrs
     then conf.instrs.(conf.pc)
     else if conf.continuation = []
@@ -193,7 +190,8 @@ let reduce conf =
 
   match instruction with
   | Call (x, f, args) ->
-    let func = get_fun(eval conf f) in
+    let f = eval conf f in
+    let func = lookup_fun conf.program (get_fun f) in
     if List.length func.formals <> List.length args then raise InvalidNumArgs;
     let version = Instr.active_version func in
     let call_env = build_call_frame func.formals args in
@@ -284,7 +282,7 @@ let reduce conf =
   | Print e ->
      let v = eval conf e in
      { conf with
-       trace = (string_of_value v) :: conf.trace;
+       trace = v :: conf.trace;
        pc = pc';
      }
   | Osr (e, f, v, l, osr_def) ->
@@ -352,7 +350,7 @@ let rec reduce_interactive conf =
     let conf = reduce conf in
     begin match conf.trace with
       | [] -> ()
-      | vs -> print_endline (String.concat " " vs)
+      | vs -> print_endline (String.concat " " (List.map Instr.string_of_value vs))
     end;
     reduce_interactive { conf with trace = [] }
   end

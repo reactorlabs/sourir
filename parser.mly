@@ -149,7 +149,7 @@ instruction:
   { Comment s }
 
 simple_expression:
-  | lit=lit { Lit lit }
+  | v=lit { Constant v }
   | x=variable { Var x }
 
 argument:
@@ -176,7 +176,7 @@ infixop:
   (* | GTE { Gte } *)
 
 lit:
-  | NIL { (Nil : literal) }
-  | AMPERSAND AMPERSAND f=variable { (Fun_ref f : literal) }
-  | b=BOOL { (Bool b : literal) }
-  | n=INT { (Int n : literal) }
+  | NIL { (Nil : value) }
+  | AMPERSAND AMPERSAND f=variable { (Fun_ref f : value) }
+  | b=BOOL { (Bool b : value) }
+  | n=INT { (Int n : value) }

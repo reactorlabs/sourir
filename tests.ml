@@ -1069,7 +1069,7 @@ let test_functions () =
   let test str n =
     run (parse str) no_input (returns (Int n)) () in
   let test_p str out =
-    run (parse str) no_input (trace_is [out]) () in
+    run (parse str) no_input (trace_is out) () in
   test "return 1\n" 1;
   test "return (1+1)\n" 2;
   test {pr|
@@ -1115,7 +1115,7 @@ let test_functions () =
       return 1
   |pr} 3;
   assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (Arg_by_val (Simple (Lit (Int 22)))))))
+    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (Arg_by_val (Simple (Constant (Int 22)))))))
     (fun () ->
     test {pr|
        call x = &&bla (22)
@@ -1212,7 +1212,7 @@ let test_functions () =
      print y
     function bla (const y)
       return y
-  |pr} "&&bla";
+  |pr} [(Fun_ref "bla")];
   test {pr|
      mut x = &&bla
      call y = x (&&bla2)
@@ -1266,11 +1266,11 @@ let suite =
   "suite">:::
   ["mut">:: run test_mut no_input
      (has_var "x" (Value.int 2)
-      &&& (trace_is ["1"; "2"]));
+      &&& (trace_is Value.[int 1; int 2]));
    "decl_const">:: run test_decl_const no_input
      (has_var "x" (Value.int 1));
    "print">:: run test_print no_input
-     (trace_is ["1"; "2"]);
+     (trace_is Value.[int 1; int 2]);
    "jump">:: run test_jump no_input
      (has_var "x" (Value.bool true));
    "jump (oo)" >:: run test_overloading no_input
@@ -1288,7 +1288,7 @@ let suite =
    "loops">:: run (test_sum 5) no_input
      (has_var "sum" (Value.int 10));
    "read">:: run test_read_print (input [Value.bool false; Value.int 1])
-     (trace_is ["1"; "false"]);
+     (trace_is Value.[int 1; bool false]);
    "mut_undeclared">::
    (fun () -> assert_raises (Eval.Unbound_variable "b")
        (run_unchecked test_read_print_err
