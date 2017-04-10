@@ -1,6 +1,6 @@
 function main ()
  const x = 1
- call y = foo ()
+ call y = &&foo ()
  print y
 
 function foo ()

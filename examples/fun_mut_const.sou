@@ -1,10 +1,10 @@
 mut x = 1
 const y = 2
 
-call c1 = take_const (x)
-call c2 = take_const (y)
+call c1 = &&take_const (x)
+call c2 = &&take_const (y)
 const s1 = (c1+c2)
-call c3 = take_mut (&x)
+call c3 = &&take_mut (&x)
 
 print (s1+x)
 

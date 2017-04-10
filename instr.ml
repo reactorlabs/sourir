@@ -73,7 +73,6 @@ type instruction_stream = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
-  | StaticCall of variable * variable * (argument list)
   | Call of variable * expression * (argument list)
   | Return of expression
   | Drop of variable
@@ -210,7 +209,6 @@ let arg_vars = function
 
 let declared_vars = function
   | Call (x, _, _)
-  | StaticCall (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
   | (Assign _
@@ -229,9 +227,6 @@ let declared_vars = function
 (* Which variables need to be in scope
  * Producer: declared_vars *)
 let required_vars = function
-  | StaticCall (_x, _f, es) ->
-    let vs = List.map arg_vars es in
-    List.fold_left VarSet.union VarSet.empty vs
   | Call (_x, f, es) ->
     let s = expr_vars f in
     let vs = List.map arg_vars es in
@@ -257,7 +252,6 @@ let required_vars = function
 
 let defined_vars = function
   | Call (x, _, _)
-  | StaticCall (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, Some _)
   | Assign (x ,_)
@@ -278,7 +272,6 @@ let dropped_vars = function
   | Drop x -> VarSet.singleton x
   | Return _
   | Call _
-  | StaticCall _
   | Decl_const _
   | Decl_mut _
   | Assign _
@@ -296,7 +289,6 @@ let cleared_vars = function
   | Clear x -> VarSet.singleton x
   | Return _
   | Call _
-  | StaticCall _
   | Decl_const _
   | Decl_mut _
   | Assign _
@@ -317,9 +309,6 @@ let used_vars = function
     let v = expr_vars f in
     let vs = List.map arg_vars es in
     List.fold_left VarSet.union v vs
-  | StaticCall (_x, _f, es) ->
-    let vs = List.map arg_vars es in
-    List.fold_left VarSet.union VarSet.empty vs
   | Stop e
   | Return e -> expr_vars e
   | Decl_const (_x, e) -> expr_vars e

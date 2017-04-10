@@ -68,6 +68,5 @@ rule token = parse
   | "=" { EQUAL }
   | "<-" { LEFTARROW }
   | "&" { AMPERSAND }
-  | "*" { STAR }
   | eof { EOF }
   | _ { lexing_error lexbuf }

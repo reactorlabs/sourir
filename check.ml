@@ -103,8 +103,6 @@ let well_formed prog =
         | Osr_const (_, e) -> check_expr e
         | Osr_mut _ | Osr_mut_undef _ -> () in
       match instr with
-      | StaticCall (_x, _f, es) ->
-        List.iter check_arg es
       | Call (_x, f, es) ->
         (check_expr f;
          List.iter check_arg es)
@@ -138,12 +136,6 @@ let well_formed prog =
           check_signature pc func' exs
         | _ -> ()
         end;
-        check_fun_ref instr
-      | StaticCall (x, f, exs) ->
-        (* Check call-by-name args are mut *)
-        List.iter (check_static_arg pc) exs;
-        let func' = lookup_fun f in
-        check_signature pc func' exs;
         check_fun_ref instr
       | Osr (e, f, v, l, osr) ->
         (* function and version mentioned in the osr need to exist *)

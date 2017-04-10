@@ -2,7 +2,7 @@
 %token<bool> BOOL
 %token<int> INT
 %token<string> IDENTIFIER
-%token AMPERSAND STAR
+%token AMPERSAND
 %token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
@@ -114,10 +114,8 @@ osr_def:
     { Osr_mut (x, y) }
 
 instruction:
-| CALL x=variable EQUAL STAR f=expression LPAREN args=separated_list(COMMA, argument) RPAREN
+| CALL x=variable EQUAL f=expression LPAREN args=separated_list(COMMA, argument) RPAREN
   { Call (x, f, args) }
-| CALL x=variable EQUAL f=variable LPAREN args=separated_list(COMMA, argument) RPAREN
-  { StaticCall (x, f, args) }
 | RETURN e=expression
   { Return e }
 | CONST x=variable EQUAL e=expression

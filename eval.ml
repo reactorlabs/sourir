@@ -192,19 +192,6 @@ let reduce conf =
   in
 
   match instruction with
-  | StaticCall (x, f, args) ->
-    let func = Instr.lookup_fun conf.program f in
-    let version = Instr.active_version func in
-    let call_env = build_call_frame func.formals args in
-    let cont_pos = (conf.cur_fun, conf.cur_vers, pc') in
-    { conf with
-      env = call_env;
-      instrs = version.instrs;
-      pc = 0;
-      cur_fun = func.name;
-      cur_vers = version.label;
-      continuation = (x, conf.env, cont_pos) :: conf.continuation
-    }
   | Call (x, f, args) ->
     let func = get_fun(eval conf f) in
     if List.length func.formals <> List.length args then raise InvalidNumArgs;
