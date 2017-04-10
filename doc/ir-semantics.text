@@ -38,11 +38,14 @@ arg ::=
 | e
 | &x
 
-e ::=    (simple) expressions
+e ::=     expression
+| se                    simple expression
+| primop(se*)           primitive operation (pure)
+
+se ::=    simple expressions
 | lit                   literals
 | x                     variables
-| 'f                    function reference
-| primop(x, ...)        primitive operation (pure)
+| 'f                    create function reference
 
 lit ::=  literals
 | nil
@@ -51,6 +54,7 @@ lit ::=  literals
 
 v :=     values
 | lit                   literals
+| f                     function reference
 
 (Note: heap adresses are not values)
 
@@ -62,7 +66,7 @@ osr-map ::=    osr mapping declaration
 # Natural operational semantics
 
 E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
-H ::= (l ↦ v)                             mutable heap
+H ::= (l ↦ v)                           mutable heap
 
 T ::= (lit)*                    output trace
 
@@ -92,14 +96,17 @@ Update (partial) function, returns an H:
   (H,E)[x ← v] :=
     H[a ↦ v] if E ∋ (x ↦ ref a)
 
-## Evaluation of simple expressions:
+## Evaluation of (simple) expressions:
 
-  eval P H E x = (H,E)[x]
-  eval P H E lit = lit
-  eval P H E primop(v, ...) = 〚primop〛(v, ...)
-  eval P H E 'f             = f
+  simple-eval P H E x   = (H,E)[x]
+  simple-eval P H E lit = lit
+  simple-eval P H E 'f  = f
     where Df ∈ dom P
       and Df  = Function f (formal*)
+
+  eval P H E se          = simple-eval P H E se
+  eval P H E primop(se*) = 〚primop〛(v*)
+    where v := simple-eval P H E se
 
 ## Osr transformation of environment
 
