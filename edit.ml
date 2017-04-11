@@ -45,7 +45,7 @@ let move instrs from_pc to_pc =
 
 type pc_map = int -> int
 
-type result = Instr.instruction_stream * pc_map
+type result = Instr.instructions * pc_map
 
 let subst_pc instrs start_pc len new_instrs pc =
   if pc < start_pc then pc
@@ -165,8 +165,8 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     assert (VarSet.is_empty (used_vars instr));
     instr
 
-let freshen_assign (instrs : instruction_stream) (def : pc) =
-  let uses = Analysis.PcSet.elements (Analysis.used instrs def) in
+let freshen_assign ({instrs} as inp : analysis_input) (def : pc) =
+  let uses = Analysis.PcSet.elements (Analysis.used inp def) in
   let instr = instrs.(def) in
   match[@warning "-4"] instr with
   | Assign (x, exp) ->
@@ -178,20 +178,19 @@ let freshen_assign (instrs : instruction_stream) (def : pc) =
     assert(false)
 open Instr
 
-let var_in_simple_exp var (exp : simple_expression) (in_exp : simple_expression) : simple_expression =
-  match in_exp with
-  | Constant _ -> in_exp
-  | Var x -> if x = var then exp else in_exp
+let replace_var_in_exp var (exp : simple_expression) (in_exp : expression) : expression =
+  let in_simple_exp in_exp =
+    match in_exp with
+    | Constant _ -> in_exp
+    | Var x -> if x = var then exp else in_exp in
 
-let var_in_exp var (exp : simple_expression) (in_exp : expression) : expression =
-  let in_simple_expression = var_in_simple_exp var exp in
   match in_exp with
-  | Simple se -> Simple (in_simple_expression se)
+  | Simple se -> Simple (in_simple_exp se)
   | Op (op, exps) ->
-    Op (op, List.map in_simple_expression exps)
+    Op (op, List.map in_simple_exp exps)
 
-let var_in_arg var (exp : simple_expression) (in_arg : argument) : argument =
-  let replace = var_in_exp var exp in
+let replace_var_in_arg var (exp : simple_expression) (in_arg : argument) : argument =
+  let replace = replace_var_in_exp var exp in
   match in_arg with
     | Arg_by_val e -> Arg_by_val (replace e)
     | Arg_by_ref x as a -> assert (var <> x); a

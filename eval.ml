@@ -21,7 +21,7 @@ type configuration = {
   pc : pc;
   cur_fun : identifier;
   cur_vers : label;
-  instrs : instruction_stream;
+  instrs : instructions;
   status : status;
   deopt : string option;
   continuation : continuation list;

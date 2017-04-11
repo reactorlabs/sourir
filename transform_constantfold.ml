@@ -11,7 +11,7 @@ open Instr
  * is replaced by the literal `l`. Afterwards, the variable `x` is no longer
  * used, and the declaration can be removed by running `minimize_lifetimes`.
  *)
-let const_prop (instrs : instruction_stream) : instruction_stream option =
+let const_prop ({formals; instrs} : analysis_input) : instructions option =
   (* Finds the declarations that can be used for constant propagation.
      Returns a list of (pc, x, l) where `const x = l` is defined at pc `pc`. *)
   let rec find_candidates instrs pc acc =
@@ -24,8 +24,8 @@ let const_prop (instrs : instruction_stream) : instruction_stream option =
 
   (* Replaces the variable `x` with literal `l` in instruction `instr`. *)
   let convert x l instr =
-    let replace = Edit.var_in_exp x l in
-    let replace_arg = Edit.var_in_arg x l in
+    let replace = Edit.replace_var_in_exp x l in
+    let replace_arg = Edit.replace_var_in_arg x l in
     match instr with
     | Call (y, f, es) ->
       assert (x <> y);

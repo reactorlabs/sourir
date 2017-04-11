@@ -1,7 +1,7 @@
 open Instr
 open Transform_utils
 
-let result_version (func : afunction) (label : label) (instrs : instruction_stream) : version =
+let result_version (func : afunction) (label : label) (instrs : instructions) : version =
   { label = Edit.fresh_version_label func label;
     instrs;
     annotations = None }
@@ -9,8 +9,9 @@ let result_version (func : afunction) (label : label) (instrs : instruction_stre
 let insert_branch_pruning_assumption (func : afunction) : version option =
   let version = Instr.active_version func in
   let instrs = version.instrs in
-  let scope = Scope.infer func version in
-  let live = Analysis.live instrs in
+  let inp = Analysis.as_analysis_input func version in
+  let scope = Scope.infer inp in
+  let live = Analysis.live inp in
   let transform pc =
     match scope.(pc) with
     | DeadScope -> assert(false)
@@ -31,6 +32,6 @@ let insert_branch_pruning_assumption (func : afunction) : version option =
       | _ -> Unchanged
       end
   in
-  match change_instrs transform instrs with
+  match change_instrs transform inp with
   | None -> None
   | Some instrs -> Some (result_version func version.label instrs)

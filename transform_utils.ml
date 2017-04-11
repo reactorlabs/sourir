@@ -5,7 +5,7 @@ type instruction_change =
   | Insert of instruction list
   | Unchanged
 
-let change_instrs (transform : pc -> instruction_change) (instrs : instruction_stream) =
+let change_instrs (transform : pc -> instruction_change) ({formals; instrs} : analysis_input) =
   let rec acc_instr pc acc changed =
     if pc = Array.length instrs then
       if changed then Some (Array.of_list (List.rev acc)) else None

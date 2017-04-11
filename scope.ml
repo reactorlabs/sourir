@@ -18,19 +18,9 @@ type inference_state = {
 }
 
 exception IncompatibleScope of inference_state * inference_state * pc
-exception DuplicateFormalParameter
 
-let infer func version : inferred_scope array =
+let infer ({formals; instrs} : analysis_input) : inferred_scope array =
   let open Analysis in
-
-  let to_moded_var = function
-    | Const_val_param x -> (Const_var, x)
-    | Mut_ref_param x -> (Mut_var, x)
-  in
-  let formals = ModedVarSet.of_list (List.map to_moded_var func.formals) in
-  if (List.length func.formals) <> (List.length (VarSet.elements (ModedVarSet.untyped formals))) then
-    raise DuplicateFormalParameter else
-  let instructions = version.instrs in
 
   let infer_scope instructions =
     let merge pc cur incom =
@@ -55,7 +45,7 @@ let infer func version : inferred_scope array =
       { sources = PcSet.singleton pc; info = final_info; }
     in
     let initial_state = { sources = PcSet.empty; info = formals; } in
-    let res = Analysis.forward_analysis initial_state instructions merge update in
+    let res = Analysis.forward_analysis initial_state instrs merge update in
     fun pc -> (res pc).info in
 
   let check_initialized instructions =
@@ -72,10 +62,10 @@ let infer func version : inferred_scope array =
          that only declared variables are defined. *)
       ModedVarSet.diff_untyped updated (VarSet.union dropped cleared)
     in
-    Analysis.forward_analysis formals instructions merge update in
+    Analysis.forward_analysis formals instrs merge update in
 
-  let inferred = infer_scope instructions in
-  let initialized = check_initialized instructions in
+  let inferred = infer_scope instrs in
+  let initialized = check_initialized instrs in
 
   let resolve pc instr =
     match inferred pc, initialized pc with
@@ -91,7 +81,7 @@ let infer func version : inferred_scope array =
       then raise (UninitializedVariable (VarSet.diff used defined', pc));
       Scope defined in
 
-  Array.mapi resolve instructions
+  Array.mapi resolve instrs
 
 let check (scope : inferred_scope array) annotations =
   let check_at pc scope =
@@ -117,9 +107,9 @@ let check (scope : inferred_scope array) annotations =
 exception ScopeExceptionAt of label * label * exn
 
 let check_function (func : afunction) =
-  List.iter (fun version ->
+  List.iter (fun (version : version) ->
       let check () =
-        let inferred = infer func version in
+        let inferred = infer (Analysis.as_analysis_input func version) in
         match version.annotations with
         | None ->
           let annot = Array.map (fun _ -> None) version.instrs in

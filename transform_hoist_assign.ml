@@ -13,26 +13,31 @@ open Instr
  * We only look at our own use-def chain. Thus the transformation renames the
  * variable to avoid overriding unrelated uses of the same name.
  *)
-let hoist_assignment (instrs : instruction_stream) : instruction_stream option =
-  let reaching = Analysis.reaching instrs in
-  let uses = Analysis.used instrs in
-  let dominates = Analysis.dominates instrs in
+let hoist_assignment ({formals; instrs} as inp : analysis_input) : instructions option =
+  let open Analysis in
+  let reaching = reaching inp in
+  let uses = used inp in
+  let dominates = dominates inp in
   let dominates_all_uses pc =
-    Analysis.PcSet.for_all (fun use -> dominates pc use) (uses pc) in
+    PcSet.for_all (fun use -> dominates pc use) (uses pc) in
+  let aliased = aliased inp in
+  let aliased var pc = VarSet.mem var (aliased pc) in
   let rec find_possible_move pc =
     if pc = Array.length instrs then None
     else
       let pc' = pc + 1 in
       match[@warning "-4"] instrs.(pc) with
       | Assign (x, exp) ->
-        if not (dominates_all_uses pc) then find_possible_move pc'
+        if (not (dominates_all_uses pc)) || (aliased x pc) then find_possible_move pc'
         else
           let reaching_defs = reaching pc in
           let valid_move candidate =
-            let dominate_me = Analysis.PcSet.for_all (fun pc -> dominates pc candidate) in
+            let dominate_me = PosSet.for_all (fun pos -> match pos with
+                | Arg -> true
+                | Instr pc -> dominates pc candidate) in
             dominates candidate pc && dominate_me reaching_defs in
 
-          begin match Analysis.find_first instrs valid_move with
+          begin match find_first instrs valid_move with
           | exception Not_found -> find_possible_move pc'
           | pc' -> Some (pc, pc')
           end
@@ -45,6 +50,6 @@ let hoist_assignment (instrs : instruction_stream) : instruction_stream option =
   | None -> None
   | Some (from_pc, to_pc) ->
     let copy = Array.copy instrs in
-    Edit.freshen_assign copy from_pc;
+    Edit.freshen_assign {formals; instrs=copy} from_pc;
     Edit.move copy from_pc to_pc;
     Some copy

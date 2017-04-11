@@ -340,13 +340,13 @@ continue:
 
 let test_branch_pruning_exp prog expected =
   let open Transform in
-  let prog2 = { prog with main = !!! branch_prune prog.main } in
+  let prog2 = { prog with main = try_opt branch_prune prog.main } in
   assert_equal (Disasm.disassemble_s prog2) expected
 
 let test_branch_pruning prog deopt =
   let open Eval in
   let open Transform in
-  let prog2 = { prog with main = !!! branch_prune prog.main } in
+  let prog2 = { prog with main = try_opt branch_prune prog.main } in
   let res1 = Eval.run_forever no_input prog in
   let res2 = Eval.run_forever no_input prog2 in
   assert_equal res1.trace res2.trace;
@@ -398,9 +398,9 @@ l3:
 "
 
 let do_test_liveness = function () ->
-  let v = Instr.active_version test_df.main in
   let open Analysis in
-  let live = live v.instrs in
+  let v = (as_analysis_input test_df.main (Instr.active_version test_df.main)) in
+  let live = live v in
   assert_equal_sorted (live 0) ["a"];
   assert_equal_sorted (live 1) ["a";"b"];
   assert_equal_sorted (live 2) ["a"];
@@ -418,9 +418,9 @@ let do_test_liveness = function () ->
 
 
 let do_test_used = function () ->
-  let v = Instr.active_version test_df.main in
   let open Analysis in
-  let used = used v.instrs in
+  let v = (as_analysis_input test_df.main (Instr.active_version test_df.main)) in
+  let used = used v in
   assert_equal_sorted (PcSet.elements (used 0)) [2;5;7];
   assert_equal_sorted (PcSet.elements (used 1)) [2];
   assert_equal_sorted (PcSet.elements (used 2)) [];
@@ -436,16 +436,16 @@ let do_test_used = function () ->
 
 
 let do_test_reaching = function () ->
-  let v = Instr.active_version test_df.main in
   let open Analysis in
-  let reaching = reaching v.instrs in
-  assert_equal_sorted (PcSet.elements (reaching 0)) [];
-  assert_equal_sorted (PcSet.elements (reaching 1)) [];
-  assert_equal_sorted (PcSet.elements (reaching 2)) [0;1];
-  assert_equal_sorted (PcSet.elements (reaching 5)) [0;4];
-  assert_equal_sorted (PcSet.elements (reaching 7)) [8;0;4];
-  assert_equal_sorted (PcSet.elements (reaching 12)) [8;7];
-  assert_equal_sorted (PcSet.elements (reaching 0)) []
+  let v = (as_analysis_input test_df.main (Instr.active_version test_df.main)) in
+  let reaching = reaching v in
+  assert_equal_sorted (PosSet.elements (reaching 0))  [];
+  assert_equal_sorted (PosSet.elements (reaching 1))  [];
+  assert_equal_sorted (PosSet.elements (reaching 2))  [Analysis.Instr 0; Analysis.Instr 1];
+  assert_equal_sorted (PosSet.elements (reaching 5))  [Analysis.Instr 0; Analysis.Instr 4];
+  assert_equal_sorted (PosSet.elements (reaching 7))  [Analysis.Instr 8; Analysis.Instr 0; Analysis.Instr 4];
+  assert_equal_sorted (PosSet.elements (reaching 12)) [Analysis.Instr 8; Analysis.Instr 7];
+  assert_equal_sorted (PosSet.elements (reaching 0))  []
 
 let test_df2 = parse
 " goto jmp
@@ -514,7 +514,7 @@ let do_test_codemotion = function () ->
        mut y = z
        goto loop
   " in
-  let res = { t with main = !!! hoist_assignment t.main } in
+  let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse "
        mut x = 1
@@ -534,7 +534,7 @@ let do_test_codemotion = function () ->
        branch (x == 10) end loop
       end:
   " in
-  let res = { t with main = !!! hoist_assignment t.main } in
+  let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse "
        mut x = 1
@@ -545,7 +545,7 @@ let do_test_codemotion = function () ->
        branch (x==10) end loop
       end:
   " in
-  let res = { t with main = !!! hoist_assignment t.main } in
+  let res = { t with main = try_opt hoist_assignment t.main } in
   (* cannot hoist because depends on previous loop iteration *)
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
   let t = parse "
@@ -560,7 +560,7 @@ let do_test_codemotion = function () ->
        branch (x==10) end loop
       end:
   " in
-  let res = { t with main = !!! hoist_assignment t.main } in
+  let res = { t with main = try_opt hoist_assignment t.main } in
   (* cannot hoist because if (x==5) then y is modified *)
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
   ()
@@ -603,7 +603,7 @@ let do_test_minimize_lifetime = function () ->
        drop b
        stop 0
   " in
-  let res = { t with main = !!! minimize_liverange t.main } in
+  let res = { t with main = try_opt minimize_liverange t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   ()
 
@@ -611,7 +611,7 @@ let do_test_const_prop_driver () =
   let open Transform in
   let test t e =
     let input, expected = (parse t), (parse e) in
-    let output = { input with main = !!! const_prop input.main } in
+    let output = { input with main = try_opt const_prop input.main } in
     if (active_version output.main).instrs <> (active_version expected.main).instrs then begin
       Printf.printf "input: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
         (Disasm.disassemble_s input)

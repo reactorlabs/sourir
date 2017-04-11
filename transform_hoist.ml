@@ -158,6 +158,21 @@ let pull is_target cond instrs =
 
 
 module Drop = struct
+  (* TODO:
+   * If we ever add mutable return values or duplicating refs this breaks!
+   *
+   * Example (the drop will be moved over the print):
+   *
+   * function foo (mut x)
+   *   return &x
+   *
+   * function main ()
+   *   mut x = 1
+   *   mut y = foo(&x)
+   *   print (y)
+   *   drop x
+   *
+   *)
   let is_blocking var instr =
     VarSet.mem var (required_vars instr)
 
@@ -185,7 +200,7 @@ module Drop = struct
     in
     pull is_target (conditions_var var) instrs
 
-  let apply (instrs : instruction_stream) : instruction_stream option =
+  let apply ({formals; instrs} : analysis_input) : instructions option =
     let collect vars instr =
       match[@warning "-4"] instr with
       | Drop x -> VarSet.add x vars

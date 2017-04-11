@@ -132,8 +132,8 @@ let () =
       exit 1
     end;
 
-    let program = Transform.(!!! (optimize optimizations) program) in
-    if not quiet then begin
+    let program = Transform.(try_opt (optimize optimizations) program) in
+    if not !quiet then begin
       Printf.printf "After optimizations\n";
       Disasm.disassemble_o stdout program
     end;
