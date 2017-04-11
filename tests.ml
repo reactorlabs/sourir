@@ -339,12 +339,14 @@ continue:
 "
 
 let test_branch_pruning_exp prog expected =
-  let prog2 = { prog with main = Transform.branch_prune prog.main } in
+  let open Transform in
+  let prog2 = { prog with main = !!! branch_prune prog.main } in
   assert_equal (Disasm.disassemble_s prog2) expected
 
 let test_branch_pruning prog deopt =
   let open Eval in
-  let prog2 = { prog with main = Transform.branch_prune prog.main } in
+  let open Transform in
+  let prog2 = { prog with main = !!! branch_prune prog.main } in
   let res1 = Eval.run_forever no_input prog in
   let res2 = Eval.run_forever no_input prog2 in
   assert_equal res1.trace res2.trace;
@@ -483,6 +485,7 @@ end:
 "
 
 let do_test_codemotion = function () ->
+  let open Transform in
   let t = parse "
        goto bla
       loop:
@@ -511,7 +514,7 @@ let do_test_codemotion = function () ->
        mut y = z
        goto loop
   " in
-  let res = { t with main = Transform.hoist_assignment t.main } in
+  let res = { t with main = !!! hoist_assignment t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse "
        mut x = 1
@@ -531,7 +534,7 @@ let do_test_codemotion = function () ->
        branch (x == 10) end loop
       end:
   " in
-  let res = { t with main = Transform.hoist_assignment t.main } in
+  let res = { t with main = !!! hoist_assignment t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse "
        mut x = 1
@@ -542,7 +545,7 @@ let do_test_codemotion = function () ->
        branch (x==10) end loop
       end:
   " in
-  let res = { t with main = Transform.hoist_assignment t.main } in
+  let res = { t with main = !!! hoist_assignment t.main } in
   (* cannot hoist because depends on previous loop iteration *)
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
   let t = parse "
@@ -557,12 +560,13 @@ let do_test_codemotion = function () ->
        branch (x==10) end loop
       end:
   " in
-  let res = { t with main = Transform.hoist_assignment t.main } in
+  let res = { t with main = !!! hoist_assignment t.main } in
   (* cannot hoist because if (x==5) then y is modified *)
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
   ()
 
 let do_test_minimize_lifetime = function () ->
+  let open Transform in
   let t = parse "
        mut a = 12
        mut b = false
@@ -599,14 +603,15 @@ let do_test_minimize_lifetime = function () ->
        drop b
        stop 0
   " in
-  let res = { t with main = Transform.minimize_lifetimes t.main } in
+  let res = { t with main = !!! minimize_liverange t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   ()
 
 let do_test_const_prop_driver () =
+  let open Transform in
   let test t e =
     let input, expected = (parse t), (parse e) in
-    let output = { input with main = Constantfold.const_prop input.main } in
+    let output = { input with main = !!! const_prop input.main } in
     if (active_version output.main).instrs <> (active_version expected.main).instrs then begin
       Printf.printf "input: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
         (Disasm.disassemble_s input)
@@ -620,7 +625,6 @@ let do_test_const_prop_driver () =
     const x = 1
     print x
   |input} {expect|
-    const x = 1
     print 1
   |expect};
   (* Test with branching *)
@@ -685,11 +689,8 @@ let do_test_const_prop_driver () =
     print c
     stop 0
   |input} {expect|
-    const a = 1
-    const b = 2
     mut c = 5
     c <- (1 + 2)
-    const d = true
     branch true l1 l2
    l1:
     c <- (c + 1)
@@ -720,17 +721,14 @@ let do_test_const_prop_driver () =
     mut y = z
     goto loop
   |input} {expect|
-    const n = 10
     goto bla
    loop:
-    y <- 1
     x <- (x + 1)
     branch (x==10) end loop
    end:
     print 1
     stop 0
    bla:
-    const z = 1
     mut x = 1
     mut y = 1
     goto loop
@@ -761,11 +759,6 @@ let do_test_const_prop_driver () =
     print y
     stop 0
   |input} {expect|
-    const x = 1
-    const t = true
-    const a = 10
-    const b = 20
-    const c = 30
     branch true la lb
    la:
     branch true l1 l2
@@ -788,11 +781,11 @@ let do_test_const_prop_driver () =
   ()
 
 let do_test_pull_drop () =
-  let open Rewrite in
+  let open Transform_hoist in
   let test input pc x expected =
     let input, expected = Instr.active_version input.main, Instr.active_version expected.main in
     let input, expected = input.instrs, expected.instrs in
-    let instrs = match Rewrite.try_pull input pc with
+    let instrs = match try_pull input pc with
       | Pulled_to ((instrs, _), _) -> instrs
       | Blocked -> input in
     assert (instrs = expected);
@@ -830,13 +823,13 @@ let do_test_pull_drop () =
   ()
 
 let do_test_push_drop () =
-  let open Rewrite in
+  let open Transform_hoist in
   let test input pc expected =
     let input, expected = Instr.active_version input.main, Instr.active_version expected.main in
     let input, expected = input.instrs, expected.instrs in
     match[@warning "-4"] input.(pc) with
     | Drop x ->
-      let push = Rewrite.push_instr (Rewrite.Drop.conditions_var x) in
+      let push = push_instr (Drop.conditions_var x) in
       let instrs = match push input pc with
         | Stop (instrs, _) | Work ((instrs, _), _) -> instrs
         | Blocked | Need_pull _ -> input in
@@ -962,7 +955,7 @@ let do_test_drop_driver () =
     let input, expected = Instr.active_version input.main, Instr.active_version expected.main in
     let input, expected = input.instrs, expected.instrs in
     let output =
-      match Rewrite.Drop.pull_var input x with
+      match Transform_hoist.Drop.pull_var input x with
           | None -> input
           | Some instrs -> instrs in
     if output <> expected then begin

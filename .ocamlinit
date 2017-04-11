@@ -5,37 +5,14 @@ let print_set_vars ppf (set : Instr.VarSet.t) =
    |> Format.fprintf ppf "[%s]"
 ;;
 
-let print_set_vars2 ppf (set : Cfg.BasicBlockSet.t) =
-  let open Cfg in
-  List.map (fun (e : basic_block) -> e.id) (BasicBlockSet.elements set)
-   |> List.map (Printf.sprintf "%d")
-   |> String.concat ";"
-   |> Format.fprintf ppf "[%s]"
-;;
-
-let print_set_vars3 ppf (set : Analysis.InstrSet.t) =
-  let open Analysis in
-  Analysis.InstrSet.elements set
-   |> List.map (Printf.sprintf "%d")
-   |> String.concat ";"
-   |> Format.fprintf ppf "[%s]"
-;;
-
 let print_program ppf (program : Instr.program) =
-  Format.fprintf ppf "%s" (Disasm.disassemble program)
+  Format.fprintf ppf "%s" (Disasm.disassemble_s program)
 ;;
 
 let print_instr ppf (program : Instr.instruction_stream) =
-  Format.fprintf ppf "%s" (Disasm.disassemble_instr program)
-;;
-
-let print_seg ppf (program : Instr.segment) =
-  Format.fprintf ppf "%s" (Disasm.disassemble [("anon", program)])
+  Format.fprintf ppf "%s" (Disasm.disassemble_instrs_s program)
 ;;
 
 #install_printer print_set_vars;;
-#install_printer print_set_vars2;;
-#install_printer print_set_vars3;;
 #install_printer print_program;;
 #install_printer print_instr;;
-#install_printer print_seg;;

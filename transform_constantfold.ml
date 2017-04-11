@@ -11,8 +11,7 @@ open Instr
  * is replaced by the literal `l`. Afterwards, the variable `x` is no longer
  * used, and the declaration can be removed by running `minimize_lifetimes`.
  *)
-let const_prop (func : afunction) : afunction =
-  let version = Instr.active_version func in
+let const_prop (instrs : instruction_stream) : instruction_stream option =
   (* Finds the declarations that can be used for constant propagation.
      Returns a list of (pc, x, l) where `const x = l` is defined at pc `pc`. *)
   let rec find_candidates instrs pc acc =
@@ -25,8 +24,8 @@ let const_prop (func : afunction) : afunction =
 
   (* Replaces the variable `x` with literal `l` in instruction `instr`. *)
   let convert x l instr =
-    let replace = Replace.var_in_exp x l in
-    let replace_arg = Replace.var_in_arg x l in
+    let replace = Edit.var_in_exp x l in
+    let replace_arg = Edit.var_in_arg x l in
     match instr with
     | Call (y, f, es) ->
       assert (x <> y);
@@ -91,6 +90,7 @@ let const_prop (func : afunction) : afunction =
     let open Analysis in
     (* Find all constant propagation candidates. *)
     let candidates = find_candidates instrs 0 [] in
+    if candidates = [] then None else
     (* Perform all propagations for a single candidate. *)
     let propagate instrs (pc, x, l) =
       let succs = successors_at instrs pc in
@@ -100,12 +100,7 @@ let const_prop (func : afunction) : afunction =
       PcSet.iter convert_at targets;
       instrs
     in
-    List.fold_left propagate instrs candidates
+    Some (List.fold_left propagate instrs candidates)
   in
 
-  let result = {
-    label = version.label;
-    instrs = work version.instrs;
-    annotations = None
-  } in
-  Instr.replace_active_version func result
+  work instrs

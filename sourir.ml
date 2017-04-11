@@ -16,10 +16,14 @@ let () =
         exit 2
     in
     let quiet = Array.mem "--quiet" Sys.argv in
-    let prune = Array.mem "--prune" Sys.argv in
-    let codemotion = Array.mem "--cm" Sys.argv in
-    let constprop = Array.mem "--prop" Sys.argv in
-    let lifetime = Array.mem "--lifetime" Sys.argv in
+    let rec find_opts = function
+      | [] -> []
+      | o::r when String.length o > 5 && String.sub o 0 6 = "--opt=" ->
+        let opts = String.sub o 6 ((String.length o) - 6) in
+        String.split_on_char ',' opts
+      | o::r -> find_opts r
+    in
+    let optimizations = find_opts (Array.to_list Sys.argv) in
 
     begin try Scope.check_program program with
     | Scope.ScopeExceptionAt (f, v, e) ->
@@ -128,37 +132,11 @@ let () =
       exit 1
     end;
 
-    let program = if prune
-      then
-        let opt = { program with main = Transform.branch_prune program.main } in
-        if not quiet then Printf.printf "\n** After speculative branch pruning:\n%s" (Disasm.disassemble_s opt);
-        opt
-      else program
-    in
-
-    let program = if codemotion
-      then
-        let opt = { program with main = Transform.hoist_assignment program.main } in
-        if not quiet then Printf.printf "\n** After trying to hoist one assignment:\n%s" (Disasm.disassemble_s opt);
-        opt
-      else program
-    in
-
-    let program = if constprop
-      then
-        let opt = { program with main = Constantfold.const_prop program.main } in
-        if not quiet then Printf.printf "\n** After constant propagation:\n%s" (Disasm.disassemble_s opt);
-        opt
-      else program
-    in
-
-    let program = if lifetime
-      then
-        let opt = { program with main = Transform.minimize_lifetimes program.main } in
-        if not quiet then Printf.printf "\n** After minimizing lifetimes:\n%s" (Disasm.disassemble_s opt);
-        opt
-      else program
-    in
+    let program = Transform.(!!! (optimize optimizations) program) in
+    if not quiet then begin
+      Printf.printf "After optimizations\n";
+      Disasm.disassemble_o stdout program
+    end;
 
     Scope.check_program program;
 
