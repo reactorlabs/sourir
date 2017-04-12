@@ -166,7 +166,7 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     instr
 
 let freshen_assign ({instrs} as inp : analysis_input) (def : pc) =
-  let uses = Analysis.PcSet.elements (Analysis.used inp def) in
+  let uses = Analysis.PcSet.elements (Analysis.uses inp def) in
   let instr = instrs.(def) in
   match[@warning "-4"] instr with
   | Assign (x, exp) ->

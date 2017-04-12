@@ -16,7 +16,7 @@ open Instr
 let hoist_assignment ({formals; instrs} as inp : analysis_input) : instructions option =
   let open Analysis in
   let reaching = reaching inp in
-  let uses = used inp in
+  let uses = uses inp in
   let dominates = dominates inp in
   let dominates_all_uses pc =
     PcSet.for_all (fun use -> dominates pc use) (uses pc) in

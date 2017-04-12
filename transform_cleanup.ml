@@ -37,7 +37,7 @@ let remove_unreachable_code ({instrs} as inp : analysis_input) : instructions op
 let remove_unused_decl ({instrs} as inp : analysis_input) : instructions option =
   let open Analysis in
   let required = Analysis.required inp in
-  let used = Analysis.used inp in
+  let uses = Analysis.uses inp in
   let aliased = Analysis.aliased inp in
   let aliased var pc = VarSet.mem var (aliased pc) in
   let transform pc =
@@ -45,7 +45,7 @@ let remove_unused_decl ({instrs} as inp : analysis_input) : instructions option 
     | Decl_mut (x, _)
     | Decl_const (x, _) when PcSet.is_empty (required pc) ->
       Remove 1
-    | Assign (x, _) when PcSet.is_empty (used pc) && not (aliased x pc) ->
+    | Assign (x, _) when PcSet.is_empty (uses pc) && not (aliased x pc) ->
       Remove 1
     | _ ->
       Unchanged

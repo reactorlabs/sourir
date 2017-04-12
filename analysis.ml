@@ -259,7 +259,7 @@ let as_pc_set pos_set =
   PcSet.of_list pos
 
 (* returns a 'pc -> pc set' computing uses of a definition *)
-let used ({instrs} as inp : analysis_input) : pc -> PcSet.t =
+let uses ({instrs} as inp : analysis_input) : pc -> PcSet.t =
   let res = liveness_analysis inp in
   fun pc ->
     let add_uses (_, x) used = PosSet.union used (VariableMap.at x (res pc)) in

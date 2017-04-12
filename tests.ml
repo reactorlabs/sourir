@@ -420,19 +420,19 @@ let do_test_liveness = function () ->
 let do_test_used = function () ->
   let open Analysis in
   let v = (as_analysis_input test_df.main (Instr.active_version test_df.main)) in
-  let used = used v in
-  assert_equal_sorted (PcSet.elements (used 0)) [2;5;7];
-  assert_equal_sorted (PcSet.elements (used 1)) [2];
-  assert_equal_sorted (PcSet.elements (used 2)) [];
-  assert_equal_sorted (PcSet.elements (used 4)) [5;7];
-  assert_equal_sorted (PcSet.elements (used 5)) [];
-  assert_equal_sorted (PcSet.elements (used 7)) [12];
-  assert_equal_sorted (PcSet.elements (used 8)) [7;9;12;13];
-  assert_equal_sorted (PcSet.elements (used 9)) [];
-  assert_equal_sorted (PcSet.elements (used 11)) [];
-  assert_equal_sorted (PcSet.elements (used 12)) [];
-  assert_equal_sorted (PcSet.elements (used 13)) [];
-  assert_equal_sorted (PcSet.elements (used 6)) []
+  let uses = uses v in
+  assert_equal_sorted (PcSet.elements (uses 0)) [2;5;7];
+  assert_equal_sorted (PcSet.elements (uses 1)) [2];
+  assert_equal_sorted (PcSet.elements (uses 2)) [];
+  assert_equal_sorted (PcSet.elements (uses 4)) [5;7];
+  assert_equal_sorted (PcSet.elements (uses 5)) [];
+  assert_equal_sorted (PcSet.elements (uses 7)) [12];
+  assert_equal_sorted (PcSet.elements (uses 8)) [7;9;12;13];
+  assert_equal_sorted (PcSet.elements (uses 9)) [];
+  assert_equal_sorted (PcSet.elements (uses 11)) [];
+  assert_equal_sorted (PcSet.elements (uses 12)) [];
+  assert_equal_sorted (PcSet.elements (uses 13)) [];
+  assert_equal_sorted (PcSet.elements (uses 6)) []
 
 
 let do_test_reaching = function () ->
