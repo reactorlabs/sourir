@@ -321,3 +321,26 @@ let aliased ({formals; instrs} : analysis_input) : pc -> VarSet.t =
   in
   let mut_formals = List.fold_left ref_param [] (ModedVarSet.elements formals) in
   fun _ -> VarSet.of_list mut_formals
+
+module Expression = struct
+  type t = expression
+  let compare (x : expression) (y : expression) =
+    Pervasives.compare x y
+end
+
+module ExpressionSet = Set.Make(Expression)
+
+let valid_assumptions {instrs} : pc -> ExpressionSet.t =
+  let merge _pc cur incom =
+    let merged = ExpressionSet.inter cur incom in
+    if ExpressionSet.equal merged cur then None else Some merged
+  in
+  let update pc cur =
+    match[@warning "-4"] instrs.(pc) with
+    | Osr {cond} ->
+      List.fold_right ExpressionSet.add cond cur
+    | _ ->
+      ExpressionSet.filter (fun exp ->
+          Instr.independent instrs.(pc) exp) cur
+  in
+  forward_analysis ExpressionSet.empty instrs merge update

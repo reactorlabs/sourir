@@ -325,6 +325,24 @@ let used_vars = function
         | Osr_mut_undef _ -> Simple (Constant Nil)) map in
     VarSet.union (list_vars cond) (list_vars exps)
 
+let changed_vars = function
+  | Call (x, _, _)
+  | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
+  | Decl_mut (x, Some _)
+  | Assign (x ,_)
+  | Drop x
+  | Clear x
+  | Decl_mut (x, None)
+  | Read x -> ModedVarSet.singleton (Mut_var, x)
+  | Return _
+  | Branch _
+  | Label _
+  | Goto _
+  | Comment _
+  | Print _
+  | Osr _
+  | Stop _ -> ModedVarSet.empty
+
 exception FunctionDoesNotExist of identifier
 
 let lookup_fun (prog : program) (f : identifier) : afunction =
@@ -347,3 +365,13 @@ module Value = struct
   let bool b : value = Bool b
 end
 
+let checkpoint_prefix = "checkpoint_"
+let is_checkpoint_label l =
+  let len = String.length checkpoint_prefix in
+  String.length l > len && (String.sub l 0 11) = checkpoint_prefix
+let checkpoint_label pc =
+  checkpoint_prefix ^ (string_of_int pc)
+
+let independent instr exp =
+  let changed = ModedVarSet.untyped (changed_vars instr) in
+  VarSet.is_empty (VarSet.inter changed (expr_vars exp))

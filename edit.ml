@@ -158,9 +158,9 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
   | Branch (exp, l1, l2) ->
     Branch (in_expression exp, l1, l2)
   | Osr {cond; target; map} ->
-    Osr {cond = List.map in_expression cond;
-         target;
-         map = List.map in_osr map}
+    let cond = List.map in_expression cond in
+    let map = List.map in_osr map in
+    Osr {cond; target; map}
   | Decl_mut (x, None)
   | Read x ->
     assert (x != old_name);

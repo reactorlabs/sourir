@@ -285,28 +285,11 @@ c:
  clear r
 "
 
-let test_branch_pruned =
-"function main ()
-version anon_1
- mut x = 9
+let test_branch_pruned = " mut x = 9
  mut y = 10
+ osr [(x == y)] (main, anon, checkpoint_2) [mut x = &x, mut y = &y]
  mut r = 1
- osr [(x == y)] (main, anon, l1) [mut r, mut x, mut y]
  r <- 3
- print r
- clear r
-version anon
- mut x = 9
- mut y = 10
- mut r = 1
- branch (x == y) l1 l2
-l1:
- r <- 2
- goto c
-l2:
- r <- 3
- goto c
-c:
  print r
  clear r
 "
@@ -340,12 +323,19 @@ continue:
 
 let test_branch_pruning_exp prog expected =
   let open Transform in
-  let prog2 = { prog with main = try_opt branch_prune prog.main } in
-  assert_equal (Disasm.disassemble_s prog2) expected
+  let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) prog in
+  let prune = try_opt (combine_opt
+                         [branch_prune;
+                          cleanup_all;
+                          (as_opt_function Transform_assumption.remove_empty_osr);
+                          (as_opt_function Transform_assumption.remove_checkpoint_labels)]) in
+  let prog2 = { prog with main = prune prog.main } in
+  assert_equal (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) expected
 
 let test_branch_pruning prog deopt =
   let open Eval in
   let open Transform in
+  let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) prog in
   let prog2 = { prog with main = try_opt branch_prune prog.main } in
   let res1 = Eval.run_forever no_input prog in
   let res2 = Eval.run_forever no_input prog2 in
@@ -1467,8 +1457,8 @@ let suite =
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
    "predecessors">:: do_test_pred;
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
-   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "continue"));
-   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "loop_body1"));
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "checkpoint_5"));
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "checkpoint_5"));
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;

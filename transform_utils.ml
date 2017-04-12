@@ -3,6 +3,7 @@ open Instr
 type instruction_change =
   | Remove of int
   | Insert of instruction list
+  | InsertAfter of instruction list
   | Replace of instruction
   | Unchanged
 
@@ -18,6 +19,8 @@ let change_instrs (transform : pc -> instruction_change) ({formals; instrs} : an
         acc_instr (pc+1) (i :: acc) true
       | Insert is ->
         acc_instr (pc+1) (instrs.(pc) :: (List.rev is) @ acc) true
+      | InsertAfter is ->
+        acc_instr (pc+1) ((List.rev is) @ instrs.(pc) :: acc) true
       | Unchanged ->
         acc_instr (pc+1) (instrs.(pc)::acc) changed
   in
