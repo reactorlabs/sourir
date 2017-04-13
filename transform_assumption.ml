@@ -127,3 +127,115 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
     | _ -> assert (false)
     end
   end
+
+(* hoist_assumption tries to hoist assumptions out of loops.
+ *
+ * Like in insert_assumption the strategy is to find the earliest possible osr
+ * instruction where a condition can be moved to and which ensures that the
+ * condition still holds for the original position. In the most trivial case
+ * this can be the following example
+ *
+ *   osr [x==1] ...
+ *   print x
+ *   osr [x==2] ...
+ *   ===============>
+ *   osr [x==1,x==2] ...
+ *   print x
+ *   osr []
+ *
+ * The interesting case is where hoist_assumption is able to move an assumption
+ * out of a loop:
+ *
+ *    osr [] ...
+ *   loop:
+ *    print (x+1)
+ *    osr [x==1] ...
+ *    print x
+ *    branch _ loop cont
+ *   cont:
+ *   ===================>
+ *    osr [x==1] ...
+ *   loop:
+ *    print (x+1)
+ *    osr [] ...
+ *    print x
+ *    branch _ loop cont
+ *   cont:
+ *
+ * The condition to move an assumption over a multi-predecessor label is:
+ * 1. There is an unique dominator
+ * 2. On all other predecessors the assumption is already available.
+ *
+ * In the above example:
+ * 0. We can move the assumption to `loop:` because `print (x+1)` is
+ *    independent of x==1.
+ * 1. There is an unique dominator (ie. the fallthrough one)
+ * 2. On the other predecessor (ie. the branch instruction) the assumption
+ *    is available because `print x` is independent of x==1.
+ *)
+let hoist_assumption ({instrs} as inp) : instructions option =
+  let instrs = Array.copy instrs in
+  let available = Analysis.valid_assumptions inp in
+  let preds = Analysis.predecessors instrs in
+  let dominates = Analysis.dominates inp in
+  let rec find_osrs pc acc =
+    if pc = Array.length instrs then acc else
+    match[@warning "-4"] instrs.(pc) with
+    | Osr {cond} when cond <> [] -> find_osrs (pc+1) (pc::acc)
+    | _ -> find_osrs (pc+1) acc
+  in
+  let osrs = find_osrs 0 [] in
+
+  (* Finds the highest up osr checkpoint that dominates this instruction
+   * and where the intermediate instructions don't change the condition.
+   * For multi-predecessor instruction we can push the assumption to a
+   * unique dominator if the assumption is available on all other
+   * predecessors. *)
+  let rec find_candidate_osr osr_cond cond_vars pc acc =
+    if pc = 0 then acc else
+    match[@warning "-4"] instrs.(pc) with
+    | Osr _ -> find_candidate_osr osr_cond cond_vars (pc-1) (Some pc)
+    | Label _ ->
+      let doms, rest = List.partition (fun pc' -> dominates pc' pc) preds.(pc) in
+      begin match doms with
+      | [dom] ->
+        let all_guarded = List.for_all (fun pc' ->
+            let available = available pc' in
+            Analysis.ExpressionSet.mem osr_cond available
+          ) rest in
+        if all_guarded
+        then find_candidate_osr osr_cond cond_vars dom acc
+        else acc
+      | _ -> acc
+      end
+    | _ ->
+      assert (preds.(pc) = [pc-1]);
+      if Instr.independent instrs.(pc) osr_cond
+      then find_candidate_osr osr_cond cond_vars (pc-1) acc
+      else acc
+  in
+
+  let changed = ref false in
+  let push_osr pc =
+    match[@warning "-4"] instrs.(pc) with
+    | Osr {cond; target; map} ->
+      let try_push c =
+        let cond_vars = expr_vars c in
+        begin match find_candidate_osr c cond_vars (pc-1) None with
+        | None -> true
+        | Some pc' ->
+          changed := true;
+          begin match[@warning "-4"] instrs.(pc') with
+          | Osr {cond; target; map} ->
+            instrs.(pc') <- Osr {cond = c::cond; target; map}
+          | _ -> assert (false)
+          end;
+          false
+        end
+      in
+      let remaining = List.filter try_push cond in
+      instrs.(pc) <- Osr {cond=remaining; target; map}
+    | _ -> assert (false)
+  in
+  List.iter push_osr osrs;
+  if !changed then Some instrs else None

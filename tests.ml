@@ -285,13 +285,44 @@ c:
  clear r
 "
 
-let test_branch_pruned = " mut x = 9
+let test_branch_pruned =
+" mut x = 9
  mut y = 10
  osr [(x == y)] (main, anon, checkpoint_2) [mut x = &x, mut y = &y]
  mut r = 1
  r <- 3
  print r
  clear r
+"
+
+let test_loop_branch = parse
+"mut x = 9
+ mut y = 10
+ mut r = 1
+loop:
+ branch (x == y) l1 l2
+l1:
+ r <- 2
+ goto c
+l2:
+ r <- 3
+ goto c
+c:
+ print r
+ branch (r == 0) loop end
+end:
+"
+
+let test_loop_branch_pruned =
+" mut x = 9
+ mut y = 10
+ osr [(x == y)] (main, anon, checkpoint_2) [mut x = &x, mut y = &y]
+ mut r = 1
+loop:
+ r <- 3
+ print r
+ branch (r == 0) loop end
+end:
 "
 
 let test_double_loop = parse
@@ -326,6 +357,7 @@ let test_branch_pruning_exp prog expected =
   let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) prog in
   let prune = try_opt (combine_opt
                          [branch_prune;
+                          (as_opt_function Transform_assumption.hoist_assumption);
                           cleanup_all;
                           (as_opt_function Transform_assumption.remove_empty_osr);
                           (as_opt_function Transform_assumption.remove_checkpoint_labels)]) in
@@ -1455,6 +1487,7 @@ let suite =
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
    "parser_scope1">:: test_parse_disasm "function main()\nversion active\n{a, b} print x\n{a,x,...} #asdf\n";
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
+   "branch_pruning2">:: (fun () -> test_branch_pruning_exp test_loop_branch test_loop_branch_pruned);
    "predecessors">:: do_test_pred;
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
    "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "checkpoint_5"));

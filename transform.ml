@@ -130,6 +130,8 @@ let optimize (opts : string list) (prog : program) : program option =
     then combine_opt [
         (as_opt_program Transform_assumption.insert_checkpoints);
         optimizer;
+        (as_opt_program (as_opt_function Transform_assumption.hoist_assumption));
+        optimizer;
         (as_opt_program (as_opt_function Transform_assumption.remove_empty_osr));
         (as_opt_program (as_opt_function Transform_assumption.remove_checkpoint_labels));
         optimizer_classic;
