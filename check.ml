@@ -53,7 +53,7 @@ let well_formed prog =
     in ignore (List.fold_left check VarSet.empty formals)
   in
 
-  let check_version func version =
+  let check_version func (version:version) =
     let instrs = version.instrs in
 
     if func.name <> "main" then
@@ -63,7 +63,7 @@ let well_formed prog =
       | _ -> raise MissingReturn end
     end;
 
-    let scope = Scope.infer func version in
+    let scope = Scope.infer (Analysis.as_analysis_input func version) in
 
     let check_static_arg pc actual =
       match actual with
@@ -77,7 +77,7 @@ let well_formed prog =
                   | Incomparable -> raise (InvalidArgument (pc, actual)))
         end in
 
-    let check_signature pc func args =
+    let check_signature pc (func:afunction) args =
       if (List.length args <> List.length func.formals)
       then raise (InvalidNumArgs pc);
       let check_arg (formal, actual) =

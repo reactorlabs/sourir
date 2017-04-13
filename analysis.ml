@@ -1,11 +1,26 @@
 open Instr
 
-let pcs (instrs : instruction_stream) : pc array =
+let pcs (instrs : instructions) : pc array =
   Array.mapi (fun pc _ -> pc) instrs
 
-module PcSet = Set.Make(Pc)
+type position =
+  | Arg
+  | Instr of pc
 
-let successors_at (instrs : instruction_stream) pc : pc list =
+module Position = struct
+  type t = position
+  let compare (x : position) (y : position) =
+    match x, y with
+    | Arg, Arg -> 0
+    | Arg, _ -> -1
+    | _, Arg -> 1
+    | Instr x, Instr y -> Pervasives.compare x y
+end
+
+module PcSet = Set.Make(Pc)
+module PosSet = Set.Make(Position)
+
+let successors_at (instrs : instructions) pc : pc list =
   let pc' = pc + 1 in
   let instr = instrs.(pc) in
   let resolve = Instr.resolve instrs in
@@ -22,28 +37,29 @@ let successors_at (instrs : instruction_stream) pc : pc list =
   in
   PcSet.elements (PcSet.of_list all_succ)
 
-let successors (instrs : instruction_stream) : pc list array =
+let successors (instrs : instructions) : pc list array =
   let succs_at pc = successors_at instrs pc in
   Array.map succs_at (pcs instrs)
 
-let predecessors (instrs : instruction_stream) : pc list array =
+let predecessors (instrs : instructions) : pc list array =
   let preds = Array.map (fun _ -> []) instrs in
   let mark_successor pc pc' =
     preds.(pc') <- pc :: preds.(pc') in
   for pc = 0 to Array.length instrs - 1 do
     List.iter (mark_successor pc) (successors_at instrs pc)
   done;
+  assert (Array.length instrs = Array.length preds);
   preds
 
-let starts (instrs : instruction_stream) = [0]
+let starts (instrs : instructions) = [0]
 
-let stops (instrs : instruction_stream) =
+let stops (instrs : instructions) =
   let succs = successors instrs in
   let is_exit pc = succs.(pc) = [] in
   let pcs = Array.to_list (pcs instrs) in
   List.filter is_exit pcs
 
-let osrs (instrs : instruction_stream) =
+let osrs (instrs : instructions) =
   let is_osr pc = match[@warning "-4"] instrs.(pc) with
     | Osr _ -> true
     | _ -> false in
@@ -52,7 +68,7 @@ let osrs (instrs : instruction_stream) =
 
 let dataflow_analysis (next : pc list array)
                       (init_state : ('a * pc) list)
-                      (instrs : instruction_stream)
+                      (instrs : instructions)
                       (merge : pc -> 'a -> 'a -> 'a option)
                       (update : pc -> 'a -> 'a)
                       : 'a option array =
@@ -86,12 +102,12 @@ let make_total result =
     | None -> raise (UnreachableCode pc)
     | Some res -> res
 
-let forward_analysis init_state seg merge update =
-  let successors = successors seg in
-  let starts = starts seg in
+let forward_analysis init_state instrs merge update =
+  let successors = successors instrs in
+  let starts = starts instrs in
   assert (starts != []);
   let init = List.map (fun pos -> (init_state, pos)) starts in
-  make_total (dataflow_analysis successors init seg merge update)
+  make_total (dataflow_analysis successors init instrs merge update)
 
 let backwards_analysis init_state instrs merge update =
   let predecessors = predecessors instrs in
@@ -102,7 +118,7 @@ let backwards_analysis init_state instrs merge update =
 
 let find (next : pc list array)
          (start : pc)
-         (instrs : instruction_stream)
+         (instrs : instructions)
          (predicate : pc -> bool) : pc =
   let rec work todo seen =
     match todo with
@@ -117,7 +133,7 @@ let find (next : pc list array)
   in
   work [start] PcSet.empty
 
-let find_first (instrs : instruction_stream)
+let find_first (instrs : instructions)
                (predicate : pc -> bool) : pc =
   let succ = successors instrs in
   find succ 0 instrs predicate
@@ -134,29 +150,51 @@ module VariableMap = struct
 
   (* merge is defined as the union of their equally named sets *)
   let union =
-    let merge_one _ a b : PcSet.t option =
+    let merge_one _ a b : PosSet.t option =
       match a, b with
       | None, None -> None
       | Some a, None -> Some a
       | None, Some b -> Some b
-      | Some a, Some b -> Some (PcSet.union a b) in
+      | Some a, Some b -> Some (PosSet.union a b) in
     merge merge_one
 
   let singleton var loc =
-      add var (PcSet.singleton loc) empty
+    add var (PosSet.singleton loc) empty
+
+  let initial vars =
+    List.fold_left (fun s x -> union s (singleton x Arg)) empty vars
 
   let equal =
-    let is_equal a b = PcSet.equal a b in
+    let is_equal a b = PosSet.equal a b in
     equal is_equal
 
   let at var this =
     match find var this with
     | v -> v
-    | exception Not_found -> PcSet.empty
+    | exception Not_found -> PosSet.empty
 end
 
+exception DuplicateFormalParameter
+
+let as_var_set (formals : formal_parameter list) =
+  let to_moded_var = function
+    | Const_val_param x -> (Const_var, x)
+    | Mut_ref_param x -> (Mut_var, x)
+  in
+  let formals' = ModedVarSet.of_list (List.map to_moded_var formals) in
+  if (List.length formals) <> (List.length (VarSet.elements (ModedVarSet.untyped formals'))) then
+    raise DuplicateFormalParameter;
+  formals'
+
+let as_var_map formals =
+  let formals = VarSet.elements (ModedVarSet.untyped formals) in
+  VariableMap.initial formals
+
+let as_analysis_input (func:afunction) (version:version) =
+  { formals = as_var_set func.formals; instrs = version.instrs }
+
 (* returns a 'pc -> pc set' computing reaching definitions *)
-let reaching (instrs : instruction_stream) : pc -> PcSet.t =
+let reaching {formals; instrs} : pc -> PosSet.t =
   let merge _pc cur_defs in_defs =
     let merged = VariableMap.union cur_defs in_defs in
     if VariableMap.equal cur_defs merged then None else Some merged
@@ -165,20 +203,21 @@ let reaching (instrs : instruction_stream) : pc -> PcSet.t =
     let instr = instrs.(pc) in
     (* add or override defined vars in one go*)
     let kill = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
-    let loc = PcSet.singleton pc in
+    let loc = PosSet.singleton (Instr pc) in
     let replace acc var = VariableMap.add var loc acc in
     List.fold_left replace defs kill
   in
-  let res = forward_analysis VariableMap.empty instrs merge update in
+  let res = forward_analysis (as_var_map formals) instrs merge update in
   fun pc ->
     let instr = instrs.(pc) in
     let used = VarSet.elements (used_vars instr) in
     let definitions_of var = VariableMap.find var (res pc) in
     let all_definitions = List.map definitions_of used in
-    List.fold_left PcSet.union PcSet.empty all_definitions
+    List.fold_left PosSet.union PosSet.empty all_definitions
 
 let scope_analysis (introduction : instruction -> variable list)
-                   (elimination : instruction -> variable list) (instrs : instruction_stream) =
+                   (elimination : instruction -> variable list)
+                   ({formals; instrs} : analysis_input) =
   let merge _pc cur_scope in_scope =
     let merged = VariableMap.union cur_scope in_scope in
     if VariableMap.equal cur_scope merged then None else Some merged
@@ -188,61 +227,72 @@ let scope_analysis (introduction : instruction -> variable list)
     let to_remove = introduction instr in
     let cur_scope = List.fold_right VariableMap.remove to_remove cur_scope in
     let to_add = elimination instr in
-    let entry var = VariableMap.singleton var pc in
+    let entry var = VariableMap.singleton var (Instr pc) in
     let merge acc var = VariableMap.union (entry var) acc in
     List.fold_left merge cur_scope to_add
   in
   backwards_analysis VariableMap.empty instrs merge update
 
-let liveness_analysis (instrs : instruction_stream) =
+let liveness_analysis ({instrs} as inp : analysis_input) =
   let introduction instr = VarSet.elements (ModedVarSet.untyped (defined_vars instr)) in
   let elimination instr = VarSet.elements (used_vars instr) in
-  scope_analysis introduction elimination instrs
+  scope_analysis introduction elimination inp
 
-let lifetime_analysis (instrs : instruction_stream) =
+let lifetime_analysis ({instrs} as inp : analysis_input) =
   let introduction instr = VarSet.elements (ModedVarSet.untyped (declared_vars instr)) in
   let elimination instr = VarSet.elements (required_vars instr) in
-  scope_analysis introduction elimination instrs
+  scope_analysis introduction elimination inp
 
 (* returns a 'pc -> variable set' computing live vars at a certain pc *)
-let live (seg : instruction_stream) : pc -> variable list =
-  let res = liveness_analysis seg in
+let live (inp : analysis_input) : pc -> variable list =
+  let res = liveness_analysis inp in
   fun pc ->
     let collect_key (key, value) = key in
     let live_vars = List.map collect_key (VariableMap.bindings (res pc)) in
     live_vars
 
-(* returns a 'pc -> pc set' computing uses of a definition *)
-let used (instrs : instruction_stream) : pc -> PcSet.t =
-  let res = liveness_analysis instrs in
-  fun pc ->
-    let add_uses (_, x) used = PcSet.union used (VariableMap.at x (res pc)) in
-    ModedVarSet.fold add_uses (defined_vars instrs.(pc)) PcSet.empty
+let as_pc_set pos_set =
+  let pos = PosSet.elements pos_set in
+  let pos = List.map (fun p -> match p with
+      | Arg -> assert (false)
+      | Instr p -> p) pos in
+  PcSet.of_list pos
 
-let dominates (instrs : instruction_stream) : pc -> pc -> bool =
+(* returns a 'pc -> pc set' computing uses of a definition *)
+let uses ({instrs} as inp : analysis_input) : pc -> PcSet.t =
+  let res = liveness_analysis inp in
+  fun pc ->
+    let add_uses (_, x) used = PosSet.union used (VariableMap.at x (res pc)) in
+    let pos = ModedVarSet.fold add_uses (defined_vars instrs.(pc)) PosSet.empty in
+    (* formal parameter cannot be an use *)
+    as_pc_set pos
+
+let dominates ({instrs} : analysis_input) : pc -> pc -> bool =
   let merge _pc cur incom =
-    let merged = PcSet.inter cur incom in
-    if PcSet.equal merged cur then None else Some merged
+    let merged = PosSet.inter cur incom in
+    if PosSet.equal merged cur then None else Some merged
   in
   let update pc cur =
-    PcSet.add pc cur
+    PosSet.add (Instr pc) cur
   in
-  let dominators = forward_analysis PcSet.empty instrs merge update in
+  let dominators = forward_analysis PosSet.empty instrs merge update in
   fun pc pc' ->
     let doms = dominators pc' in
-    PcSet.mem pc doms
+    PosSet.mem (Instr pc) doms
 
 (* returns a 'pc -> pc set' computing the set of instructions depending on a declaration *)
-let required (instrs : instruction_stream) : pc -> PcSet.t =
-  let res = lifetime_analysis instrs in
+let required ({instrs} as inp : analysis_input) : pc -> PcSet.t =
+  let res = lifetime_analysis inp in
   fun pc ->
-    let add_uses (_, x) used = PcSet.union used (VariableMap.at x (res pc)) in
-    ModedVarSet.fold add_uses (declared_vars instrs.(pc)) PcSet.empty
+    let add_uses (_, x) used = PosSet.union used (VariableMap.at x (res pc)) in
+    let pos = ModedVarSet.fold add_uses (declared_vars instrs.(pc)) PosSet.empty in
+    (* formal parameter cannot be a require *)
+    as_pc_set pos
 
 (* returns a 'pc -> variable set' computing variables which need to be in scope
  * Note: they might not be! *)
-let required_vars (seg : instruction_stream) : pc -> variable list =
-  let res = lifetime_analysis seg in
+let required_vars ({instrs} as inp : analysis_input) : pc -> variable list =
+  let res = lifetime_analysis inp in
   fun pc ->
     let collect_key (key, value) = key in
     let live_vars = List.map collect_key (VariableMap.bindings (res pc)) in
@@ -250,10 +300,23 @@ let required_vars (seg : instruction_stream) : pc -> variable list =
 
 (* The same as required_vars_at but extends the required interval to
  * merge points to conform to our scoping rules *)
-let saturate analysis instrs =
+let saturate analysis {instrs} =
   let merge pc cur_lifetime in_lifetime =
     let merged = VarSet.union cur_lifetime in_lifetime in
     if VarSet.equal cur_lifetime merged then None else Some merged
   in
-  let update pc cur_lifetime = VarSet.of_list (analysis pc) in
+  let update pc cur_lifetime = analysis pc in
   forward_analysis VarSet.empty instrs merge update
+
+let aliased ({formals; instrs} : analysis_input) : pc -> VarSet.t =
+  (* TODO:
+   * currently only the formals can be aliased. But if we introduce
+   * mutable return values (think arrays) or aliasing with "mut x = &y"
+   * then we need a full fledged analysis here. *)
+  let ref_param params v =
+    match v with
+    | Mut_var, x -> x :: params
+    | Const_var, _ -> params
+  in
+  let mut_formals = List.fold_left ref_param [] (ModedVarSet.elements formals) in
+  fun _ -> VarSet.of_list mut_formals

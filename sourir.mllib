@@ -8,6 +8,11 @@ Eval
 Disasm
 Analysis
 Transform
-Rename
-Constantfold
-Replace
+Edit
+Transform_hoist
+Transform_hoist_assign
+Transform_utils
+Transform_constantfold
+Transform_liveness
+Transform_cleanup
+Transform_assumption

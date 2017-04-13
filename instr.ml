@@ -69,7 +69,7 @@ end
 
 type pc = Pc.t
 
-type instruction_stream = instruction array
+type instructions = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
@@ -125,7 +125,7 @@ type formal_parameter =
 
 type version = {
   label : label;
-  instrs : instruction_stream;
+  instrs : instructions;
   annotations : annotations option;
 }
 type afunction = {
@@ -136,6 +136,10 @@ type afunction = {
 type program = {
   main : afunction;
   functions : afunction list;
+}
+type analysis_input = {
+  formals : ModedVarSet.t;
+  instrs : instructions;
 }
 
 type heap_value =
@@ -165,7 +169,7 @@ let value_of_string : string -> value = function
 
 exception Unbound_label of label
 
-let resolve (code : instruction_stream) (label : string) =
+let resolve (code : instructions) (label : string) =
   let rec loop i =
     if i >= Array.length code then raise (Unbound_label label)
     else if code.(i) = Label label then i

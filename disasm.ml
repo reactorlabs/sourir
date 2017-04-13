@@ -3,7 +3,7 @@ open Instr
 let no_line_number buf pc = ()
 let line_number buf pc = Printf.bprintf buf "% 6d |" pc
 
-let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_stream) =
+let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
   let dump_instr buf pc instr =
     let pr = Printf.bprintf in
     let rec dump_comma_separated how what =
@@ -32,7 +32,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instruction_str
     format_pc buf pc;
     begin match instr with
     | Call (var, f, args)               ->
-      pr buf " call %s = *"var;
+      pr buf " call %s = "var;
       dump_expr f;
       pr buf " (";
       dump_comma_separated dump_arg args;
@@ -90,7 +90,7 @@ let disassemble_o outchan (prog : Instr.program) =
   disassemble b prog;
   Buffer.output_buffer outchan b
 
-let disassemble_instrs_s (prog : instruction_stream) =
+let disassemble_instrs_s (prog : instructions) =
   let b = Buffer.create 1024 in
   disassemble_instrs b prog;
   Buffer.to_bytes b

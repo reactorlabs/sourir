@@ -1,35 +1,5 @@
 open Instr
 
-(** [split_edge instrs pc label pc']
-    splits the edge from a branch instruction in [pc]
-    to a [Label label] instruction in [pc'],
-    assuming there is no fallthrough to [pc'] -- all
-    other predecessors are gotos or branches.
-
-    Before applying it to arbitrary program, we use
-    [Transform.remove_fallthroughs_to_label] to make the
-    assumption hold.
-*)
-let split_edge instrs pc label pc' =
-  assert (instrs.(pc') = Label label);
-  let split_label = Rename.fresh_label instrs label in
-  let split_edge = [|
-    Label split_label;
-    Goto label;
-  |] in
-  (* insert the split edge *)
-  let new_instrs, pc_map = Edit.subst instrs pc' 0 split_edge in
-  let new_branch = match[@warning "-4"] instrs.(pc) with
-    | Branch (v, l1, l2) ->
-      if l1 = label
-      then Branch (v, split_label, l2)
-      else if l2 = label
-      then Branch (v, l1, split_label)
-      else invalid_arg "split_edge"
-    | _ -> invalid_arg "split_edge" in
-  new_instrs.(pc_map pc) <- new_branch;
-  new_instrs, pc_map
-
 type push_status =
   | Stop of Edit.result
   | Blocked
@@ -81,7 +51,7 @@ let push_instr cond instrs pc : push_status =
           Iterating this transform will eventually remove all
           branch edges from our (multi)predecessors, so that the
           Not_found case below will do the final push. *)
-       let (_instrs, pc_map) as edit = split_edge instrs branch_pc label pc_above in
+       let (_instrs, pc_map) as edit = Edit.split_edge instrs branch_pc label pc_above in
        Work (edit, [pc_map pc])
    | exception Not_found ->
      (* multi-predecessor case, with no multi-successor predecessor (no branch);
@@ -188,6 +158,21 @@ let pull is_target cond instrs =
 
 
 module Drop = struct
+  (* TODO:
+   * If we ever add mutable return values or duplicating refs this breaks!
+   *
+   * Example (the drop will be moved over the print):
+   *
+   * function foo (mut x)
+   *   return &x
+   *
+   * function main ()
+   *   mut x = 1
+   *   mut y = foo(&x)
+   *   print (y)
+   *   drop x
+   *
+   *)
   let is_blocking var instr =
     VarSet.mem var (required_vars instr)
 
@@ -215,21 +200,22 @@ module Drop = struct
     in
     pull is_target (conditions_var var) instrs
 
-  let move_up instrs =
+  let apply ({formals; instrs} : analysis_input) : instructions option =
     let collect vars instr =
       match[@warning "-4"] instr with
       | Drop x -> VarSet.add x vars
       | _ -> vars
     in
     let dropped_vars = Array.fold_left collect VarSet.empty instrs in
-    let rec work instrs vars =
+    let rec work instrs vars changed =
       match vars with
       | var :: rest ->
         begin match pull_var instrs var with
-        | None -> work instrs rest
-        | Some instrs -> work instrs (var :: rest)
+        | None -> work instrs rest changed
+        | Some instrs -> work instrs (var :: rest) true
         end
-      | [] -> instrs
+      | [] -> instrs, changed
     in
-    work instrs (VarSet.elements dropped_vars)
+    let res, changed = work instrs (VarSet.elements dropped_vars) false in
+    if changed then Some res else None
 end
