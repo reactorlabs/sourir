@@ -947,6 +947,14 @@ let do_test_push_drop () =
    l:
    " in
   test t 7 e;
+  let t = parse "
+      const a = 1
+      call x = bla ()
+      drop x
+    function bla ()
+      return 1
+   " in
+  test t 2 t;
   ()
 
 let do_test_drop_driver () =

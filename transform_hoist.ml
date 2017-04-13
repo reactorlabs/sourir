@@ -174,7 +174,13 @@ module Drop = struct
    *
    *)
   let is_blocking var instr =
-    VarSet.mem var (required_vars instr)
+    match[@warning "-4"] instr with
+    | Call (x, _, _) when x = var -> true
+    | _ ->
+      let blocking = VarSet.mem var (required_vars instr) in
+      let declared = VarSet.mem var (ModedVarSet.untyped (declared_vars instr)) in
+      assert (blocking || not(declared));
+      blocking
 
   let is_eliminating var instr =
     match[@warning "-4"] instr with
