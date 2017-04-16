@@ -1263,6 +1263,55 @@ let test_functions () =
     |pr} 22);
   ();;
 
+let do_test_mut_to_const () =
+  let open Transform in
+  let test t e =
+    let input, expected = (parse t), (parse e) in
+    let output = { input with main = try_opt make_constant input.main } in
+    if (active_version output.main).instrs <> (active_version expected.main).instrs then begin
+      Printf.printf "input: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
+        (Disasm.disassemble_s input)
+        (Disasm.disassemble_s output)
+        (Disasm.disassemble_s expected);
+      assert false
+    end in
+
+  test {input|
+    mut x = 1
+    print x
+  |input} {expect|
+    const x = 1
+    print x
+  |expect};
+  test {input|
+    mut x = 1
+    x <- 1
+    print x
+  |input} {expect|
+    mut x = 1
+    x <- 1
+    print x
+  |expect};
+  test {input|
+    mut x = 1
+    call y = x (&x)
+    print x
+  |input} {expect|
+    mut x = 1
+    call y = x (&x)
+    print x
+  |expect};
+  test {input|
+    mut x = 1
+    mut y = (x+1)
+    print y
+  |input} {expect|
+    const x = 1
+    const y = (x+1)
+    print y
+  |expect};
+  ();;
+
 let suite =
   "suite">:::
   ["mut">:: run test_mut no_input
@@ -1354,6 +1403,7 @@ let suite =
    "pull_drop">:: do_test_pull_drop;
    "move_drop">:: do_test_drop_driver;
    "test_functions">:: test_functions;
+   "test_mut_to_const">:: do_test_mut_to_const;
    ]
 ;;
 

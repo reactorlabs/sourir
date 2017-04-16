@@ -83,6 +83,7 @@ let const_prop_instrs = combine_transform_instructions [
     Transform_cleanup.remove_unused_decl;]
 
 let cleanup_all = as_opt_function cleanup_all_instrs
+let make_constant = as_opt_function Transform_constantfold.make_constant
 let const_prop = as_opt_function const_prop_instrs
 let minimize_liverange = as_opt_function minimize_liverange_instrs
 let hoist_assignment = as_opt_function Transform_hoist_assign.hoist_assignment
@@ -106,6 +107,8 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program minimize_liverange
     | "const_prop" ->
       as_opt_program const_prop
+    | "make_const" ->
+      as_opt_program make_constant
     | "prune" ->
       as_opt_program branch_prune
     | o ->
@@ -113,7 +116,7 @@ let optimize (opts : string list) (prog : program) : program option =
   in
   let opts =
     if opts = ["all"]
-    then ["prune";"const_prop";"hoist_assign";"hoist_drop";"min_live"]
+    then ["prune";"make_const";"const_prop";"hoist_assign";"hoist_drop";"min_live"]
     else opts in
   let optimizers = (List.map optimizer opts) @ [(as_opt_program cleanup_all)] in
   let optimizer = combine_opt optimizers in
