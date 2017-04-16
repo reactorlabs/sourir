@@ -100,8 +100,9 @@ let well_formed prog =
         | Arg_by_val e -> check_expr e
         | Arg_by_ref x -> () in
       let check_osr = function
-        | Osr_const (_, e) -> check_expr e
-        | Osr_mut _ | Osr_mut_undef _ -> () in
+        | Osr_const (_, e)
+        | Osr_mut (_, e) -> check_expr e
+        | Osr_mut_ref _ | Osr_mut_undef _ -> () in
       match instr with
       | Call (_x, f, es) ->
         (check_expr f;

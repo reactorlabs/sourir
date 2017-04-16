@@ -171,21 +171,27 @@ let reduce conf =
     List.fold_left eval_arg Env.empty args
   in
 
-  let build_osr_frame osr_def =
-    let add env' = function
-      | Osr_const (x', e) ->
-        Env.add x' (Val (eval conf e)) env'
-      | Osr_mut (x', x) ->
-        begin match Env.find x conf.env with
-        | exception Not_found -> raise (Unbound_variable x)
+  let build_osr_frame osr_def old_env old_heap =
+    let add (env, heap) = function
+      | Osr_const (x, e) ->
+        (Env.add x (Val (eval conf e)) env, heap)
+      | Osr_mut_ref (x, x') ->
+        begin match Env.find x' old_env with
+        | exception Not_found -> raise (Unbound_variable x')
         | Val _ -> raise Invalid_heap
-        | Ref a -> Env.add x' (Ref a) env'
+        | Ref a ->
+          (Env.add x' (Ref a) env, heap)
         end
-      | Osr_mut_undef x' ->
+      | Osr_mut (x, e) ->
+        let v = eval conf e in
         let a = Address.fresh () in
-        Env.add x' (Ref a) env'
+        (Env.add x (Ref a) env,
+         Heap.add a (Value v) heap)
+      | Osr_mut_undef x ->
+        let a = Address.fresh () in
+        (Env.add x (Ref a) env, heap)
     in
-    List.fold_left add Env.empty osr_def
+    List.fold_left add (Env.empty, old_heap) osr_def
   in
 
   match instruction with
@@ -292,13 +298,14 @@ let reduce conf =
          pc = pc';
        }
      else begin
-       let osr_env = build_osr_frame osr_def in
+       let osr_env, heap' = build_osr_frame osr_def conf.env conf.heap in
        let osr_func = Instr.lookup_fun conf.program f in
        let osr_version = Instr.get_version osr_func v in
        let osr_instrs = osr_version.instrs in
        { conf with
          pc = resolve osr_instrs l;
          env = osr_env;
+         heap = heap';
          instrs = osr_instrs;
          cur_fun = osr_func.name;
          cur_vers = osr_version.label;

@@ -125,7 +125,9 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
   let in_osr osr : osr_def =
     match osr with
     | Osr_const (x, exp) -> Osr_const (x, in_expression exp)
-    | Osr_mut (x, y) -> if y = old_name then Osr_mut (x, new_name) else osr
+    | Osr_mut (x, exp) -> Osr_mut (x, in_expression exp)
+    | Osr_mut_ref (x, y) ->
+      if y = old_name then Osr_mut_ref (x, new_name) else osr
     | Osr_mut_undef _ -> osr in
 
   match instr with

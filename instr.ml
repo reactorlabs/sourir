@@ -88,7 +88,8 @@ and instruction =
   | Comment of string
 and osr_def =
   | Osr_const of variable * expression
-  | Osr_mut of variable * variable
+  | Osr_mut of variable * expression
+  | Osr_mut_ref of variable * variable
   | Osr_mut_undef of variable
 and argument =
   | Arg_by_val of expression
@@ -228,7 +229,8 @@ let required_vars = function
   | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
         | Osr_const (_, e) -> e
-        | Osr_mut (_, x) -> Simple (Var x)
+        | Osr_mut (_, e) -> e
+        | Osr_mut_ref (_, x) -> Simple (Var x)
         | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars
@@ -310,7 +312,8 @@ let used_vars = function
   | Osr (e, _, _, _, osr) ->
     let exps = List.map (function
         | Osr_const (_, e) -> e
-        | Osr_mut (_, x) -> Simple (Var x)
+        | Osr_mut (_, e) -> e
+        | Osr_mut_ref (_, x) -> Simple (Var x)
         | Osr_mut_undef _ -> Simple (Constant Nil)) osr in
     let exps_vars = List.map expr_vars exps in
     List.fold_left VarSet.union (expr_vars e) exps_vars

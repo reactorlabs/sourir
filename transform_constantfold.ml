@@ -45,14 +45,16 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       Assign (y, replace e)
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
-    | Osr (exp, f, v, l, env) ->
+    | Osr (exp, tf, tv, tl, env) ->
       (* Replace all expressions in the osr environment. *)
       let env' = List.map (fun osr_def ->
-        match[@warning "-4"] osr_def with
+        match osr_def with
         | Osr_const (y, e) -> Osr_const (y, replace e)
-        | _ -> osr_def) env
+        | Osr_mut (y, e) -> Osr_mut (y, replace e)
+        | Osr_mut_ref (y, z) -> if x=z then Osr_mut (y, Simple l) else osr_def
+        | Osr_mut_undef y -> Osr_mut_undef y) env
       in
-      Osr (replace exp, f, v, l, env')
+      Osr (replace exp, tf, tv, tl, env')
     | Drop y
     | Decl_mut (y, None)
     | Clear y
