@@ -23,7 +23,7 @@ let insert_branch_pruning_assumption (func : afunction) : version option =
               Osr_const (x, (Simple (Var x)))
             | (Mut_var, x) ->
               if List.mem x (live pc) then
-                Osr_mut (x, x)
+                Osr_mut_ref (x,  x)
               else
                 Osr_mut_undef x)
             (ModedVarSet.elements scope)

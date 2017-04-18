@@ -45,14 +45,16 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       Assign (y, replace e)
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
-    | Osr (exp, f, v, l, env) ->
+    | Osr (exp, tf, tv, tl, env) ->
       (* Replace all expressions in the osr environment. *)
       let env' = List.map (fun osr_def ->
-        match[@warning "-4"] osr_def with
+        match osr_def with
         | Osr_const (y, e) -> Osr_const (y, replace e)
-        | _ -> osr_def) env
+        | Osr_mut (y, e) -> Osr_mut (y, replace e)
+        | Osr_mut_ref (y, z) -> if x=z then Osr_mut (y, Simple l) else osr_def
+        | Osr_mut_undef y -> Osr_mut_undef y) env
       in
-      Osr (replace exp, f, v, l, env')
+      Osr (replace exp, tf, tv, tl, env')
     | Drop y
     | Decl_mut (y, None)
     | Clear y
@@ -104,3 +106,55 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
   in
 
   work instrs
+
+open Transform_utils
+
+let make_constant (({formals; instrs} as inp) : analysis_input) : instructions option =
+  let required = Analysis.required inp in
+  let constant var pc =
+    match[@warning "-4"] instrs.(pc) with
+    | Assign (x, _) when x = var -> false
+    | Drop x when x = var -> false
+    | Clear x when x = var -> false
+    | Read x when x = var -> false
+    | Call (_, _, exp) ->
+      let is_passed_by_val = function
+        | Arg_by_ref x when x = var -> false
+        | _ -> true in
+      List.for_all is_passed_by_val exp
+    | _ -> true
+  in
+
+  let changes = Array.map (fun _ -> Unchanged) instrs in
+  let rec apply pc =
+    if Array.length instrs = pc then () else
+    match[@warning "-4"] instrs.(pc) with
+    | Decl_mut (var, Some exp) ->
+      let required = required pc in
+      if Analysis.PcSet.for_all (constant var) required
+      then begin
+        let fixup pc =
+          let fixup_instr pc = function[@warning "-4"]
+            | Osr (e, f, v, l, osr) ->
+              let fixup_def = function[@warning "-4"]
+                | Osr_mut_ref (x, y) when var = y -> Osr_mut (x, Simple (Var var))
+                | d -> d in
+              changes.(pc) <- Replace (Osr (e, f, v, l, List.map fixup_def osr))
+            | _ -> () in
+          match[@warning "-4"] changes.(pc) with
+          | Unchanged -> fixup_instr pc instrs.(pc)
+          | Replace i -> fixup_instr pc i
+          | _ -> assert(false)
+        in
+        (* all uses keep this variable constant:
+         * 1. Change the declaration to const
+         * 2. Fixup osr uses: We need to materialize the heap value on osr-out *)
+        changes.(pc) <- Replace (Decl_const (var, exp));
+        Analysis.PcSet.iter fixup required;
+      end;
+      apply (pc+1)
+    | _ ->
+      apply (pc+1)
+  in
+  let () = apply 0 in
+  change_instrs (fun pc -> changes.(pc)) inp

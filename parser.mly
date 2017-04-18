@@ -111,7 +111,9 @@ osr_def:
 | MUT x=variable
     { Osr_mut_undef x }
 | MUT x=variable EQUAL y=variable
-    { Osr_mut (x, y) }
+    { Osr_mut_ref (x, y) }
+| MUT x=variable LEFTARROW e=expression
+    { Osr_mut (x, e) }
 
 instruction:
 | CALL x=variable EQUAL f=expression LPAREN args=separated_list(COMMA, argument) RPAREN
