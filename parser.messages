@@ -1,6 +1,6 @@
 program: BRANCH NIL IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 109.
+## Ends in an error in state: 111.
 ##
 ## instruction -> BRANCH expression label . label [ NEWLINE ]
 ##
@@ -15,7 +15,7 @@ instruction
 
 program: BRANCH NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 108.
+## Ends in an error in state: 110.
 ##
 ## instruction -> BRANCH expression . label label [ NEWLINE ]
 ##
@@ -29,7 +29,7 @@ example "foo", is now expected to construct a branch instruction
 
 program: BRANCH TRIPLE_DOT 
 ##
-## Ends in an error in state: 107.
+## Ends in an error in state: 109.
 ##
 ## instruction -> BRANCH . expression label label [ NEWLINE ]
 ##
@@ -43,7 +43,7 @@ example "(x == 2)", is now expected to construct a branch instruction
 
 program: CONST IDENTIFIER EQUAL TRIPLE_DOT 
 ##
-## Ends in an error in state: 88.
+## Ends in an error in state: 90.
 ##
 ## instruction -> CONST variable EQUAL . expression [ NEWLINE ]
 ##
@@ -57,7 +57,7 @@ example "(x + 1)", is now expected to construct a constant declaration
 
 program: CONST IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 87.
+## Ends in an error in state: 89.
 ##
 ## instruction -> CONST variable . EQUAL expression [ NEWLINE ]
 ##
@@ -71,7 +71,7 @@ Parsing an instruction, we parsed "const <var>" so far; the equal sign
 
 program: CONST TRIPLE_DOT 
 ##
-## Ends in an error in state: 86.
+## Ends in an error in state: 88.
 ##
 ## instruction -> CONST . variable EQUAL expression [ NEWLINE ]
 ##
@@ -85,7 +85,7 @@ example "x", is now expected to construct a constant declaration
 
 program: GOTO TRIPLE_DOT 
 ##
-## Ends in an error in state: 82.
+## Ends in an error in state: 84.
 ##
 ## instruction -> GOTO . label [ NEWLINE ]
 ##
@@ -99,7 +99,7 @@ Parsing an instruction, we parsed "goto" so far; a label, for example
 
 program: IDENTIFIER LEFTARROW TRIPLE_DOT 
 ##
-## Ends in an error in state: 112.
+## Ends in an error in state: 114.
 ##
 ## instruction -> variable LEFTARROW . expression [ NEWLINE ]
 ##
@@ -113,7 +113,7 @@ for example "(x + 1)", is now expected to construct an assignment
 
 program: IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 81.
+## Ends in an error in state: 83.
 ##
 ## label -> IDENTIFIER . [ COLON ]
 ## variable -> IDENTIFIER . [ LEFTARROW ]
@@ -137,10 +137,11 @@ program: OSR NIL IDENTIFIER IDENTIFIER IDENTIFIER TRIPLE_DOT
 ##
 
 Parsing the specification of the new environment of an osr instruction
-failed. After "osr <exp> <function> <version> <label>" we expect a square bracket enclosed,
-comma separated list of "const <variable> = <expression>" or
-"mut <variable> = <expression>" or "mut x". For example:
-"[const x = 3, mut y = x, mut a]"
+failed. After "osr <function> <version> <label>" we expect an
+environment mapping as a square bracket enclosed, comma-separated list
+of terms of the form "const x = e" (where "e" is an expression),
+"mut x = e", "mut x = &y" or just "mut x". For example,
+"osr Main optimized l2 [const x = e, mut y = &y, mut z]".
 
 program: OSR NIL IDENTIFIER IDENTIFIER IDENTIFIER LBRACKET TRIPLE_DOT 
 ##
@@ -153,10 +154,11 @@ program: OSR NIL IDENTIFIER IDENTIFIER IDENTIFIER LBRACKET TRIPLE_DOT
 ##
 
 Parsing the specification of the new environment of an osr instruction
-failed. After "osr <exp> <function> <version> <label> [" we expect a comma
-separated list of "const <variable> = <expression>" or
-"mut <variable> = <expression>" or "mut x". For example:
-"[const x = 3, mut y = x, mut a]"
+failed. After "osr <function> <version> <label> [" we expect an
+environment mapping as a comma-separated list of terms of the form
+"const x = e" (where "e" is an expression), "mut x = e", "mut x = &y"
+or just "mut x". For example,
+"osr Main optimized l2 [const x = e, mut y = &y, mut z]".
 
 program: OSR NIL IDENTIFIER TRIPLE_DOT 
 ##
@@ -168,13 +170,13 @@ program: OSR NIL IDENTIFIER TRIPLE_DOT
 ## OSR expression label 
 ##
 
-Parsing an osr instruction, we parsed "osr <expr> <version>",
-and are now expecting a label. The complete instruction
-syntax is "osr <expr> <version> <label> [<new_env>]", where
-"<new_env>" is a specification of the new environment. It's a comma
-separated list of "const <variable> = <expression>" or
-"mut <variable> = <expression>" or "mut x". For example:
-"[const x = 3, mut y = x, mut a]"
+Parsing an osr instruction, we parsed "osr <expr> <version>", and are
+now expecting a label. The complete instruction syntax is "osr <expr>
+<version> <label> [<new_env>]", where "<new_env>" is a specification
+of the environment mapping. It's a comma-separated list of terms of
+the form "const x = e" (where "e" is an expression), "mut x = e",
+"mut x = &y" or just "mut x". For example,
+"osr Main optimized l2 [const x = e, mut y = &y, mut z]".
 
 program: OSR NIL TRIPLE_DOT 
 ##
@@ -186,13 +188,13 @@ program: OSR NIL TRIPLE_DOT
 ## OSR expression 
 ##
 
-Parsing an osr instruction, we parsed "osr <expr>", and
-are now expecting a version label, for example "foo". The complete instruction
+Parsing an osr instruction, we parsed "osr <expr>", and are now
+expecting a version label, for example "foo". The complete instruction
 syntax is "osr <expr> <version> <label> [<new_env>]", where
-"<new_env>" is a specification of the new environment. It's a comma
-separated list of "const <variable> = <expression>" or
-"mut <variable> = <expression>" or "mut x". For example:
-"[const x = 3, mut y = x, mut a]"
+"<new_env>" is a specification of the environment mapping. It's
+a comma-separated list of terms of the form "const x = e" (where "e"
+is an expression), "mut x = e", "mut x = &y" or just "mut x". For
+example, "osr Main optimized l2 [const x = e, mut y = &y, mut z]".
 
 program: OSR TRIPLE_DOT 
 ##
@@ -204,13 +206,13 @@ program: OSR TRIPLE_DOT
 ## OSR 
 ##
 
-Parsing an osr instruction, we parsed "osr", and are now
-expecting an expression, for example "(x + 1)". The complete instruction
-syntax is "osr <expr> <version> <label> [<new_env>]", where
-"<new_env>" is a specification of the new environment. It's a comma
-separated list of "const <variable> = <expression>" or
-"mut <variable> = <expression>" or "mut x". For example:
-"[const x = 3, mut y = x, mut a]"
+Parsing an osr instruction, we parsed "osr", and are now expecting an
+expression, for example "(x + 1)". The complete instruction syntax is
+"osr <expr> <version> <label> [<new_env>]", where "<new_env>" is
+a specification of the new environment. It's a comma-separated list of
+terms of the form "const x = e" (where "e" is an expression),
+"mut x = e", "mut x = &y" or just "mut x". For example,
+"osr Main optimized l2 [const x = e, mut y = &y, mut z]".
 
 program: LBRACE IDENTIFIER COMMA STOP 
 ##
@@ -292,7 +294,7 @@ In a scope annotation, "..." should be the last item. "{ x, ... }" or
 
 program: MUT IDENTIFIER EQUAL TRIPLE_DOT 
 ##
-## Ends in an error in state: 79.
+## Ends in an error in state: 81.
 ##
 ## instruction -> MUT variable EQUAL . expression [ NEWLINE ]
 ##
@@ -306,7 +308,7 @@ construct a constant mutable instruction "mut <var> = <expr>".
 
 program: MUT IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 78.
+## Ends in an error in state: 80.
 ##
 ## instruction -> MUT variable . [ NEWLINE ]
 ## instruction -> MUT variable . EQUAL expression [ NEWLINE ]
@@ -321,7 +323,7 @@ instruction "mut <var> = <expr>".
 
 program: MUT TRIPLE_DOT 
 ##
-## Ends in an error in state: 77.
+## Ends in an error in state: 79.
 ##
 ## instruction -> MUT . variable [ NEWLINE ]
 ## instruction -> MUT . variable EQUAL expression [ NEWLINE ]
@@ -423,7 +425,7 @@ Note that the variable needs to have been declared as mutable first.
 
 program: STOP NIL NEWLINE TRIPLE_DOT 
 ##
-## Ends in an error in state: 117.
+## Ends in an error in state: 119.
 ##
 ## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ VERSION STOP RETURN READ PRINT OSR MUT LBRACE IDENTIFIER GOTO FUNCTION EOF DROP CONST COMMENT CLEAR CALL BRANCH ]
 ##
@@ -436,7 +438,7 @@ instruction on the next line, or the end of the file.
 
 program: STOP NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 116.
+## Ends in an error in state: 118.
 ##
 ## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ VERSION STOP RETURN READ PRINT OSR MUT LBRACE IDENTIFIER GOTO FUNCTION EOF DROP CONST COMMENT CLEAR CALL BRANCH ]
 ##
