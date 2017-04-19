@@ -110,9 +110,9 @@ osr_def:
     { Osr_const (x, e) }
 | MUT x=variable
     { Osr_mut_undef x }
-| MUT x=variable EQUAL y=variable
+| MUT x=variable EQUAL AMPERSAND y=variable
     { Osr_mut_ref (x, y) }
-| MUT x=variable LEFTARROW e=expression
+| MUT x=variable EQUAL e=expression
     { Osr_mut (x, e) }
 
 instruction:

@@ -1312,6 +1312,70 @@ let do_test_mut_to_const () =
   |expect};
   ();;
 
+let do_test_deopt () =
+  let test str n =
+    run (parse str) no_input (returns (Int n)) () in
+
+  test {pr|
+    function main ()
+    version a
+     const x = 1
+     osr (x==1) main b l [const y=42]
+     return x
+
+    version b
+     const y = 2
+    l:
+     return y
+  |pr} 42;
+
+  test {pr|
+    function main ()
+     mut aliased = 33
+     call x = 'foo(&aliased)
+     return aliased
+    function foo(mut x)
+    version vers_a
+     osr (1==1) foo vers_b st [mut x = &x]
+     return 0
+    version vers_b
+     st:
+     x <- 42
+     return 0
+  |pr} 42;
+
+  test {pr|
+    function main ()
+     mut aliased = 33
+     call x = 'foo(&aliased)
+     return aliased
+    function foo(mut x)
+    version vers_a
+     osr (1==1) foo vers_b st [mut x = x]
+     return 0
+    version vers_b
+     st:
+     x <- 42
+     return 0
+  |pr} 33;
+
+  test {pr|
+    function main ()
+     call x = 'foo()
+     return x
+    function foo()
+    version vers_a
+     osr (1==1) foo vers_b st [mut x = (41 + 1)]
+     return 0
+    version vers_b
+     mut x = 0
+     st:
+     return x
+  |pr} 42;
+
+
+  ()
+
 let suite =
   "suite">:::
   ["mut">:: run test_mut no_input
@@ -1378,7 +1442,7 @@ let suite =
    "parser3">:: test_parse_disasm  ("const x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr (x == y) f v l [const x = x, mut y = x, mut v, const x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr (x == y) f v l [const x = x, mut y = &x, mut v, const x = (1+2)]\nl:\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
    "parser7">:: test_parse_disasm  ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
@@ -1404,6 +1468,7 @@ let suite =
    "move_drop">:: do_test_drop_driver;
    "test_functions">:: test_functions;
    "test_mut_to_const">:: do_test_mut_to_const;
+   "deopt">:: do_test_deopt;
    ]
 ;;
 

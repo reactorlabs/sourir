@@ -61,12 +61,13 @@ v :=     values
 osr-map ::=    osr mapping declaration
 | const x = e
 | mut x
-| mut x = x
+| mut x = &x
+| mut x = e
 
 # Natural operational semantics
 
 E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
-H ::= (l ↦ v)                           mutable heap
+H ::= (a ↦ v)                           mutable heap
 
 T ::= (lit)*                    output trace
 
@@ -110,10 +111,18 @@ Update (partial) function, returns an H:
 
 ## Osr transformation of environment
 
-  osr-env P H E (const x = e) = (x ↦ eval P H E e)
-  osr-env P H E (mut x)       = (x ↦ ⊥)
-  osr-env P H E (mut x = y)   = (x ↦ a)
+  materialize P H E (mut x = e) = (x ↦ (a ↦ v))
+    where a - fresh
+      and v := eval P H E e
+  materialize P H E _           = ()
+
+  osr-env P H E M (const x = e) = (x ↦ val v)
+    where v := eval P H E e
+  osr-env P H E M (mut x)       = (x ↦ ⊥)
+  osr-env P H E M (mut x = &y)  = (x ↦ ref a)
     where a = E(y)
+  osr-env P H E M (mut x = e)   = (x ↦ ref e)
+    where (a ↦ _) = M(x)
 
 ## Argument evaluation
 
@@ -166,17 +175,20 @@ Update (partial) function, returns an H:
                if v = false then l₂
 
   step   osr(e, f^, lᵥ^, l^, (osr-map*)) (P, I, T, H, E, l)
-       = (I', T, H, E', l')
+       = (I', T, H', E', l')
     when v := eval P H E e
      and if v = false then
          I' := I
          l' := l
+         H' := H
          E' := E
      and if v = true then
          Df ∈ dom P
          Df  = Function f^ (formal*)
          I' := P(Df, lᵥ^)
          l' := l^
+         M  := (materialize P H E osr-map)*
+         H' := H ∪ rng(M)
          E' := (osr-env P H E osr-map)*
 
 # Scopes
