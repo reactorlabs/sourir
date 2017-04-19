@@ -109,20 +109,33 @@ Update (partial) function, returns an H:
   eval P H E primop(se*) = 〚primop〛(v*)
     where v := simple-eval P H E se
 
-## Osr transformation of environment
+## Environment actions (variable binding, function call, osr)
 
-  materialize P H E (mut x = e) = (x ↦ (a ↦ v))
-    where a - fresh
-      and v := eval P H E e
-  materialize P H E _           = ()
+`build-env H E def` builds a new heap/environment *fragment* from
+a definition intepreted in the existing context (H,E).
 
-  osr-env P H E M (const x = e) = (x ↦ val v)
+  build-env H E (const x = e) = (∅, [x ↦ val v])
     where v := eval P H E e
-  osr-env P H E M (mut x)       = (x ↦ ⊥)
-  osr-env P H E M (mut x = &y)  = (x ↦ ref a)
+  build-env H E (mut x)       = ([a ↦ ⊥], [x ↦ ref a])
+    where a fresh
+  build-env H E (mut x = e)   = ([a ↦ v], [x ↦ ref a])
+    where a fresh
+      and v := eval P H E e
+  build-env H E (mut x = &y)  = (∅, [x ↦ ref a])
     where E ∋ (y ↦ ref a)
-  osr-env P H E M (mut x = e)   = (x ↦ ref a)
-    where M ∋ (x ↦ (a ↦ _))
+
+`extend-env H E def` extends the runtime context `(H,E)` with the
+fragment generated from `def` – in particular it returns an extended
+lexical environment `E'`.
+
+  extend-env H E def := (H, E) + build-env H E def
+
+`replace-env H E def*` creates a new lexical environment `E'` from
+scratch (it does not extend the input environment `E`) from the list
+of definitions `def*`, interpreted/evaluated in `E`. The heap `H` is
+extended with the new heap fragment into a new heap `H'`.
+
+  replace-env H E def* := (H, ∅) + (build-env H E def)*
 
 ## Argument evaluation
 
@@ -134,13 +147,13 @@ Update (partial) function, returns an H:
 
   (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
 
-  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H, E', start)
+  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H', E', start)
     when I(l) = (call x = e (arg*))
      and f  := eval P H E e
      and Df ∈ dom P
      and Df  = Function f ((mod y)*)
      and I' := hd P(Df)
-     and E' := (y ↦ eval-arg P H E mod arg)*
+     and (H',E') := replace-env H E (mod y = arg)*
      and C' := (x, E, I, succ I l)
 
   (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
@@ -152,13 +165,12 @@ Update (partial) function, returns an H:
 ## One step reduction
 
   step   (const x = e) (P, I, T, H, E, l)
-       = (I, T, H, E[x ↦ v], succ I l)
-    when v := eval P H E e
+       = (I, T, H', E', succ I l)
+   where (H', E') := extend-env H E (const x = e)
 
   step   (mut x = e) (P, I, T, H, E, l)
-       = (I, T, H[a ↦ v], E[x ↦ a], succ I l)
-    when v := eval P H E e
-     and a - fresh
+       = (I, T, H', E', succ I l)
+   where (H', E') := extend-env H E (mut x = e)
 
   step   (x ← e) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← v], E, succ I l)
@@ -187,9 +199,7 @@ Update (partial) function, returns an H:
          Df  = Function f^ (formal*)
          I' := P(Df, lᵥ^)
          l' := l^
-         M  := (materialize P H E osr-map)*
-         H' := H ∪ range(M)
-         E' := (osr-env P H E M osr-map)*
+         (H', E') := replace-env osr-map
 
 # Scopes
 
