@@ -120,9 +120,9 @@ Update (partial) function, returns an H:
     where v := eval P H E e
   osr-env P H E M (mut x)       = (x ↦ ⊥)
   osr-env P H E M (mut x = &y)  = (x ↦ ref a)
-    where a = E(y)
-  osr-env P H E M (mut x = e)   = (x ↦ ref e)
-    where (a ↦ _) = M(x)
+    where E ∋ (y ↦ ref a)
+  osr-env P H E M (mut x = e)   = (x ↦ ref a)
+    where M ∋ (x ↦ (a ↦ _))
 
 ## Argument evaluation
 
@@ -188,8 +188,8 @@ Update (partial) function, returns an H:
          I' := P(Df, lᵥ^)
          l' := l^
          M  := (materialize P H E osr-map)*
-         H' := H ∪ rng(M)
-         E' := (osr-env P H E osr-map)*
+         H' := H ∪ range(M)
+         E' := (osr-env P H E M osr-map)*
 
 # Scopes
 
