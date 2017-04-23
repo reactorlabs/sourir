@@ -111,15 +111,23 @@ Update (partial) function, returns an H:
 
 ## Osr transformation of environment
 
-  create-env H E (const x = e) = (∅, [x ↦ val v])
+  build-env H E (const x = e) = (∅, [x ↦ val v])
     where v := eval P H E e
-  create-env H E (mut x)       = ([a ↦ ⊥], [x ↦ ref a])
+  build-env H E (mut x)       = ([a ↦ ⊥], [x ↦ ref a])
     where a fresh
-  create-env H E (mut x = e)   = ([a ↦ v], [x ↦ ref a])
+  build-env H E (mut x = e)   = ([a ↦ v], [x ↦ ref a])
     where a fresh
       and v := eval P H E e
-  create-env H E (mut x = &y)  = (∅, [x ↦ ref a])
+  build-env H E (mut x = &y)  = (∅, [x ↦ ref a])
     where E ∋ (y ↦ ref a)
+
+  extend-env H E def := (H, E) + build-env H E def
+
+    (extends the lexical environment E)
+
+  replace-env H E def* := (H, ∅) + (build-env H E def)*
+
+    (creates a new lexical environment from definitions evaluated in E)
 
 ## Argument evaluation
 
@@ -137,7 +145,7 @@ Update (partial) function, returns an H:
      and Df ∈ dom P
      and Df  = Function f ((mod y)*)
      and I' := hd P(Df)
-     and (H',E') := sum (create-env H E (mod y = arg))*
+     and (H',E') := replace-env H E (mod y = arg)*
      and C' := (x, E, I, succ I l)
 
   (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
@@ -150,11 +158,11 @@ Update (partial) function, returns an H:
 
   step   (const x = e) (P, I, T, H, E, l)
        = (I, T, H+H', E+E', succ I l)
-   where (H', E') := create-env H E (const x = e)
+   where (H', E') := extend-env H E (const x = e)
 
   step   (mut x = e) (P, I, T, H, E, l)
        = (I, T, H+H', E+E', succ I l)
-   where (H', E') := create-env H E (mut x = e)
+   where (H', E') := extend-env H E (mut x = e)
 
   step   (x ← e) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← v], E, succ I l)
@@ -183,7 +191,7 @@ Update (partial) function, returns an H:
          Df  = Function f^ (formal*)
          I' := P(Df, lᵥ^)
          l' := l^
-         (H', E') := sum (create-env H E osr-map)*
+         (H', E') := replace-env osr-map
 
 # Scopes
 
