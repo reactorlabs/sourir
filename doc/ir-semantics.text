@@ -28,6 +28,7 @@ i ::=    instructions
 | call x = e (arg*)             function call
 | mut x = e                     mutable variable
 | x <- e                        assignment
+| x[e] <- e                     array assignment
 | branch e l₁ l₂                conditional
 | goto l                        goto
 | print e                       print
@@ -41,6 +42,10 @@ arg ::=
 e ::=     expression
 | se                    simple expression
 | primop(se*)           primitive operation (pure)
+| array(se)             empty array constructor
+| [se*]                 array constructor
+| x[se]                 array index
+| length(x)             array length
 
 se ::=    simple expressions
 | lit                   literals
@@ -55,6 +60,7 @@ lit ::=  literals
 v :=     values
 | lit                   literals
 | f                     function reference
+| [v*]                  array
 
 (Note: heap adresses are not values)
 
@@ -107,7 +113,18 @@ Update (partial) function, returns an H:
 
   eval P H E se          = simple-eval P H E se
   eval P H E primop(se*) = 〚primop〛(v*)
-    where v := simple-eval P H E se
+    where (v := simple-eval P H E se)*
+  eval P H E [se*]       = [v*]
+    where (v := simple-eval P H E se)*
+  eval P H E x[se]       = vₙ
+    where v := (H,E)[x]
+      and n := simple-eval P H E se
+      and v  = [v₁..., vₙ, ...]
+  eval P H E array(se)   = [nil⁽ⁿ⁾]
+    where n := simple-eval P H E se
+  eval P H E length(x)   = n
+    where v := (H,E)[x]
+      and v  = [v₁..., vₙ]
 
 ## Environment actions (variable binding, function call, osr)
 
@@ -175,6 +192,14 @@ extended with the new heap fragment into a new heap `H'`.
   step   (x ← e) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← v], E, succ I l)
     when v := eval P H E e
+
+  step   (x[eᵢ] ← eₐ) (P, I, T, H, E, l)
+       = (I, T, (H,E)[x ← v'], E, succ I l)
+    when vᵢ := eval P H E eᵢ
+     and vₐ := eval P H E eₐ
+     and v  := (H,E)[x]
+     and v   = [v₁..., vₙ, ...]
+     and v' := [v₁..., vₐ, ...]
 
   step   (print e) (P, I, T, H, E, l)
        = (I, (T, v), H, E, succ I l)
