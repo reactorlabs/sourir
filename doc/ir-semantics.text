@@ -195,7 +195,7 @@ extended with the new heap fragment into a new heap `H'`.
 
   step   (x[eᵢ] ← eₐ) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← v'], E, succ I l)
-    when vᵢ := eval P H E eᵢ
+    when n  := eval P H E eᵢ
      and vₐ := eval P H E eₐ
      and v  := (H,E)[x]
      and v   = [v₁..., vₙ, ...]
