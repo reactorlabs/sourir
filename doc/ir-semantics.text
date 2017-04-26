@@ -156,25 +156,6 @@ extended with the new heap fragment into a new heap `H'`.
 
   replace-env H E def* := (H, ∅) + (build-env H E def)*
 
-## Reduction relation '-->'
-
-  (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
-
-  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H', E', start)
-    when I(l) = (call x = e (arg*))
-     and f  := eval P H E e
-     and Df ∈ dom P
-     and Df  = Function f ((mod y)*)
-     and I' := hd P(Df)
-     and (H',E') := replace-env H E (mod y = arg)*
-     and C' := (x, E, I, succ I l)
-
-  (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
-    when I(l) = (return e)
-     and v   := eval P H E e
-     and C'   = (x', E', I', l')
-     and E'' := E'[x' ↦ v]
-
 ## One step reduction
 
   step   (const x = e) (P, I, T, H, E, l)
@@ -221,6 +202,25 @@ extended with the new heap fragment into a new heap `H'`.
          I' := P(Df, lᵥ^)
          l' := l^
          (H', E') := replace-env osr-map
+
+## Reduction relation '-->'
+
+  (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
+
+  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H', E', start)
+    when I(l) = (call x = e (arg*))
+     and f  := eval P H E e
+     and Df ∈ dom P
+     and Df  = Function f ((mod y)*)
+     and I' := hd P(Df)
+     and (H',E') := replace-env H E (mod y = arg)*
+     and C' := (x, E, I, succ I l)
+
+  (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
+    when I(l) = (return e)
+     and v   := eval P H E e
+     and C'   = (x', E', I', l')
+     and E'' := E'[x' ↦ v]
 
 # Scopes
 
