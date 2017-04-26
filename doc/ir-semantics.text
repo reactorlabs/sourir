@@ -1,81 +1,81 @@
 # The formal language
 
-P ::= Function main ()  ↦ F, (Df ↦ F)*   program:            main function and other functions
-F ::= (lᵥ ↦ V)*                          function body:      can contain multiple versions
-V ::= start ↦ i, I                       a function version: instruction stream with dedicated start
-I ::= (l ↦ i)*                           instruction stream: labeled instructions
+  P ::= Function main ()  ↦ F, (Df ↦ F)*   program:            main function and other functions
+  F ::= (lᵥ ↦ V)*                          function body:      can contain multiple versions
+  V ::= start ↦ i, I                       a function version: instruction stream with dedicated start
+  I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
 Df ::= Function f (formal*)              function declaration (signature)
 
-x        variables
+  x        variables
 
-f  function name
-l  branch label
-lᵥ version label
+  f  function name
+  l  branch label
+  lᵥ version label
 
 Reserved Names:
-main      main function    (execution of program starts here)
-start     start label      (execution of function starts here)
+  main      main function    (execution of program starts here)
+  start     start label      (execution of function starts here)
 
-formal ::=      formal argument
-| const x
-| mut x
+  formal ::=      formal argument
+  | const x
+  | mut x
 
-a  addresses
+  a  addresses
 
-i ::=    instructions
-| const x = e                   constant variable
-| call x = e (arg*)             function call
-| mut x = e                     mutable variable
-| x <- e                        assignment
-| x[e] <- e                     array assignment
-| branch e l₁ l₂                conditional
-| goto l                        goto
-| print e                       print
-| return e                      return
-| osr(e, f, lᵥ, l, osr-map*)    osr : (can be used for osr-in and osr-out)
+  i ::=    instructions
+  | const x = e                   constant variable
+  | mut x = e                     mutable variable
+  | x <- e                        assignment
+  | x[e] <- e                     array assignment
+  | branch e l₁ l₂                conditional
+  | goto l                        goto
+  | print e                       print
+  | return e                      return
+  | call x = e (arg*)             function call
+  | osr(e, f, lᵥ, l, osr-map*)    osr : (can be used for osr-in and osr-out)
 
-arg ::=
-| e
-| &x
+  arg ::= e | &x
 
-e ::=     expression
-| se                    simple expression
-| primop(se*)           primitive operation (pure)
-| array(se)             empty array constructor
-| [se*]                 array constructor
-| x[se]                 array index
-| length(x)             array length
+  e ::=     expression
+  | se                    simple expression
+  | primop(se*)           primitive operation (pure)
+  | array(se)             empty array constructor
+  | [se*]                 array constructor
+  | x[se]                 array index
+  | length(x)             array length
 
-se ::=    simple expressions
-| lit                   literals
-| x                     variables
-| 'f                    create function reference
+  se ::=    simple expressions
+  | lit                   literals
+  | x                     variables
+  | 'f                    create function reference
 
-lit ::=  literals
-| nil
-| true | false
-| 0 | 1 | 2 | ...
+  lit ::=  literals
+  | nil
+  | true | false
+  | 0 | 1 | 2 | ...
 
-v :=     values
-| lit                   literals
-| f                     function reference
-| [v*]                  array
+  v :=     values
+  | lit                   literals
+  | f                     function reference
+  | [v*]                  array
 
-(Note: heap adresses are not values)
+Note: heap adresses are not values. They cannot be explicitly
+mentioned, but &x can be used to alias the mutable variable x in an
+osr or function call.
 
-osr-map ::=    osr mapping declaration
-| const x = e
-| mut x
-| mut x = &x
-| mut x = e
+  osr-map ::=    osr mapping declaration
+  | const x = e
+  | mut x
+  | mut x = &x
+  | mut x = e
 
 # Natural operational semantics
 
-E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
-H ::= (a ↦ v)                           mutable heap
+  E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
+  H ::= (a ↦ v)                           mutable heap
 
-T ::= (lit)*                    output trace
+  T ::= (lit)*                    output trace
 
 ## Configuration
 
@@ -85,21 +85,23 @@ T ::= (lit)*                    output trace
 
 ## Auxiliary functions
 
-succ I l =
- | goto l'                                -> [l']
- | branch _ l' l''                        -> [l', l'']
- | when I = {..., l -> _, l' -> _, ...}   -> [l']
- | _                                      -> []
+  succ I l =
+   | goto l'                                -> [l']
+   | branch _ l' l''                        -> [l', l'']
+   | when I = {..., l -> _, l' -> _, ...}   -> [l']
+   | _                                      -> []
 
-pred I l =
-  { l' ∈ I : succ I l' = l }
+  pred I l =
+    { l' ∈ I : succ I l' = l }
 
 Lookup (partial) function, returns a v:
+
   (H,E)[x] :=
     v    if E ∋ (x ↦ val v)
     H(a) if E ∋ (x ↦ ref a)
 
 Update (partial) function, returns an H:
+
   (H,E)[x ← v] :=
     H[a ↦ v] if E ∋ (x ↦ ref a)
 
