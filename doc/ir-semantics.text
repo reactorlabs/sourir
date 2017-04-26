@@ -1,81 +1,88 @@
 # The formal language
 
-P ::= Function main ()  ↦ F, (Df ↦ F)*   program:            main function and other functions
-F ::= (lᵥ ↦ V)*                          function body:      can contain multiple versions
-V ::= start ↦ i, I                       a function version: instruction stream with dedicated start
-I ::= (l ↦ i)*                           instruction stream: labeled instructions
+  P ::= Function main ()  ↦ F, (Df ↦ F)*   program:            main function and other functions
+  F ::= (lᵥ ↦ V)*                          function body:      can contain multiple versions
+  V ::= start ↦ i, I                       a function version: instruction stream with dedicated start
+  I ::= (l ↦ i)*                           instruction stream: labeled instructions
 
 Df ::= Function f (formal*)              function declaration (signature)
 
-x        variables
+  x        variables
 
-f  function name
-l  branch label
-lᵥ version label
+  f  function name
+  l  branch label
+  lᵥ version label
 
 Reserved Names:
-main      main function    (execution of program starts here)
-start     start label      (execution of function starts here)
+  main      main function    (execution of program starts here)
+  start     start label      (execution of function starts here)
 
-formal ::=      formal argument
-| const x
-| mut x
+  formal ::=      formal argument
+  | const x
+  | mut x
 
-a  addresses
+  a  addresses
 
-i ::=    instructions
-| const x = e                   constant variable
-| call x = e (arg*)             function call
-| mut x = e                     mutable variable
-| x <- e                        assignment
-| x[e] <- e                     array assignment
-| branch e l₁ l₂                conditional
-| goto l                        goto
-| print e                       print
-| return e                      return
-| osr(e, f, lᵥ, l, osr-map*)    osr : (can be used for osr-in and osr-out)
+  i ::=    instructions
+  | const x = e                   constant variable
+  | mut x = e                     mutable variable
+  | x <- e                        assignment
+  | x[e] <- e                     array assignment
+  | branch e l₁ l₂                conditional
+  | goto l                        goto
+  | print e                       print
+  | return e                      return
+  | call x = e (arg*)             function call
+  | osr(e, f, lᵥ, l, osr-map*)    osr : (can be used for osr-in and osr-out)
 
-arg ::=
-| e
-| &x
+  arg ::= e | &x
 
-e ::=     expression
-| se                    simple expression
-| primop(se*)           primitive operation (pure)
-| array(se)             empty array constructor
-| [se*]                 array constructor
-| x[se]                 array index
-| length(x)             array length
+A function argument is either an arbitrary expression `x` or `&x`,
+which references a mutable variable `x`; the function declaration is
+expecting a mutable variable `mut y` in this position, and `y` is
+aliased to `x` from the caller environment; in particular, any
+mutation of `y` within the function body will be visible on `x` after
+the function has returned.
 
-se ::=    simple expressions
-| lit                   literals
-| x                     variables
-| 'f                    create function reference
+  e ::=     expression
+  | se                    simple expression
+  | primop(se*)           primitive operation (pure)
+  | array(se)             empty array constructor
+  | [se*]                 array constructor
+  | x[se]                 array index
+  | length(x)             array length
 
-lit ::=  literals
-| nil
-| true | false
-| 0 | 1 | 2 | ...
+  se ::=    simple expressions
+  | lit                   literals
+  | x                     variables
+  | 'f                    create function reference
 
-v :=     values
-| lit                   literals
-| f                     function reference
-| [v*]                  array
+  lit ::=  literals
+  | nil
+  | true | false
+  | 0 | 1 | 2 | ...
 
-(Note: heap adresses are not values)
+  v :=     values
+  | lit                   literals
+  | f                     function reference
+  | [v*]                  array
 
-osr-map ::=    osr mapping declaration
-| const x = e
-| mut x
-| mut x = &x
-| mut x = e
+Note: heap adresses are not values. They cannot be explicitly
+mentioned, but &x can be used to alias the mutable variable x in an
+osr or function call.
+
+  osr-map ::=    osr mapping declaration
+  | const x = e
+  | mut x
+  | mut x = &x
+  | mut x = e
 
 # Natural operational semantics
 
-E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
-H ::= (a ↦ v)                           mutable heap
+  E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
+  H ::= (a ↦ v)                           mutable heap
 
-T ::= (lit)*                    output trace
+  T ::= (lit)*                    output trace
 
 ## Configuration
 
@@ -85,21 +92,23 @@ T ::= (lit)*                    output trace
 
 ## Auxiliary functions
 
-succ I l =
- | goto l'                                -> [l']
- | branch _ l' l''                        -> [l', l'']
- | when I = {..., l -> _, l' -> _, ...}   -> [l']
- | _                                      -> []
+  succ I l =
+   | goto l'                                -> [l']
+   | branch _ l' l''                        -> [l', l'']
+   | when I = {..., l -> _, l' -> _, ...}   -> [l']
+   | _                                      -> []
 
-pred I l =
-  { l' ∈ I : succ I l' = l }
+  pred I l =
+    { l' ∈ I : succ I l' = l }
 
 Lookup (partial) function, returns a v:
+
   (H,E)[x] :=
     v    if E ∋ (x ↦ val v)
     H(a) if E ∋ (x ↦ ref a)
 
 Update (partial) function, returns an H:
+
   (H,E)[x ← v] :=
     H[a ↦ v] if E ∋ (x ↦ ref a)
 
@@ -154,31 +163,6 @@ extended with the new heap fragment into a new heap `H'`.
 
   replace-env H E def* := (H, ∅) + (build-env H E def)*
 
-## Argument evaluation
-
-  eval-arg P H E const  e =  val eval P H E e
-  eval-arg P H E mut   &x =  ref a
-    where E ∋ (x ↦ ref a)
-
-## Reduction relation '-->'
-
-  (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
-
-  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H', E', start)
-    when I(l) = (call x = e (arg*))
-     and f  := eval P H E e
-     and Df ∈ dom P
-     and Df  = Function f ((mod y)*)
-     and I' := hd P(Df)
-     and (H',E') := replace-env H E (mod y = arg)*
-     and C' := (x, E, I, succ I l)
-
-  (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
-    when I(l) = (return e)
-     and v   := eval P H E e
-     and C'   = (x', E', I', l')
-     and E'' := E'[x' ↦ v]
-
 ## One step reduction
 
   step   (const x = e) (P, I, T, H, E, l)
@@ -225,6 +209,25 @@ extended with the new heap fragment into a new heap `H'`.
          I' := P(Df, lᵥ^)
          l' := l^
          (H', E') := replace-env osr-map
+
+## Reduction relation '-->'
+
+  (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
+
+  (P, C*) : (I, T, H, E, l) --> (P, (C*, C')) : (I', T, H', E', start)
+    when I(l) = (call x = e (arg*))
+     and f  := eval P H E e
+     and Df ∈ dom P
+     and Df  = Function f ((mod y)*)
+     and I' := hd P(Df)
+     and (H',E') := replace-env H E (mod y = arg)*
+     and C' := (x, E, I, succ I l)
+
+  (P, (C*, C')) : (I, T, H, E, l) --> (P, C*) : (I', T, H, E'', l')
+    when I(l) = (return e)
+     and v   := eval P H E e
+     and C'   = (x', E', I', l')
+     and E'' := E'[x' ↦ v]
 
 # Scopes
 
