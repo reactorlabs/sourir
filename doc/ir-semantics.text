@@ -156,12 +156,6 @@ extended with the new heap fragment into a new heap `H'`.
 
   replace-env H E def* := (H, ∅) + (build-env H E def)*
 
-## Argument evaluation
-
-  eval-arg P H E const  e =  val eval P H E e
-  eval-arg P H E mut   &x =  ref a
-    where E ∋ (x ↦ ref a)
-
 ## Reduction relation '-->'
 
   (P, C*) : (I, T, H, E, l) --> (P, C*) : step I(l) (P, I, T, H, E, l)
