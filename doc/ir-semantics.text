@@ -37,6 +37,13 @@ Reserved Names:
 
   arg ::= e | &x
 
+A function argument is either an arbitrary expression `x` or `&x`,
+which references a mutable variable `x`; the function declaration is
+expecting a mutable variable `mut y` in this position, and `y` is
+aliased to `x` from the caller environment; in particular, any
+mutation of `y` within the function body will be visible on `x` after
+the function has returned.
+
   e ::=     expression
   | se                    simple expression
   | primop(se*)           primitive operation (pure)
