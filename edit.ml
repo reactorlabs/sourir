@@ -146,6 +146,9 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     Decl_mut (x, Some (in_expression exp))
   | Assign (x, exp) ->
     Assign (x, in_expression exp)
+  | Array_assign (x, index, exp) ->
+    let x' = if x = old_name then new_name else x in
+    Array_assign (x', in_expression index, in_expression exp)
   | Drop x ->
     if x = old_name then Drop new_name else instr
   | Clear x ->

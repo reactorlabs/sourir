@@ -129,6 +129,8 @@ instruction:
   { Decl_mut (x, Some e) }
 | x=variable LEFTARROW e=expression
   { Assign (x, e) }
+| x=variable LBRACKET i=expression RBRACKET LEFTARROW e=expression
+  { Array_assign (x, i, e) }
 | BRANCH e=expression l1=label l2=label
   { Branch (e, l1, l2) }
 | l=label COLON

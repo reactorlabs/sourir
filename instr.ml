@@ -77,6 +77,7 @@ and instruction =
   | Return of expression
   | Drop of variable
   | Assign of variable * expression
+  | Array_assign of variable * expression * expression
   | Clear of variable
   | Read of variable
   | Branch of expression * label * label
@@ -205,6 +206,7 @@ let declared_vars = function
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
   | (Assign _
+    | Array_assign _
     | Drop _
     | Return _
     | Clear _
@@ -231,6 +233,10 @@ let required_vars = function
   | Decl_mut (_x, None) -> VarSet.empty
   | Drop x | Clear x | Read x -> VarSet.singleton x
   | Assign (x, e) -> VarSet.union (VarSet.singleton x) (expr_vars e)
+  | Array_assign (x, i, e) ->
+    VarSet.singleton x
+    |> VarSet.union (expr_vars i)
+    |> VarSet.union (expr_vars e)
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
@@ -260,6 +266,7 @@ let defined_vars = function
   | Comment _
   | Print _
   | Osr _
+  | Array_assign _ (* The array has to be defined already. *)
   | Stop _ -> ModedVarSet.empty
 
 let dropped_vars = function
@@ -269,6 +276,7 @@ let dropped_vars = function
   | Decl_const _
   | Decl_mut _
   | Assign _
+  | Array_assign _
   | Clear _
   | Read _
   | Branch _
@@ -286,6 +294,7 @@ let cleared_vars = function
   | Decl_const _
   | Decl_mut _
   | Assign _
+  | Array_assign _
   | Drop _
   | Read _
   | Branch _
@@ -312,6 +321,10 @@ let used_vars = function
   | Assign (_, e)
   | Branch (e, _, _)
   | Print e -> expr_vars e
+  | Array_assign (x, i, e) ->
+    VarSet.singleton x
+    |> VarSet.union (expr_vars i)
+    |> VarSet.union (expr_vars e)
   | Drop _
   | Clear _
   | Label _

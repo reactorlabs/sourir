@@ -307,6 +307,16 @@ let reduce conf =
        heap = update conf.heap conf.env x v;
        pc = pc';
      }
+  | Array_assign (x, i, e) ->
+    let vi = eval conf i in
+    let ve = eval conf e in
+    let arr = lookup conf.heap conf.env x in
+    let vs = get_array arr in
+    vs.(get_int vi) <- ve;
+    { conf with
+      heap = update conf.heap conf.env x (Array vs);
+      pc = pc';
+    }
   | Branch (e, l1, l2) ->
      let b = get_bool (eval conf e) in
      { conf with pc = resolve conf.instrs (if b then l1 else l2) }

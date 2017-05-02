@@ -16,7 +16,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       | Var v             -> pr buf "%s" v
       | Constant c        -> pr buf "%s" (string_of_value c)
     in
-    let dump_expr exp =
+    let dump_expr buf exp =
       match exp with
       | Simple e          -> simple buf e
       | Op (Plus, [a; b]) -> pr buf "(%a + %a)" simple a simple b
@@ -31,37 +31,38 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     in
     let dump_arg buf arg =
       match arg with
-      | Arg_by_val e      -> dump_expr e
+      | Arg_by_val e      -> dump_expr buf e
       | Arg_by_ref x      -> pr buf "&%s" x
     in
     format_pc buf pc;
     begin match instr with
     | Call (var, f, args)               ->
       pr buf " call %s = "var;
-      dump_expr f;
+      dump_expr buf f;
       pr buf " (%a)" (dump_comma_separated dump_arg) args;
-    | Stop exp                        -> pr buf " stop "; dump_expr exp
-    | Return exp                      -> pr buf " return "; dump_expr exp
-    | Decl_const (var, exp)           -> pr buf " const %s = " var; dump_expr exp
-    | Decl_mut (var, Some exp)        -> pr buf " mut %s = " var; dump_expr exp
+    | Stop exp                        -> pr buf " stop "; dump_expr buf exp
+    | Return exp                      -> pr buf " return "; dump_expr buf exp
+    | Decl_const (var, exp)           -> pr buf " const %s = " var; dump_expr buf exp
+    | Decl_mut (var, Some exp)        -> pr buf " mut %s = " var; dump_expr buf exp
     | Decl_mut (var, None)            -> pr buf " mut %s" var
     | Drop var                        -> pr buf " drop %s" var
     | Clear var                       -> pr buf " clear %s" var
-    | Assign (var, exp)               -> pr buf " %s <- " var; dump_expr exp
-    | Branch (exp, l1, l2)            -> pr buf " branch "; dump_expr exp; pr buf " %s %s" l1 l2
+    | Assign (var, exp)               -> pr buf " %s <- " var; dump_expr buf exp
+    | Array_assign (var, index, exp)  -> pr buf " %s[%a] <- %a" var dump_expr index dump_expr exp
+    | Branch (exp, l1, l2)            -> pr buf " branch "; dump_expr buf exp; pr buf " %s %s" l1 l2
     | Label label                     -> pr buf "%s:" label
     | Goto label                      -> pr buf " goto %s" label
-    | Print exp                       -> pr buf " print "; dump_expr exp
+    | Print exp                       -> pr buf " print "; dump_expr buf exp
     | Read var                        -> pr buf " read %s" var
     | Osr (exp, f, v, l, vars)        ->
       let dump_var buf = function
-        | Osr_const (x, e)     -> pr buf "const %s = " x; dump_expr e;
-        | Osr_mut (x, e)       -> pr buf "mut %s = " x; dump_expr e;
+        | Osr_const (x, e)     -> pr buf "const %s = " x; dump_expr buf e;
+        | Osr_mut (x, e)       -> pr buf "mut %s = " x; dump_expr buf e;
         | Osr_mut_ref (x, y)   -> pr buf "mut %s = &%s" x y;
         | Osr_mut_undef x      -> pr buf "mut %s" x
       in
       pr buf " osr ";
-      dump_expr exp;
+      dump_expr buf exp;
       pr buf " %s %s %s [%a]" f v l (dump_comma_separated dump_var) vars;
     | Comment str                     -> pr buf " #%s" str
     end;

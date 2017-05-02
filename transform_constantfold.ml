@@ -43,6 +43,9 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
     | Assign (y, e) ->
       assert (x <> y);
       Assign (y, replace e)
+    | Array_assign (y, i, e) ->
+      assert (x <> y);
+      Array_assign (y, replace i, replace e)
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
     | Osr (exp, tf, tv, tl, env) ->

@@ -126,6 +126,9 @@ let well_formed prog =
       | Osr (e, _, _, _, osr) ->
         check_expr e;
         List.iter check_osr osr
+      | Array_assign (_, i, e) ->
+        check_expr i;
+        check_expr e;
     in
 
     (* Check correctness of calls and osrs *)
