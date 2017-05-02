@@ -26,6 +26,8 @@ Reserved Names:
   i ::=    instructions
   | const x = e                   constant variable
   | mut x = e                     mutable variable
+  | drop x                        drop a variable from scope
+  | clear x                       de-initialization of a mutable
   | x <- e                        assignment
   | x[e] <- e                     array assignment
   | branch e l₁ l₂                conditional
@@ -176,6 +178,14 @@ extended with the new heap fragment into a new heap `H'`.
   step   (x ← e) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← v], E, succ I l)
     when v := eval P H E e
+
+  step   (clear x) (P, I, T, H, E, l)
+       = (I, T, (H,E)[x ← ⊥], E, succ I l)
+    when v := eval P H E e
+
+  step   (drop x) (P, I, T, H, E, l)
+       = (I, T, H, E', succ I l)
+    when E' := E \ {x}
 
   step   (x[eᵢ] ← eₐ) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← v'], E, succ I l)
