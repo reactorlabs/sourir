@@ -27,12 +27,13 @@ type configuration = {
   continuation : continuation list;
 }
 
-type type_tag = Nil | Bool | Int | Fun_ref
+type type_tag = Nil | Bool | Int | Fun_ref | Array
 let get_tag : value -> type_tag = function
   | Nil -> Nil
   | Bool _ -> Bool
   | Int _ -> Int
   | Fun_ref _ -> Fun_ref
+  | Array _ -> Array
 
 exception Unbound_variable of variable
 exception Undefined_variable of variable
@@ -85,7 +86,7 @@ let clear heap env x =
   | Val _ -> raise Invalid_clear
   | Ref a -> Heap.add a Undefined heap
 
-let value_eq (v1 : value) (v2 : value) =
+let rec value_eq (v1 : value) (v2 : value) =
   match v1, v2 with
   | Nil, Nil -> true
   | Nil, _ | _, Nil -> false
@@ -94,11 +95,19 @@ let value_eq (v1 : value) (v2 : value) =
   | Int n1, Int n2 -> n1 = n2
   | Int _, _ | _, Int _ -> false
   | Fun_ref f1, Fun_ref f2 -> f1 = f2
+  | Fun_ref _, _ | _, Fun_ref _ -> false
+  | Array vs1, Array vs2 ->
+    let forall2 p arr1 arr2 =
+      Array.mapi (fun i v1 -> p v1 arr2.(i)) arr1
+      |> Array.for_all (fun b -> b)
+    in
+    Array.length vs1 = Array.length vs2
+    && forall2 value_eq vs1 vs2
 
 let value_plus (v1 : value) (v2 : value) =
   match v1, v2 with
   | Int n1, Int n2 -> n1 + n2
-  | (Int _ | Nil | Bool _ | Fun_ref _) as x1, x2 ->
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
       let expected = (Int, Int) in
       let received = get_tag x1, get_tag x2 in
       raise (ProductType_error { expected; received })
@@ -110,6 +119,34 @@ let eval_simple prog heap env = function
   | Var x -> lookup heap env x
   | Constant c -> c
 
+let get_int (v : value) =
+  match v with
+  | Int i -> i
+  | (Nil | Bool _ | Fun_ref _ | Array _) as other ->
+     let expected, received = Int, get_tag other in
+     raise (Type_error { expected; received })
+
+let get_bool (v : value) =
+  match v with
+  | Bool b -> b
+  | (Nil | Int _ | Fun_ref _ | Array _) as other ->
+     let expected, received = Bool, get_tag other in
+     raise (Type_error { expected; received })
+
+let get_fun (v : value) =
+  match v with
+  | Fun_ref f -> f
+  | (Nil | Int _ | Bool _ | Array _) as other ->
+     let expected, received = Fun_ref, get_tag other in
+     raise (Type_error { expected; received })
+
+let get_array (v : value) =
+  match v with
+  | Array vs -> vs
+  | (Nil | Int _ | Bool _ | Fun_ref _) as other ->
+     let expected, received = Array, get_tag other in
+     raise (Type_error { expected; received })
+
 let rec eval prog heap env = function
   | Simple e -> eval_simple prog heap env e
   | Op (op, es) ->
@@ -118,21 +155,18 @@ let rec eval prog heap env = function
     | Neq, [v1; v2] -> Bool (value_neq v1 v2)
     | Plus, [v1; v2] -> Int (value_plus v1 v2)
     | (Eq | Neq | Plus), _vs -> raise (Arity_error op)
+    | Array_alloc, [size] ->
+      let size = get_int size in
+      Array (Array.make size (Nil : value))
+    | Array_of_list, vs -> Array (Array.of_list vs)
+    | Array_index, [array; index] ->
+      let array, index = get_array array, get_int index in
+      array.(index)
+    | Array_length, [array] ->
+      let array = get_array array in
+      Int (Array.length array)
+    | ((Array_alloc | Array_index | Array_length), _) -> raise (Arity_error op)
     end
-
-let get_bool (v : value) =
-  match v with
-  | Bool b -> b
-  | (Nil | Int _ | Fun_ref _) as other ->
-     let expected, received = Bool, get_tag other in
-     raise (Type_error { expected; received })
-
-let get_fun (v : value) =
-  match v with
-  | Fun_ref f -> f
-  | (Nil | Int _ | Bool _) as other ->
-     let expected, received = Fun_ref, get_tag other in
-     raise (Type_error { expected; received })
 
 exception InvalidArgument
 exception InvalidNumArgs

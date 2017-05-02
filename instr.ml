@@ -105,10 +105,15 @@ and value =
   | Bool of bool
   | Int of int
   | Fun_ref of string
+  | Array of value array
 and primop =
   | Eq
   | Neq
   | Plus
+  | Array_alloc
+  | Array_of_list
+  | Array_index
+  | Array_length
 
 type scope_annotation =
   | ExactScope of VarSet.t
@@ -153,11 +158,14 @@ type binding =
   | Val of value
   | Ref of address
 
-let string_of_value : value -> string = function
+let rec string_of_value : value -> string = function
   | Nil -> "nil"
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
   | Fun_ref f -> "'" ^ f
+  | Array vs ->
+    let ss = Array.to_list (Array.map string_of_value vs) in
+    "[" ^ String.concat "," ss ^ "]"
 
 let value_of_string : string -> value = function
   | "nil" -> Nil
@@ -167,6 +175,7 @@ let value_of_string : string -> value = function
   | n ->
     try Int (int_of_string n) with _ ->
       Printf.kprintf invalid_arg "value_of_string %S" n
+(* TODO add case for array *)
 
 exception Unbound_label of label
 
@@ -339,3 +348,4 @@ module Value = struct
   let int n : value = Int n
   let bool b : value = Bool b
 end
+

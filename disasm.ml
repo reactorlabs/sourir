@@ -6,11 +6,11 @@ let line_number buf pc = Printf.bprintf buf "% 6d |" pc
 let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
   let dump_instr buf pc instr =
     let pr = Printf.bprintf in
-    let rec dump_comma_separated how what =
+    let rec dump_comma_separated how buf what =
       match what with
       | [] -> ()
-      | [e] -> how e
-      | e::t -> how e; pr buf ", "; dump_comma_separated how t
+      | [e] -> how buf e
+      | e::t -> how buf e; pr buf ", "; dump_comma_separated how buf t
     in
     let simple buf = function
       | Var v             -> pr buf "%s" v
@@ -23,8 +23,13 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       | Op (Neq,  [a; b]) -> pr buf "(%a != %a)" simple a simple b
       | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
       | Op ((Plus | Neq | Eq), _)         -> assert(false)
+      | Op (Array_alloc, [size]) -> pr buf "array(%a)" simple size
+      | Op (Array_of_list, li) -> pr buf "[%a]" (dump_comma_separated simple) li
+      | Op (Array_index, [array; index]) -> pr buf "%a[%a]" simple array simple index
+      | Op (Array_length, [array]) -> pr buf "length(%a)" simple array
+      | Op ((Array_alloc | Array_index | Array_length), _) -> assert(false)
     in
-    let dump_arg arg =
+    let dump_arg buf arg =
       match arg with
       | Arg_by_val e      -> dump_expr e
       | Arg_by_ref x      -> pr buf "&%s" x
@@ -34,9 +39,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Call (var, f, args)               ->
       pr buf " call %s = "var;
       dump_expr f;
-      pr buf " (";
-      dump_comma_separated dump_arg args;
-      pr buf ")"
+      pr buf " (%a)" (dump_comma_separated dump_arg) args;
     | Stop exp                        -> pr buf " stop "; dump_expr exp
     | Return exp                      -> pr buf " return "; dump_expr exp
     | Decl_const (var, exp)           -> pr buf " const %s = " var; dump_expr exp
@@ -51,17 +54,15 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Print exp                       -> pr buf " print "; dump_expr exp
     | Read var                        -> pr buf " read %s" var
     | Osr (exp, f, v, l, vars)        ->
-      pr buf " osr ";
-      dump_expr exp;
-      pr buf " %s %s %s [" f v l;
-      let dump_var = function
+      let dump_var buf = function
         | Osr_const (x, e)     -> pr buf "const %s = " x; dump_expr e;
         | Osr_mut (x, e)       -> pr buf "mut %s = " x; dump_expr e;
         | Osr_mut_ref (x, y)   -> pr buf "mut %s = &%s" x y;
         | Osr_mut_undef x      -> pr buf "mut %s" x
       in
-      dump_comma_separated dump_var vars;
-      pr buf "]"
+      pr buf " osr ";
+      dump_expr exp;
+      pr buf " %s %s %s [%a]" f v l (dump_comma_separated dump_var) vars;
     | Comment str                     -> pr buf " #%s" str
     end;
     pr buf "\n"
