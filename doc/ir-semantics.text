@@ -256,22 +256,17 @@ requires i =
   | print x         -> [x]
   | _               -> []
 
+removes i =
+  | drop x -> [x]
+  | _      -> []
+
 scope S ::= x*
 scope assignment A ::= ((v, l) → S)*
 
-## Declarative scoping judgment
+## Scoping judgment
 
-This judgment just classifies "possible" scope assignments A for
-a program P. It does not characterize the tightest possible
-assignment¹, as it allows to implicitly drop variables from scope on
-each transition (the ⊇ relations in the (v, l → i) rule). In
-particular, it cannot forbid shadowing, as it is always possible to
-drop all same-named bindings before a declaration.
-
-¹: the tightest possible assignment can be defined impredicatively as
-the pointwise intersection of all valid judgments, which is
-well-defined given that valid scopes are bounded by the set of
-variables defined in the program.
+This judgment just classifies a valid scope assignment A for
+a program P.
 
   ∀(v → M) ∈ P:   A, P ⊨d v → M
   ----------------------------
@@ -282,7 +277,7 @@ variables defined in the program.
          A, P ⊨d v → M
 
   requires i ⊆ A(v,l)
-  ∀l' ∈ succ(P(v),l),  A(v,l) ∪ declares i ⊇ A(v,l')
+  ∀l' ∈ succ(P(v),l),  A(v,l) ∪ declares i \ removes i = A(v,l')
   A, P ⊨d i : A(v,l)
   pred(P(v), l) = ∅  ⇒  i = start
   -----------------------------------------------------------
@@ -307,47 +302,8 @@ generic requires/declares handling.
   ----------------------
   A, P ⊨d i : S
 
-## Algorithmic scoping judgment
-
-(A, P ⊨a), (A, P ⊨a v → M), (A, P ⊨a i : S): as in the declarative
-scoping judgment. Only (A, P ⊨a v, l → i) differs.
-
-  S := A(v,l) \ declares i
-  (⋂_{l* ∈ pred(P(v),l)} A(v,l*)) = S ∪ requires i
-  A, P ⊨a i : S
-  ------------------------------------------------
-  A, P ⊨a v, l → i
-
-There is a fundamental difference in the role of the scope assignment
-A between the declarative and algorithmic judgments.
-
-In the declarative judgment, A(v,l) points to the variables
-*available* in the *ingoing* scope of the instruction at location
-(v,l): the scope that is available when arriving to the instruction
-from a predecessor. The variables that are available in the outgoing
-scope can be computed from this value as (A(v,l) ∪ declares i).
-
-In the algorithmic judgment, A(v,l) points to the variables that are
-*required* in the *outgoing* scope of the instruction at location
-(v,l): the scope that is required when leaving the instruction to
-a successor. The variables required in the ingoing scope can be
-computed from this value as (A(v,l) \ declares i).
-
-In the declarative judgment, the relation between an instruction scope
-and its neighbors is under-specified: a predecessor's outgoing scope
-may have more variables than our ingoing scope, and any successor's
-ingoing scope may have less variable than our outgoing scope.
-
-In the algorithmic judgment, the relation between the scopes of an
-instruction and its neighbors is deterministic: an instruction's
-ingoing scope is exactly the variables that are common among all its
-predecessors. Implicitly dropping a variable that will never be used
-again is possible: this is done by choosing a A(v,l) that is smaller
-than the instruction's ingoing set plus (declares i).
-
-Problem: I think there is a problem with the notion of outgoing scope
-as it is currently defined for multi-successor instructions, as it
-forces all successors to see the same set of required
-variables. I think that introducing `drop` instructions would be the
-cleanest way to work around these issues – by removing any
-underspecification from the declarative specification.
+This strict scoping judgment is deterministic on reachable program
+points: A is uniquely determined by P on those: start instructions
+have to be in the empty scope, and then the scope of successors
+instructions are uniquely determined. (This is thanks to `drop` that
+lets us use equality instead of a superset relation there.)
