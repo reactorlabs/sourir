@@ -181,7 +181,6 @@ extended with the new heap fragment into a new heap `H'`.
 
   step   (clear x) (P, I, T, H, E, l)
        = (I, T, (H,E)[x ← ⊥], E, succ I l)
-    when v := eval P H E e
 
   step   (drop x) (P, I, T, H, E, l)
        = (I, T, H, E', succ I l)
