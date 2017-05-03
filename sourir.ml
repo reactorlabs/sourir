@@ -21,7 +21,7 @@ let () =
     exit 1);
 
   let program =
-    try Parse.parse_file !path
+    try Parse.program_of_file !path
     with Parse.Error error ->
       Parse.report_error error;
       exit 2

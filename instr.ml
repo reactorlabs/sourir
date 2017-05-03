@@ -167,6 +167,7 @@ let rec string_of_value : value -> string = function
   | Array vs ->
     let ss = Array.to_list (Array.map string_of_value vs) in
     "[" ^ String.concat "," ss ^ "]"
+  (* add a case for arrays *)
 
 let value_of_string : string -> value = function
   | "nil" -> Nil

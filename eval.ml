@@ -401,7 +401,7 @@ let rec reduce_interactive conf =
     let conf = reduce conf in
     begin match conf.trace with
       | [] -> ()
-      | vs -> print_endline (String.concat " " (List.map Instr.string_of_value vs))
+      | vs -> print_endline (String.concat " " (List.map string_of_value vs))
     end;
     reduce_interactive { conf with trace = [] }
   end

@@ -13,6 +13,7 @@
 %token EOF
 
 %start<Instr.program> program
+%start<Instr.value> value
 
 %{ open Instr
 
@@ -193,3 +194,8 @@ lit:
   | SINGLE_QUOTE f=variable { (Fun_ref f : value) }
   | b=BOOL { (Bool b : value) }
   | n=INT { (Int n : value) }
+
+value:
+  | lit { $1 }
+  | LBRACKET vs=separated_list(COMMA, value) RBRACKET
+    { (Array (Array.of_list vs) : value) }
