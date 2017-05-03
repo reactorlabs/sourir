@@ -7,6 +7,7 @@
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
 %token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
+%token ARRAY LENGTH
 %token<string> COMMENT
 %token NEWLINE
 %token EOF
@@ -128,6 +129,8 @@ instruction:
   { Decl_mut (x, Some e) }
 | x=variable LEFTARROW e=expression
   { Assign (x, e) }
+| x=variable LBRACKET i=expression RBRACKET LEFTARROW e=expression
+  { Array_assign (x, i, e) }
 | BRANCH e=expression l1=label l2=label
   { Branch (e, l1, l2) }
 | l=label COLON
@@ -162,6 +165,14 @@ expression:
   | e = simple_expression { Simple e }
   | LPAREN e1=simple_expression op=infixop e2=simple_expression RPAREN
     { Op (op, [e1;e2]) }
+  | ARRAY LPAREN size=simple_expression RPAREN
+    { Op (Array_alloc, [size]) }
+  | LBRACKET xs=separated_list(COMMA, simple_expression) RBRACKET
+    { Op (Array_of_list, xs) }
+  | x=variable LBRACKET index=simple_expression RBRACKET
+    { Op (Array_index, [Var x; index]) }
+  | LENGTH LPAREN x=simple_expression RPAREN
+    { Op (Array_length, [x]) }
 
 label: id=IDENTIFIER { (id : Label.t) }
 variable: id=IDENTIFIER { (id : Variable.t) }

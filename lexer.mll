@@ -18,6 +18,8 @@ let keyword_table = [
   "call", CALL;
   "version", VERSION;
   "function", FUNCTION;
+  "array", ARRAY;
+  "length", LENGTH;
 ]
 
 let id_or_keyword id =

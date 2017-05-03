@@ -88,10 +88,15 @@ let well_formed prog =
       List.iter check_arg (List.combine func.formals args) in
 
     let check_fun_ref instr =
+      let rec check_value = function
+        | Nil | Bool _ | Int _ -> ()
+        | Fun_ref x -> ignore (lookup_fun x)
+        | Array vs -> Array.iter check_value vs
+      in
       let check_simple_expr = function
-        | Var _
-        | Constant (Nil | Bool _ | Int _) -> ()
-        | Constant (Fun_ref x) -> ignore (lookup_fun x) in
+        | Var _ -> ()
+        | Constant v -> check_value v
+      in
       let check_expr = function
         | Simple e -> check_simple_expr e
         | Op (_op, xs) ->
@@ -121,6 +126,9 @@ let well_formed prog =
       | Osr (e, _, _, _, osr) ->
         check_expr e;
         List.iter check_osr osr
+      | Array_assign (_, i, e) ->
+        check_expr i;
+        check_expr e;
     in
 
     (* Check correctness of calls and osrs *)

@@ -150,6 +150,6 @@ let () =
     exit n
   | Result (Bool b) ->
     exit (if b then 1 else 0)
-  | Result Nil | Result Fun_ref _ ->
+  | Result (Fun_ref _ | Array _ | Nil) ->
     exit 0
 

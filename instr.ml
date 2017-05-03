@@ -77,6 +77,7 @@ and instruction =
   | Return of expression
   | Drop of variable
   | Assign of variable * expression
+  | Array_assign of variable * expression * expression
   | Clear of variable
   | Read of variable
   | Branch of expression * label * label
@@ -105,10 +106,15 @@ and value =
   | Bool of bool
   | Int of int
   | Fun_ref of string
+  | Array of value array
 and primop =
   | Eq
   | Neq
   | Plus
+  | Array_alloc
+  | Array_of_list
+  | Array_index
+  | Array_length
 
 type scope_annotation =
   | ExactScope of VarSet.t
@@ -153,11 +159,14 @@ type binding =
   | Val of value
   | Ref of address
 
-let string_of_value : value -> string = function
+let rec string_of_value : value -> string = function
   | Nil -> "nil"
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
   | Fun_ref f -> "'" ^ f
+  | Array vs ->
+    let ss = Array.to_list (Array.map string_of_value vs) in
+    "[" ^ String.concat "," ss ^ "]"
 
 let value_of_string : string -> value = function
   | "nil" -> Nil
@@ -167,6 +176,7 @@ let value_of_string : string -> value = function
   | n ->
     try Int (int_of_string n) with _ ->
       Printf.kprintf invalid_arg "value_of_string %S" n
+(* TODO add case for array *)
 
 exception Unbound_label of label
 
@@ -196,6 +206,7 @@ let declared_vars = function
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
   | (Assign _
+    | Array_assign _
     | Drop _
     | Return _
     | Clear _
@@ -222,6 +233,10 @@ let required_vars = function
   | Decl_mut (_x, None) -> VarSet.empty
   | Drop x | Clear x | Read x -> VarSet.singleton x
   | Assign (x, e) -> VarSet.union (VarSet.singleton x) (expr_vars e)
+  | Array_assign (x, i, e) ->
+    VarSet.singleton x
+    |> VarSet.union (expr_vars i)
+    |> VarSet.union (expr_vars e)
   | Branch (e, _l1, _l2) -> expr_vars e
   | Label _l | Goto _l -> VarSet.empty
   | Comment _ -> VarSet.empty
@@ -251,6 +266,7 @@ let defined_vars = function
   | Comment _
   | Print _
   | Osr _
+  | Array_assign _ (* The array has to be defined already. *)
   | Stop _ -> ModedVarSet.empty
 
 let dropped_vars = function
@@ -260,6 +276,7 @@ let dropped_vars = function
   | Decl_const _
   | Decl_mut _
   | Assign _
+  | Array_assign _
   | Clear _
   | Read _
   | Branch _
@@ -277,6 +294,7 @@ let cleared_vars = function
   | Decl_const _
   | Decl_mut _
   | Assign _
+  | Array_assign _
   | Drop _
   | Read _
   | Branch _
@@ -303,6 +321,10 @@ let used_vars = function
   | Assign (_, e)
   | Branch (e, _, _)
   | Print e -> expr_vars e
+  | Array_assign (x, i, e) ->
+    VarSet.singleton x
+    |> VarSet.union (expr_vars i)
+    |> VarSet.union (expr_vars e)
   | Drop _
   | Clear _
   | Label _
@@ -339,3 +361,4 @@ module Value = struct
   let int n : value = Int n
   let bool b : value = Bool b
 end
+
