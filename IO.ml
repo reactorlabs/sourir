@@ -12,15 +12,9 @@ let rec string_of_value : value -> string = function
     let ss = Array.to_list (Array.map string_of_value vs) in
     "[" ^ String.concat ", " ss ^ "]"
 
-let value_of_string : string -> value = function
-  | "nil" -> Nil
-  | "true" -> Bool true
-  | "false" -> Bool false
-  (* Should we allow function literals as user input? *)
-  | n ->
-    try Int (int_of_string n) with _ ->
-      Printf.kprintf invalid_arg "value_of_string %S" n
-(* TODO add case for array *)
+let value_of_string str =
+  try Parse.value_of_string str
+  with _ -> Printf.kprintf invalid_arg "value_of_string %S" str
 
 type input = unit -> input_tape (* may raise one of the exceptions above *)
 and input_tape = Next of value * input
