@@ -103,6 +103,13 @@ let rec value_eq (v1 : value) (v2 : value) =
     in
     Array.length vs1 = Array.length vs2
     && forall2 value_eq vs1 vs2
+  | Array _, _ | _, Array _ -> .
+    (* The case above cannot happen (`.` means "unreachable case",
+       this is called a refutation clause) because all constructors
+       other than Array have been filtered before.  If you add a new
+       constructor, this line may need to return "false" and you can
+       add a refutation clause of the same shape for the new
+       constructor. *)
 
 let value_plus (v1 : value) (v2 : value) =
   match v1, v2 with
