@@ -3,6 +3,19 @@ open Instr
 exception EOF
 exception Invalid_input
 
+let rec string_of_value : value -> string = function
+  | Nil -> "nil"
+  | Bool b -> string_of_bool b
+  | Int n -> string_of_int n
+  | Fun_ref f -> "'" ^ f
+  | Array vs ->
+    let ss = Array.to_list (Array.map string_of_value vs) in
+    "[" ^ String.concat ", " ss ^ "]"
+
+let value_of_string str =
+  try Parse.value_of_string str
+  with _ -> Printf.kprintf invalid_arg "value_of_string %S" str
+
 type input = unit -> input_tape (* may raise one of the exceptions above *)
 and input_tape = Next of value * input
 

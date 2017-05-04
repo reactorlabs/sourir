@@ -31,7 +31,7 @@ let exact vars = Some Scope.(ExactScope (VarSet.of_list vars))
 let at_least vars = Some Scope.(AtLeastScope (VarSet.of_list vars))
 
 let parse str : program =
-  try Parse.parse_string str
+  try Parse.program_of_string str
   with Parse.Error error ->
     Parse.report_error error;
     exit 2
@@ -250,22 +250,22 @@ let infer_broken_scope program exn = function() ->
   assert_raises exn test
 
 let test_parse_disasm_file file = function() ->
-  let prog1 = Parse.parse_file file in
+  let prog1 = Parse.program_of_file file in
   let disasm1 = Disasm.disassemble_s prog1 in
-  let prog2 = Parse.parse_string disasm1 in
+  let prog2 = Parse.program_of_string disasm1 in
   let disasm2 = Disasm.disassemble_s prog2 in
   assert_equal disasm1 disasm2
 
 let test_parse_disasm str = function() ->
-  let prog1 = Parse.parse_string str in
+  let prog1 = Parse.program_of_string str in
   let disasm1 = Disasm.disassemble_s prog1 in
-  let prog2 = Parse.parse_string disasm1 in
+  let prog2 = Parse.program_of_string disasm1 in
   let disasm2 = Disasm.disassemble_s prog2 in
   assert_equal disasm1 disasm2
 
 let test_disasm_parse prog = function() ->
   let disasm1 = Disasm.disassemble_s prog in
-  let prog2 = Parse.parse_string disasm1 in
+  let prog2 = Parse.program_of_string disasm1 in
   let disasm2 = Disasm.disassemble_s prog2 in
   assert_equal disasm1 disasm2
 
@@ -1314,7 +1314,7 @@ let do_test_mut_to_const () =
 
 let do_test_array () =
   let test filename value =
-    run (Parse.parse_file filename) no_input (trace_is [value]) () in
+    run (Parse.program_of_file filename) no_input (trace_is [value]) () in
 
   test "examples/array.sou" (Array [|Int 1; Int 2; Int 3; Int 4; Int 5;
                                      Int 6; Int 7; Int 8; Int 9; Int 10|]);

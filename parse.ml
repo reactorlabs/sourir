@@ -7,7 +7,10 @@ and message = string
 
 exception Error of parse_error
 
-let parse lexbuf =
+let program_symbol = Parser.Incremental.program
+let value_symbol = Parser.Incremental.value
+
+let parse symbol lexbuf =
   (* see the Menhir manual for the description of
      error messages support *)
   let open MenhirLib.General in
@@ -28,14 +31,14 @@ let parse lexbuf =
   in
   try
     Interp.loop_handle success failure input
-      (Parser.Incremental.program lexbuf.Lexing.lex_curr_p)
+      (symbol lexbuf.Lexing.lex_curr_p)
   with Lexer.Error (input, pos) -> raise (Error (Lexing (input, pos)))
 
-let parse_string str =
+let parse_string symbol str =
   let lexbuf = Lexing.from_string str in
-  parse lexbuf
+  parse symbol lexbuf
 
-let parse_file path =
+let parse_file symbol path =
   let chan = open_in path in
   let lexbuf =
     let open Lexing in
@@ -49,7 +52,13 @@ let parse_file path =
     lexbuf.lex_curr_p <- lexbuf.lex_start_p;
     lexbuf
   in
-  parse lexbuf
+  parse symbol lexbuf
+
+let program_of_string = parse_string program_symbol
+let program_of_file = parse_file program_symbol
+
+let value_of_string = parse_string value_symbol
+let value_of_file = parse_file value_symbol
 
 (** Parsing error reporting *)
 
