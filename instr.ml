@@ -330,6 +330,7 @@ let changed_vars = function
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, Some _)
   | Assign (x ,_)
+  | Array_assign (x ,_ , _)
   | Drop x
   | Clear x
   | Decl_mut (x, None)
