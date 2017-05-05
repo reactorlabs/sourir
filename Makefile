@@ -4,8 +4,7 @@ OCAMLBUILD=ocamlbuild -use-ocamlfind -use-menhir -no-links
 # -no-links: do not create symlink from build outputs in _build into
 #            the project directory
 
-all: tests sourir
-	rm -rf $(TEMPDIR)
+all: tests test_examples sourir
 
 tests:
 	$(OCAMLBUILD) tests.byte
@@ -24,19 +23,8 @@ runtop: lib
 run: sourir
 	./sourir examples/sum.sou
 
-TEMPDIR := $(shell mktemp -d)
-
 test_examples: sourir
-	mkdir $(TEMPDIR)/examples
-	for f in examples/*.sou; do yes 0 | ./sourir $$f --quiet \
-	  > $(TEMPDIR)/$$f.out; done
-	for f in examples/*.sou; do yes 0 | ./sourir $$f --quiet --opt all \
-	  > $(TEMPDIR)/$$f.opt.out && diff $(TEMPDIR)/$$f.out $(TEMPDIR)/$$f.opt.out; done
-	for f in examples/*.sou; do yes 1 | ./sourir $$f --quiet \
-	  > $(TEMPDIR)/$$f.out; done
-	for f in examples/*.sou; do yes 1 | ./sourir $$f --quiet --opt all \
-	  > $(TEMPDIR)/$$f.opt.out && diff $(TEMPDIR)/$$f.out $(TEMPDIR)/$$f.opt.out; done
-	rm -rf $(TEMPDIR)
+	bash test_examples.sh
 
 clean:
 	ocamlbuild -clean
