@@ -27,6 +27,8 @@ let () =
       exit 2
   in
 
+  opts := if !opts = ["all"] then Transform.all_opts else !opts;
+
   begin try Scope.check_program program with
   | Scope.ScopeExceptionAt (f, v, e) ->
     begin
@@ -134,7 +136,13 @@ let () =
     exit 1
   end;
 
-  let program = Transform.(try_opt (optimize !opts) program) in
+  let program = try Transform.(try_opt (optimize !opts) program) with
+    | Transform.UnknownOptimization opt ->
+      Printf.eprintf "Unknown optimization %s.\nValid optimizers are %s\n"
+        opt (String.concat ", " Transform.all_opts);
+      exit 1
+  in
+
   if not !quiet then begin
     Printf.printf "After optimizations\n";
     Disasm.disassemble_o stdout program

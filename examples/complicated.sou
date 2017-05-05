@@ -1,0 +1,12 @@
+ mut x
+ mut y = 1
+ read x
+ mut i = 0
+loop:
+  branch (x==1) c1 c2
+ c1:
+  y <- 2
+ c2:
+  i <- (i+y)
+ branch (i==10) end loop
+end:

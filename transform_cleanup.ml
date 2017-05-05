@@ -9,7 +9,10 @@ let remove_jmp ({instrs} as inp : analysis_input) : instructions option =
     match[@warning "-4"] instrs.(pc), instrs.(pc+1) with
     | Goto l1, Label l2 when l1 = l2 && List.length pred.(pc+1) = 1 ->
       Remove 2
-    | Label _, _ when pred.(pc) = [pc-1] && succ.(pc-1) = [pc] ->
+    | Label l, _ when
+        pred.(pc) = [pc-1] &&
+        succ.(pc-1) = [pc] &&
+        not (is_checkpoint_label l) ->
         (* A label is unused if the previous instruction is the only predecessor
          * unless the previous instruction jumps to it. The later can happen
          * if its a goto (then we already remove it -- see above) or if its a branch (which

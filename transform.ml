@@ -70,6 +70,8 @@ let optimistic_as_opt_function (transformation : create_optimistic_version)
       let version = { version with instrs = cleaned } in
       Some { func with body = version :: func.body }
 
+
+
 (* All available optimizations *)
 let cleanup_all_instrs = combine_transform_instructions [
     Transform_cleanup.remove_unreachable_code;
@@ -89,13 +91,16 @@ let minimize_liverange = as_opt_function minimize_liverange_instrs
 let hoist_assignment = as_opt_function Transform_hoist_assign.hoist_assignment
 let hoist_drop = as_opt_function Transform_hoist.Drop.apply
 let branch_prune = optimistic_as_opt_function
-    Transform_assumption.insert_branch_pruning_assumption
+    Transform_prune.insert_branch_pruning_assumption
     (combine_transform_instructions [
-       Transform_cleanup.remove_unreachable_code;
-       Transform_cleanup.remove_jmp;])
+       Transform_prune.branch_prune;
+       Transform_cleanup.remove_unreachable_code;])
 
 (* Main optimizer loop *)
 exception UnknownOptimization of string
+
+let all_opts = ["prune";"make_const";"const_prop";"hoist_assign";"hoist_drop";"min_live"]
+let assumption_opts = ["prune"]
 
 let optimize (opts : string list) (prog : program) : program option =
   let optimizer = function
@@ -114,10 +119,23 @@ let optimize (opts : string list) (prog : program) : program option =
     | o ->
       raise (UnknownOptimization o)
   in
-  let opts =
-    if opts = ["all"]
-    then ["prune";"make_const";"const_prop";"hoist_assign";"hoist_drop";"min_live"]
-    else opts in
+  let opts_assumpt, opts_other = List.partition (fun o -> List.mem o assumption_opts) opts in
   let optimizers = (List.map optimizer opts) @ [(as_opt_program cleanup_all)] in
+  let optimizers_classic = (List.map optimizer opts_other) @ [(as_opt_program cleanup_all)] in
   let optimizer = combine_opt optimizers in
+  let optimizer_classic = combine_opt optimizers_classic in
+
+  let optimizer =
+    if opts_assumpt <> []
+    then combine_opt [
+        (as_opt_program Transform_assumption.insert_checkpoints);
+        optimizer;
+        (as_opt_program (as_opt_function Transform_assumption.hoist_assumption));
+        optimizer;
+        (as_opt_program (as_opt_function Transform_assumption.remove_empty_osr));
+        (as_opt_program (as_opt_function Transform_assumption.remove_checkpoint_labels));
+        optimizer_classic;
+      ]
+    else optimizer
+  in
   optimizer prog

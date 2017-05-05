@@ -286,19 +286,20 @@ c:
 "
 
 let test_branch_pruned =
-"function main ()
-version anon_1
- mut x = 9
+" mut x = 9
  mut y = 10
+ osr [(x == y)] (main, anon, checkpoint_2) [mut x = &x, mut y = &y]
  mut r = 1
- osr (x == y) main anon l1 [mut r, mut x, mut y]
  r <- 3
  print r
  clear r
-version anon
- mut x = 9
+"
+
+let test_loop_branch = parse
+"mut x = 9
  mut y = 10
  mut r = 1
+loop:
  branch (x == y) l1 l2
 l1:
  r <- 2
@@ -308,7 +309,20 @@ l2:
  goto c
 c:
  print r
- clear r
+ branch (r == 0) loop end
+end:
+"
+
+let test_loop_branch_pruned =
+" mut x = 9
+ mut y = 10
+ osr [(x == y)] (main, anon, checkpoint_2) [mut x = &x, mut y = &y]
+ mut r = 1
+loop:
+ r <- 3
+ print r
+ branch (r == 0) loop end
+end:
 "
 
 let test_double_loop = parse
@@ -340,12 +354,20 @@ continue:
 
 let test_branch_pruning_exp prog expected =
   let open Transform in
-  let prog2 = { prog with main = try_opt branch_prune prog.main } in
-  assert_equal (Disasm.disassemble_s prog2) expected
+  let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) prog in
+  let prune = try_opt (combine_opt
+                         [branch_prune;
+                          (as_opt_function Transform_assumption.hoist_assumption);
+                          cleanup_all;
+                          (as_opt_function Transform_assumption.remove_empty_osr);
+                          (as_opt_function Transform_assumption.remove_checkpoint_labels)]) in
+  let prog2 = { prog with main = prune prog.main } in
+  assert_equal (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) expected
 
 let test_branch_pruning prog deopt =
   let open Eval in
   let open Transform in
+  let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) prog in
   let prog2 = { prog with main = try_opt branch_prune prog.main } in
   let res1 = Eval.run_forever no_input prog in
   let res2 = Eval.run_forever no_input prog2 in
@@ -1329,7 +1351,7 @@ let do_test_deopt () =
     function main ()
     version a
      const x = 1
-     osr (x==1) main b l [const y=42]
+     osr [(x==1)] (main, b, l) [const y=42]
      return x
 
     version b
@@ -1345,7 +1367,7 @@ let do_test_deopt () =
      return aliased
     function foo(mut x)
     version vers_a
-     osr (1==1) foo vers_b st [mut x = &x]
+     osr [(1==1)] (foo,vers_b,st) [mut x = &x]
      return 0
     version vers_b
      st:
@@ -1360,7 +1382,7 @@ let do_test_deopt () =
      return aliased
     function foo(mut x)
     version vers_a
-     osr (1==1) foo vers_b st [mut x = x]
+     osr [(1==1)] (foo,vers_b,st) [mut x = x]
      return 0
     version vers_b
      st:
@@ -1374,15 +1396,13 @@ let do_test_deopt () =
      return x
     function foo()
     version vers_a
-     osr (1==1) foo vers_b st [mut x = (41 + 1)]
+     osr [(1==1)] (foo,vers_b,st) [mut x = (41 + 1)]
      return 0
     version vers_b
      mut x = 0
      st:
      return x
   |pr} 42;
-
-
   ()
 
 let suite =
@@ -1451,7 +1471,7 @@ let suite =
    "parser3">:: test_parse_disasm  ("const x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr (x == y) f v l [const x = x, mut y = &x, mut v, const x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr [(x == y)] (f, v, l) [const x = x, mut y = &x, mut v, const x = (1+2)]\nl:\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
    "parser7">:: test_parse_disasm  ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
@@ -1467,10 +1487,11 @@ let suite =
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
    "parser_scope1">:: test_parse_disasm "function main()\nversion active\n{a, b} print x\n{a,x,...} #asdf\n";
    "branch_pruning">:: (fun () -> test_branch_pruning_exp test_branch test_branch_pruned);
+   "branch_pruning2">:: (fun () -> test_branch_pruning_exp test_loop_branch test_loop_branch_pruned);
    "predecessors">:: do_test_pred;
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
-   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "continue"));
-   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "loop_body1"));
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "checkpoint_5"));
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "checkpoint_5"));
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;
