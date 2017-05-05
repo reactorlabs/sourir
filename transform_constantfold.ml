@@ -116,17 +116,29 @@ open Transform_utils
 let make_constant (({formals; instrs} as inp) : analysis_input) : instructions option =
   let required = Analysis.required inp in
   let constant var pc =
-    match[@warning "-4"] instrs.(pc) with
-    | Assign (x, _) when x = var -> false
-    | Drop x when x = var -> false
-    | Clear x when x = var -> false
-    | Read x when x = var -> false
+    match instrs.(pc) with
+    | Assign (x, _)
+    | Drop x
+    | Clear x
+    | Read x
+    | Array_assign (x, _, _)
+      -> x <> var
     | Call (_, _, exp) ->
       let is_passed_by_val = function
-        | Arg_by_ref x when x = var -> false
-        | _ -> true in
-      List.for_all is_passed_by_val exp
-    | _ -> true
+        | Arg_by_ref x -> x <> var
+        | Arg_by_val _ -> true
+      in List.for_all is_passed_by_val exp
+    | Decl_const (_, _)
+    | Decl_mut (_, _)
+    | Return _
+    | Branch (_, _, _)
+    | Label _
+    | Goto _
+    | Print _
+    | Stop _
+    | Osr _
+    | Comment _
+      -> true
   in
 
   let changes = Array.map (fun _ -> Unchanged) instrs in
