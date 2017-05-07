@@ -35,7 +35,7 @@ let move instrs from_pc to_pc =
   let (dir, to_pc) = if from_pc > to_pc then (-1, to_pc) else (1, to_pc-1) in
   let from = instrs.(from_pc) in
   let rec move pc =
-    if pc != to_pc then begin
+    if pc <> to_pc then begin
       instrs.(pc) <- instrs.(pc+dir);
       move (pc+dir)
     end
@@ -132,17 +132,17 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
 
   match instr with
   | Call (x, f, exs) ->
-    assert(x != old_name);   (* -> invalid scope *)
+    assert(x <> old_name);   (* -> invalid scope *)
     Call (x, in_expression f, List.map in_arg exs)
   | Stop e ->
     Stop (in_expression e)
   | Return e ->
     Return (in_expression e)
   | Decl_const (x, exp) ->
-    assert(x != old_name);   (* -> invalid scope *)
+    assert(x <> old_name);   (* -> invalid scope *)
     Decl_const (x, in_expression exp)
   | Decl_mut (x, Some exp) ->
-    assert (x != old_name);
+    assert (x <> old_name);
     Decl_mut (x, Some (in_expression exp))
   | Assign (x, exp) ->
     Assign (x, in_expression exp)
@@ -163,7 +163,7 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     Osr {cond; target; map}
   | Decl_mut (x, None)
   | Read x ->
-    assert (x != old_name);
+    assert (x <> old_name);
     instr
 
   | Label _ | Goto _ | Comment _ ->

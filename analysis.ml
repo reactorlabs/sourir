@@ -106,14 +106,14 @@ let make_total result =
 let forward_analysis init_state instrs merge update =
   let successors = successors instrs in
   let starts = starts instrs in
-  assert (starts != []);
+  assert (starts <> []);
   let init = List.map (fun pos -> (init_state, pos)) starts in
   make_total (dataflow_analysis successors init instrs merge update)
 
 let backwards_analysis init_state instrs merge update =
   let predecessors = predecessors instrs in
   let exits = stops instrs @ osrs instrs in
-  assert (exits != []);
+  assert (exits <> []);
   let init = List.map (fun pos -> (init_state, pos)) exits in
   make_total (dataflow_analysis predecessors init instrs merge update)
 
