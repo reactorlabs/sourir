@@ -144,6 +144,12 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
   | Decl_mut (x, Some exp) ->
     assert (x <> old_name);
     Decl_mut (x, Some (in_expression exp))
+  | Decl_array (x, def) ->
+    assert (x <> old_name);
+    let def = match def with
+      | Length e -> Length (in_expression e)
+      | List es -> List (List.map in_expression es)
+    in Decl_array (x, def)
   | Assign (x, exp) ->
     Assign (x, in_expression exp)
   | Array_assign (x, index, exp) ->

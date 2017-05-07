@@ -26,7 +26,8 @@ let successors_at (instrs : instructions) pc : pc list =
   let resolve = Instr.resolve instrs in
   let all_succ =
     match instr with
-    | Decl_const _ | Decl_mut _ | Assign _ | Array_assign _
+    | Decl_const _ | Decl_mut _ | Decl_array _
+    | Assign _ | Array_assign _
     | Drop _ | Clear _ | Read _ | Call _ | Label _
     | Comment _ | Osr _ | Print _ ->
       let is_last = pc' = Array.length instrs in

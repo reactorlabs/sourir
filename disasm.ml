@@ -24,11 +24,9 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       | Op (Neq,  [a; b]) -> pr buf "(%a != %a)" simple a simple b
       | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
       | Op ((Plus | Neq | Eq), _)         -> assert(false)
-      | Op (Array_alloc, [size]) -> pr buf "array(%a)" simple size
-      | Op (Array_of_list, li) -> pr buf "[%a]" (dump_comma_separated simple) li
       | Op (Array_index, [array; index]) -> pr buf "%a[%a]" simple array simple index
       | Op (Array_length, [array]) -> pr buf "length(%a)" simple array
-      | Op ((Array_alloc | Array_index | Array_length), _) -> assert(false)
+      | Op ((Array_index | Array_length), _) -> assert(false)
     in
     let dump_arg buf arg =
       match arg with
@@ -46,6 +44,9 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Decl_const (var, exp)           -> pr buf " const %s = %a" var dump_expr exp
     | Decl_mut (var, Some exp)        -> pr buf " mut %s = %a" var dump_expr exp
     | Decl_mut (var, None)            -> pr buf " mut %s" var
+    | Decl_array (var, Length exp)    -> pr buf " array %s[%a]" var dump_expr exp
+    | Decl_array (var, List li)       -> pr buf " array %s = [%a]" var
+                                           (dump_comma_separated dump_expr) li
     | Drop var                        -> pr buf " drop %s" var
     | Clear var                       -> pr buf " clear %s" var
     | Assign (var, exp)               -> pr buf " %s <- %a" var dump_expr exp

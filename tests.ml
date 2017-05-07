@@ -1335,12 +1335,12 @@ let do_test_mut_to_const () =
   ();;
 
 let do_test_array () =
-  let test filename value =
-    run (Parse.program_of_file filename) no_input (trace_is [value]) () in
+  let test filename p =
+    run (Parse.program_of_file filename) no_input p () in
 
-  test "examples/array.sou" (Array [|Int 1; Int 2; Int 3; Int 4; Int 5;
-                                     Int 6; Int 7; Int 8; Int 9; Int 10|]);
-  test "examples/array_sum.sou" (Int 55);
+  test "examples/array.sou" (trace_is [Int 1; Int 2; Int 3; Int 4; Int 5;
+                                       Int 6; Int 7; Int 8; Int 9; Int 10]);
+  test "examples/array_sum.sou" (trace_is [Int 55]);
   ()
 
 let do_test_deopt () =
@@ -1475,8 +1475,8 @@ let suite =
    "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
    "parser7">:: test_parse_disasm  ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
-   "parser_arr1">:: test_parse_disasm ("const x = array(10)\n");
-   "parser_arr2">:: test_parse_disasm ("const x = []\nconst y = [1, x, nil]\n");
+   "parser_arr1">:: test_parse_disasm ("array x[10]\n");
+   "parser_arr2">:: test_parse_disasm ("array x = []\narray x = [1, x, nil]\n");
    "parser_arr3">:: test_parse_disasm ("const x = y[10]\n");
    "parser_arr4">:: test_parse_disasm ("const x = length(y)\n");
    "parser_arr_file">:: test_parse_disasm_file "examples/array_sum.sou";

@@ -40,6 +40,12 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
     | Decl_mut (y, Some e) ->
       assert (x <> y);
       Decl_mut (y, Some (replace e))
+    | Decl_array (y, def) ->
+      assert (x <> y);
+      let def = match def with
+        | Length e -> Length (replace e)
+        | List es -> List (List.map replace es)
+      in Decl_array (y, def)
     | Assign (y, e) ->
       assert (x <> y);
       Assign (y, replace e)

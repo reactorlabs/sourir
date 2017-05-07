@@ -68,6 +68,7 @@ module Pc = struct
 end
 
 type pc = Pc.t
+type address = Address.t
 
 type unique_pos = {func : label; version : label; label : label;}
 
@@ -75,6 +76,7 @@ type instructions = instruction array
 and instruction =
   | Decl_const of variable * expression
   | Decl_mut of variable * (expression option)
+  | Decl_array of variable * array_def
   | Call of variable * expression * (argument list)
   | Return of expression
   | Drop of variable
@@ -89,6 +91,9 @@ and instruction =
   | Stop of expression
   | Osr of {cond : expression list; target : unique_pos; map : osr_def list; }
   | Comment of string
+and array_def =
+  | Length of expression
+  | List of expression list
 and osr_def =
   | Osr_const of variable * expression
   | Osr_mut of variable * expression
@@ -108,13 +113,11 @@ and value =
   | Bool of bool
   | Int of int
   | Fun_ref of string
-  | Array of value array
+  | Array of address
 and primop =
   | Eq
   | Neq
   | Plus
-  | Array_alloc
-  | Array_of_list
   | Array_index
   | Array_length
 
@@ -154,8 +157,7 @@ type analysis_input = {
 type heap_value =
   | Undefined
   | Value of value
-
-type address = Address.t
+  | Block of value array
 
 type binding =
   | Val of value
@@ -193,6 +195,7 @@ let declared_vars = function
   | Call (x, _, _)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
+  | Decl_array (x, _) -> ModedVarSet.singleton (Const_var, x)
   | ( Drop _
     | Array_assign _
     | Return _
@@ -212,6 +215,7 @@ let defined_vars = function
   | ( Call _
     | Decl_const _
     | Decl_mut (_, Some _)
+    | Decl_array _
     | Return _
     | Drop _
     | Clear _
@@ -231,6 +235,7 @@ let dropped_vars = function
   | Call _
   | Decl_const _
   | Decl_mut _
+  | Decl_array _
   | Assign _
   | Array_assign _
   | Clear _
@@ -249,6 +254,7 @@ let cleared_vars = function
   | Call _
   | Decl_const _
   | Decl_mut _
+  | Decl_array _
   | Assign _
   | Array_assign _
   | Drop _
@@ -276,6 +282,9 @@ let used_vars = function
   | Decl_const (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
+  | Decl_array (_, Length e) -> expr_vars e
+  | Decl_array (_, List es) ->
+    List.map expr_vars es |> List.fold_left VarSet.union VarSet.empty
   (* the assignee is only required to be in scope, but not used! *)
   | Branch (e, _, _)
   | Print e -> expr_vars e
@@ -310,6 +319,7 @@ let required_vars = function
     | Return _
     | Decl_const _
     | Decl_mut _
+    | Decl_array _
     | Array_assign _
     | Branch _
     | Label _
@@ -328,6 +338,7 @@ let changed_vars = function
   | Drop x
   | Clear x
   | Decl_mut (x, None)
+  | Decl_array (x, _)
   | Read x -> ModedVarSet.singleton (Mut_var, x)
   | Return _
   | Branch _

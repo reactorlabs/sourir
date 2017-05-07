@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-
 SOURIR="../sourir"
 
 # Move into examples directory
