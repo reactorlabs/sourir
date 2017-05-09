@@ -1,0 +1,16 @@
+  const n = 10
+  goto bla
+loop:
+  y <- z
+  x <- (x + z)
+  branch (x==n) end loop
+end:
+  print z
+  stop 0
+bla:
+  const z = 1
+  const zz = z
+  mut x = 1
+  mut y = (zz + 0)
+  goto loop
+

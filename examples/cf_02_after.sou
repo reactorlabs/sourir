@@ -1,0 +1,12 @@
+  goto bla
+loop:
+  x <- (x + 1)
+  branch (x==10) end loop
+end:
+  print 1
+  stop 0
+bla:
+  mut x = 1
+  mut y = 1
+  goto loop
+

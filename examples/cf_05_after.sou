@@ -1,0 +1,8 @@
+  mut m = 2
+  call z = 'foo (1, &m)
+function foo (const x, mut y)
+  const b = y
+  print x
+  print b
+  return 0
+

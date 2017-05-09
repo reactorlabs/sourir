@@ -1,0 +1,5 @@
+  const x = 1
+  const y = (x + 1)
+  # hoisting stopped because x is required above
+  drop x
+  const z = y

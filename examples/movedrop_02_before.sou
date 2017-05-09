@@ -1,0 +1,5 @@
+  const x = 1
+  const y = (x + 1)
+  const z = y
+  # drop can be hoisted
+  drop x

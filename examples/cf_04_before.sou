@@ -1,0 +1,16 @@
+  const a = 1
+  mut b = 2
+  const f1 = 'f
+  mut f2 = 'f
+  call w = f1 ((a + a))
+  call y = 'f (b)
+  call z = 'g (&b)
+  print (y + z)
+function f (const n)
+  const a = (2 + 3)
+  return a
+function g (mut m)
+  const b = (42 + 0)
+  m <- b
+  return m
+
