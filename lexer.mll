@@ -58,6 +58,10 @@ rule token = parse
   | "==" { DOUBLE_EQUAL }
   | "!=" { NOT_EQUAL }
   | "+" { PLUS }
+  | "-" { MINUS }
+  | "*" { TIMES }
+  | "/" { DIVIDE }
+  | "%" { MOD }
   | "[" { LBRACKET }
   | "]" { RBRACKET }
   | "(" { LPAREN }

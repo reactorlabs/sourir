@@ -3,7 +3,7 @@
 %token<int> INT
 %token<string> IDENTIFIER
 %token AMPERSAND SINGLE_QUOTE
-%token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
+%token DOUBLE_EQUAL NOT_EQUAL PLUS MINUS TIMES DIVIDE MOD /* LT LTE GT GTE */
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
 %token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
@@ -181,8 +181,10 @@ infixop:
   | DOUBLE_EQUAL { Eq }
   | NOT_EQUAL { Neq }
   | PLUS { Plus }
-  (* | MINUS { Sub } *)
-  (* | TIMES { Mult } *)
+  | MINUS { Sub }
+  | TIMES { Mult }
+  | DIVIDE { Div }
+  | MOD { Mod }
   (* | LT { Lt } *)
   (* | LTE { Lte } *)
   (* | GT { Gt } *)

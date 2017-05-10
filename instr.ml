@@ -118,6 +118,10 @@ and primop =
   | Eq
   | Neq
   | Plus
+  | Sub
+  | Mult
+  | Div
+  | Mod
   | Array_index
   | Array_length
 

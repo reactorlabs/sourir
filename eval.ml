@@ -41,6 +41,7 @@ exception Invalid_heap
 exception Arity_error of primop
 exception Invalid_update
 exception Invalid_clear
+exception Division_by_zero
 
 type type_error = {
   expected : type_tag;
@@ -114,6 +115,42 @@ let value_plus (v1 : value) (v2 : value) =
       let received = get_tag x1, get_tag x2 in
       raise (ProductType_error { expected; received })
 
+let value_sub (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 -> n1 - n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_mult (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 -> n1 * n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_div (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 ->
+    if n2 = 0 then raise Division_by_zero
+    else n1 / n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_mod (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 ->
+    if n2 = 0 then raise Division_by_zero
+    else n1 mod n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
 let value_neq (v1 : value) (v2 : value) =
   not (value_eq v1 v2)
 
@@ -161,7 +198,11 @@ let rec eval prog heap env = function
     | Eq, [v1; v2] -> Bool (value_eq v1 v2)
     | Neq, [v1; v2] -> Bool (value_neq v1 v2)
     | Plus, [v1; v2] -> Int (value_plus v1 v2)
-    | (Eq | Neq | Plus), _vs -> raise (Arity_error op)
+    | Sub, [v1; v2] -> Int (value_sub v1 v2)
+    | Mult, [v1; v2] -> Int (value_mult v1 v2)
+    | Div, [v1; v2] -> Int (value_div v1 v2)
+    | Mod, [v1; v2] -> Int (value_mod v1 v2)
+    | (Eq | Neq | Plus | Sub | Mult | Div | Mod), _vs -> raise (Arity_error op)
     | Array_index, [array; index] ->
       let array, index = get_array heap array, get_int index in
       array.(index)

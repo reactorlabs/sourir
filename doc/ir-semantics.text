@@ -48,7 +48,7 @@ the function has returned.
 
   e ::=     expression
   | se                    simple expression
-  | primop(se*)           primitive operation (pure)
+  | primop(se*)           primitive operation
   | array(se)             empty array constructor
   | [se*]                 array constructor
   | x[se]                 array index
@@ -62,7 +62,7 @@ the function has returned.
   lit ::=  literals
   | nil
   | true | false
-  | 0 | 1 | 2 | ...
+  | ... | -1 | 0 | 1 | 2 | ...
 
   v :=     values
   | lit                   literals
