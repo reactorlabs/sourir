@@ -52,7 +52,7 @@ type product_type_error = {
   expected : type_tag * type_tag;
   received : type_tag * type_tag;
 }
-exception ProductType_error of product_type_error
+exception Product_type_error of product_type_error
 
 let lookup heap env x =
   match Env.find x env with
@@ -107,106 +107,6 @@ let rec value_eq (v1 : value) (v2 : value) =
        add a refutation clause of the same shape for the new
        constructor. *)
 
-let value_neq (v1 : value) (v2 : value) =
-  not (value_eq v1 v2)
-
-let value_lt (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Int n1, Int n2 -> n1 < n2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Int, Int) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let value_lte (v1 : value) (v2 : value) =
-  (value_eq v1 v2) || (value_lt v1 v2)
-
-let value_gt (v1 : value) (v2 : value) =
-  not (value_lte v1 v2)
-
-let value_gte (v1 : value) (v2 : value) =
-  not (value_lt v1 v2)
-
-let value_neg (v : value) =
-  match v with
-  | Int n -> -n
-  | (Nil | Bool _ | Fun_ref _ | Array _) as x ->
-      let expected = Int in
-      let received = get_tag x in
-      raise (Type_error { expected; received })
-
-let value_plus (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Int n1, Int n2 -> n1 + n2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Int, Int) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let value_sub (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Int n1, Int n2 -> n1 - n2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Int, Int) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let value_mult (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Int n1, Int n2 -> n1 * n2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Int, Int) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let value_div (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Int n1, Int n2 ->
-    if n2 = 0 then raise Division_by_zero
-    else n1 / n2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Int, Int) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let value_mod (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Int n1, Int n2 ->
-    if n2 = 0 then raise Division_by_zero
-    else n1 mod n2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Int, Int) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let value_not (v : value) =
-  match v with
-  | Bool b -> not b
-  | (Int _ | Nil | Fun_ref _ | Array _) as x ->
-      let expected = Bool in
-      let received = get_tag x in
-      raise (Type_error { expected; received })
-
-let value_and (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Bool b1, Bool b2 -> b1 && b2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Bool, Bool) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let value_or (v1 : value) (v2 : value) =
-  match v1, v2 with
-  | Bool b1, Bool b2 -> b1 || b2
-  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
-      let expected = (Bool, Bool) in
-      let received = get_tag x1, get_tag x2 in
-      raise (ProductType_error { expected; received })
-
-let eval_simple prog heap env = function
-  | Var x -> lookup heap env x
-  | Constant c -> c
-
 let get_int (v : value) =
   match v with
   | Int i -> i
@@ -239,6 +139,57 @@ let get_array heap (v : value) =
       | Undefined | Value _ -> raise Invalid_heap
       | Block vs -> vs
     end
+
+let prim1 (type a) (type b) (f : a -> b) (tag, (get : value -> a)) : value -> b =
+  fun v -> f (get v)
+
+let prim2 (type a) (type b) (type c) (f : a -> b -> c)
+    (taga, (geta : value -> a)) (tagb, (getb : value -> b))
+  : value -> value -> c =
+  fun va vb ->
+    match geta va, getb vb with
+    | exception _ ->
+      let expected = (taga, tagb) in
+      let received = (get_tag va, get_tag vb) in
+      raise (Product_type_error { expected; received })
+    | va, vb -> f va vb
+
+let value_neq (v1 : value) (v2 : value) =
+  not (value_eq v1 v2)
+
+let int, bool = (Int, get_int), (Bool, get_bool)
+
+let value_lt = prim2 (<) int int
+let value_lte = prim2 (<=) int int
+let value_gt = prim2 (>) int int
+let value_gte = prim2 (>=) int int
+
+let value_neg = prim1 (~-) int
+
+let value_plus = prim2 (+) int int
+let value_sub = prim2 (-) int int
+let value_mult = prim2 ( * ) int int
+
+let value_div =
+  let div n1 n2 =
+    if n2 = 0 then raise Division_by_zero
+    else n1 / n2 in
+  prim2 div int int
+
+let value_mod =
+  let modulo n1 n2 =
+    if n2 = 0 then raise Division_by_zero
+    else n1 mod n2
+  in
+  prim2 modulo int int
+
+let value_not = prim1 not bool
+let value_and = prim2 (&&) bool bool
+let value_or = prim2 (||) bool bool
+
+let eval_simple prog heap env = function
+  | Var x -> lookup heap env x
+  | Constant c -> c
 
 let rec eval prog heap env = function
   | Simple e -> eval_simple prog heap env e
