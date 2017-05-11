@@ -18,20 +18,14 @@ let insert_checkpoints (func:afunction) =
   let instrs = version.instrs in
   let inp = Analysis.as_analysis_input func version in
   let scope = Scope.infer inp in
-  let live = Analysis.live inp in
 
   let transform pc =
     let create_checkpoint pc =
       match scope.(pc) with
       | DeadScope -> assert(false)
       | Scope scope ->
-        let osr = List.map (function
-          | (Var_var, x) -> Osr_var (x, (Simple (Var x)))
-          | (Mut_var, x)   ->
-            if List.mem x (live (pc-1)) then
-              Osr_mut_ref (x, x)
-            else
-              Osr_mut_undef x) (ModedVarSet.elements scope) in
+        let vars = VarSet.elements scope in
+        let osr = List.map (fun x -> Osr_var (x, (Simple (Var x)))) vars in
         let target = { func=func.name; version=version.label; label=checkpoint_label pc } in
         Insert [Label (checkpoint_label pc); Osr {cond=[]; target; map=osr};]
     in

@@ -1,11 +1,11 @@
   var zero = 0
   var one = 1
-  mut x = 3
-  mut y = 7
-  mut z = 1
-  mut i = 0
-  mut acc = 0
-  mut w = 0
+  var x = 3
+  var y = 7
+  var z = 1
+  var i = 0
+  var acc = 0
+  var w = 0
   read w
   var limit = 10
 loop:

@@ -45,7 +45,6 @@ let remove_unused_decl ({instrs} as inp : analysis_input) : instructions option 
   let aliased var pc = VarSet.mem var (aliased pc) in
   let transform pc =
     match[@warning "-4"] instrs.(pc) with
-    | Decl_mut (x, _)
     | Decl_var (x, _) when PcSet.is_empty (required pc) ->
       Remove 1
     | Assign (x, _) when PcSet.is_empty (uses pc) && not (aliased x pc) ->

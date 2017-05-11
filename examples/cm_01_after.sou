@@ -6,12 +6,12 @@ version active
  var zero = 0
  var one = 1
  var two = 2
- mut w1 = 10
- mut w2 = 20
- mut x = 30
- mut z = 0
+ var w1 = 10
+ var w2 = 20
+ var x = 30
+ var z = 0
  read z
- osr [(z == zero)] (main,old,l1) [var one = one, var two = two, mut w1 = &w1, mut w2 = &w2, mut x = &x, mut z = &z, var zero = zero]
+ osr [(z == zero)] (main,old,l1) [var one = one, var two = two, var w1 = w1, var w2 = w2, var x = x, var z = z, var zero = zero]
  x <- (x + two)
  # This assignment can be moved
  w1 <- (w1 + one)
@@ -28,10 +28,10 @@ version old
  var zero = 0
  var one = 1
  var two = 2
- mut w1 = 10
- mut w2 = 20
- mut x = 30
- mut z = 0
+ var w1 = 10
+ var w2 = 20
+ var x = 30
+ var z = 0
  read z
  branch (z == zero) l1 l2
 l1:

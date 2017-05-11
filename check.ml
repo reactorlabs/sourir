@@ -43,8 +43,7 @@ let well_formed prog =
 
   (* Formals args shall not contain duplicate variables *)
   let check_formals name formals =
-    let formals = List.map (fun f -> match f with
-        | Var_param x -> x | Mut_ref_param x -> x) formals in
+    let formals = List.map (fun (Param x) -> x) formals in
     let check seen var =
       if VarSet.mem var seen
       then raise (DuplicateParameter (name, var))
@@ -62,31 +61,10 @@ let well_formed prog =
       | _ -> raise MissingReturn end
     end;
 
-    let scope = Scope.infer (Analysis.as_analysis_input func version) in
-
-    let check_static_arg pc actual =
-      match actual with
-      | Arg_by_val _ -> ()
-      | Arg_by_ref x ->
-        begin match scope.(pc) with
-        | DeadScope -> ()
-        | Scope scope ->
-          begin match ModedVarSet.find (Mut_var, x) scope with
-          | exception Not_found -> raise (InvalidArgument (pc, actual))
-          | (Var_var, _) -> raise (InvalidArgument (pc, actual))
-          | (Mut_var, _) -> ()
-          end
-        end in
-
     let check_signature pc (func:afunction) args =
       if (List.length args <> List.length func.formals)
-      then raise (InvalidNumArgs pc);
-      let check_arg (formal, actual) =
-        match[@warning "-4"] formal, actual with
-        | Var_param _, Arg_by_val _
-        | Mut_ref_param _, Arg_by_ref _ -> ()
-        | _ -> raise (InvalidArgument (pc, actual)) in
-      List.iter check_arg (List.combine func.formals args) in
+      then raise (InvalidNumArgs pc)
+    in
 
     let check_fun_ref instr =
       let rec check_value = function
@@ -101,19 +79,15 @@ let well_formed prog =
         | Simple e -> check_simple_expr e
         | Op (_op, xs) ->
           List.iter check_simple_expr xs in
-      let check_arg = function
-        | Arg_by_val e -> check_expr e
-        | Arg_by_ref x -> () in
+      let check_arg = check_expr in
       let check_osr = function
-        | Osr_var (_, e)
-        | Osr_mut (_, e) -> check_expr e
-        | Osr_mut_ref _ | Osr_mut_undef _ -> () in
+        | Osr_var (_, e) -> check_expr e
+      in
       match instr with
       | Call (_x, f, es) ->
         (check_expr f;
          List.iter check_arg es)
       | Decl_var (_, e)
-      | Decl_mut (_, Some e)
       | Decl_array (_, Length e)
       | Assign (_, e)
       | Branch (e, _, _)
@@ -122,7 +96,6 @@ let well_formed prog =
       | Return e
         -> check_expr e
       | Decl_array (_, List es) -> List.iter check_expr es
-      | Decl_mut (_, None)
       | Drop _ | Clear _ | Read _
       | Label _ | Goto _ | Comment _ -> ()
       | Array_assign (_, i, e) ->
@@ -137,8 +110,6 @@ let well_formed prog =
     let check_instr pc instr =
       match[@warning "-4"] instr with
       | Call (x, f, exs) ->
-        (* Check call-by-name args are mut *)
-        List.iter (check_static_arg pc) exs;
         (* if it's a static call check that the function exists and if the
          * actual arguments are compatible with the formals *)
         begin match[@warning "-4"] f with

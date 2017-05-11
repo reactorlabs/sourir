@@ -1,7 +1,7 @@
 array x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 var len = length(x)
 array y[len]
-mut i = 0
+var i = 0
 loop:
   print x[i]
   y[i] <- x[i]

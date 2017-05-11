@@ -224,64 +224,37 @@ let rec eval prog heap env = function
 exception InvalidArgument
 exception InvalidNumArgs
 
+let instruction conf =
+  let default_exit = (Simple (Constant (Int 0))) in
+  if conf.pc < Array.length conf.instrs
+  then conf.instrs.(conf.pc)
+  else if conf.continuation = []
+  then Stop default_exit
+  else assert (false)
+
 let reduce conf =
   let eval conf e = eval conf.program conf.heap conf.env e in
   let resolve instrs label = Instr.resolve instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
 
-  let instruction =
-    let default_exit = (Simple (Constant (Int 0))) in
-    if conf.pc < Array.length conf.instrs
-    then conf.instrs.(conf.pc)
-    else if conf.continuation = []
-    then Stop default_exit
-    else assert (false)
-  in
-
   let build_call_frame formals actuals =
-    let eval_arg env (formal, actual) =
-      match[@warning "-4"] formal, actual with
-      | Instr.Var_param x, Arg_by_val e ->
-        let value = eval conf e in
-        Env.add x (Val value) env
-      | Instr.Mut_ref_param x, Arg_by_ref var ->
-        let get_addr = function
-          | Ref a as adr -> adr
-          | Val _ -> raise InvalidArgument
-        in
-        let adr = get_addr (Env.find var conf.env) in
-        Env.add x adr env
-      | _ -> raise InvalidArgument
+    let eval_arg env ((Param x), actual) =
+      let value = eval conf actual in
+      Env.add x (Val value) env
     in
     let args = List.combine formals actuals in
     List.fold_left eval_arg Env.empty args
   in
 
   let build_osr_frame osr_def old_env old_heap =
-    let add (env, heap) = function
-      | Osr_var (x, e) ->
-        (Env.add x (Val (eval conf e)) env, heap)
-      | Osr_mut_ref (x, x') ->
-        begin match Env.find x' old_env with
-        | exception Not_found -> raise (Unbound_variable x')
-        | Val _ -> raise Invalid_heap
-        | Ref a ->
-          (Env.add x' (Ref a) env, heap)
-        end
-      | Osr_mut (x, e) ->
-        let v = eval conf e in
-        let a = Address.fresh () in
-        (Env.add x (Ref a) env,
-         Heap.add a (Value v) heap)
-      | Osr_mut_undef x ->
-        let a = Address.fresh () in
-        (Env.add x (Ref a) env, heap)
+    let add (env, heap) (Osr_var (x, e)) =
+      (Env.add x (Val (eval conf e)) env, heap)
     in
     List.fold_left add (Env.empty, old_heap) osr_def
   in
 
-  match instruction with
+  match instruction conf with
   | Call (x, f, args) ->
     let f = eval conf f in
     let func = lookup_fun conf.program (get_fun f) in
@@ -325,21 +298,6 @@ let reduce conf =
      let v = eval conf e in
      { conf with
        env = Env.add x (Val v) conf.env;
-       pc = pc';
-     }
-  | Decl_mut (x, Some e) ->
-     let a = Address.fresh () in
-     let v = eval conf e in
-     { conf with
-       heap = Heap.add a (Value v) conf.heap;
-       env = Env.add x (Ref a) conf.env;
-       pc = pc';
-     }
-  | Decl_mut (x, None) ->
-     let a = Address.fresh () in
-     { conf with
-       heap = Heap.add a Undefined conf.heap;
-       env = Env.add x (Ref a) conf.env;
        pc = pc';
      }
   | Decl_array (x, def) ->

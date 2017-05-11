@@ -5,7 +5,6 @@ exception Error of string * Lexing.position
 
 let keyword_table = [
   "var", VAR;
-  "mut", MUT;
   "branch", BRANCH;
   "goto", GOTO;
   "print", PRINT;
@@ -80,7 +79,6 @@ rule token = parse
   | ":" { COLON }
   | "=" { EQUAL }
   | "<-" { LEFTARROW }
-  | "&" { AMPERSAND }
   | "'" { SINGLE_QUOTE }
   | eof { EOF }
   | _ { lexing_error lexbuf }

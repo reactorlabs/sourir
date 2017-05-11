@@ -27,9 +27,6 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
     | Decl_var (y, e) ->
       assert (x <> y);
       Decl_var (y, replace e)
-    | Decl_mut (y, Some e) ->
-      assert (x <> y);
-      Decl_mut (y, Some (replace e))
     | Decl_array (y, def) ->
       assert (x <> y);
       let def = match def with
@@ -44,21 +41,9 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
     | Print e -> Print (replace e)
     | Osr {cond; target; map} ->
       (* Replace all expressions in the osr environment. *)
-      let map = List.map (fun osr_def ->
-        match osr_def with
-        | Osr_var (y, e) -> Osr_var (y, replace e)
-        | Osr_mut (y, e) -> Osr_mut (y, replace e)
-        | Osr_mut_ref (_y, _z) ->
-          (* we disable replacing aliases (mut y = &z) even
-             when the value of (z) is statically known
-             as this actually pessimizes the code, adding
-             an extra allocation *)
-          osr_def
-        | Osr_mut_undef y -> Osr_mut_undef y) map
-      in
+      let map = List.map (fun (Osr_var (y, e)) -> Osr_var (y, replace e)) map in
       let cond = List.map replace cond in
       Osr {cond; target; map}
-    | Decl_mut (y, None)
     | Drop y
     | Clear y
     | Read y ->
@@ -93,19 +78,18 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
     let update pc cur =
       match[@warning "-4"] instrs.(pc) with
       | Decl_var (x, Simple (Constant l))
-      | Decl_mut (x, Some (Simple (Constant l)))
         ->
         VarMap.add x (Value l) cur
       | Decl_array (x, _) ->
         (* this case could be improved with approximation for arrays so
            that, eg., length(x) could be constant-folded *)
         VarMap.add x Unknown cur
-      | Decl_var (x, _) | Decl_mut (x, _) ->
+      | Decl_var (x, _) ->
         VarMap.add x Unknown cur
       | Call (x, _, _) as call ->
-        let mark_unknown (_, x) cur = VarMap.add x Unknown cur in
+        let mark_unknown x cur = VarMap.add x Unknown cur in
         cur
-        |> ModedVarSet.fold mark_unknown (changed_vars call)
+        |> VarSet.fold mark_unknown (changed_vars call)
         |> VarMap.add x Unknown
       | Drop x ->
         VarMap.remove x cur
@@ -123,15 +107,15 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
         | Print _ | Stop _ | Osr _ | Comment _)
         as instr ->
         begin
-          assert (ModedVarSet.is_empty (changed_vars instr));
+          assert (VarSet.is_empty (changed_vars instr));
           assert (VarSet.is_empty (dropped_vars instr));
-          assert (ModedVarSet.is_empty (defined_vars instr));
+          assert (VarSet.is_empty (defined_vars instr));
         end;
         cur
     in
     let initial_state =
-      let add_formal (_, x) st = VarMap.add x Unknown st in
-      ModedVarSet.fold add_formal formals VarMap.empty
+      let add_formal x st = VarMap.add x Unknown st in
+      VarSet.fold add_formal formals VarMap.empty
     in
     Analysis.forward_analysis initial_state instrs merge update
   in
@@ -148,68 +132,3 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
   if new_instrs = instrs
   then None
   else Some new_instrs
-
-open Transform_utils
-
-let make_constant (({formals; instrs} as inp) : analysis_input) : instructions option =
-  let required = Analysis.required inp in
-  let constant var pc =
-    match instrs.(pc) with
-    | Assign (x, _)
-    | Drop x
-    | Clear x
-    | Read x
-    | Array_assign (x, _, _)
-      -> x <> var
-    | Call (_, _, exp) ->
-      let is_passed_by_val = function
-        | Arg_by_ref x -> x <> var
-        | Arg_by_val _ -> true
-      in List.for_all is_passed_by_val exp
-    | Decl_var (_, _)
-    | Decl_array _
-    | Decl_mut (_, _)
-    | Return _
-    | Branch (_, _, _)
-    | Label _
-    | Goto _
-    | Print _
-    | Stop _
-    | Osr _
-    | Comment _
-      -> true
-  in
-
-  let changes = Array.map (fun _ -> Unchanged) instrs in
-  let rec apply pc =
-    if Array.length instrs = pc then () else
-    match[@warning "-4"] instrs.(pc) with
-    | Decl_mut (var, Some exp) ->
-      let required = required pc in
-      if Analysis.PcSet.for_all (constant var) required
-      then begin
-        let fixup pc =
-          let fixup_instr pc = function[@warning "-4"]
-            | Osr {cond; target; map} ->
-              let fixup_def = function[@warning "-4"]
-                | Osr_mut_ref (x, y) when var = y -> Osr_mut (x, Simple (Var var))
-                | d -> d in
-              changes.(pc) <- Replace (Osr {cond; target; map = List.map fixup_def map})
-            | _ -> () in
-          match[@warning "-4"] changes.(pc) with
-          | Unchanged -> fixup_instr pc instrs.(pc)
-          | Replace i -> fixup_instr pc i
-          | _ -> assert(false)
-        in
-        (* all uses keep this variable constant:
-         * 1. Change the declaration to const
-         * 2. Fixup osr uses: We need to materialize the heap value on osr-out *)
-        changes.(pc) <- Replace (Decl_var (var, exp));
-        Analysis.PcSet.iter fixup required;
-      end;
-      apply (pc+1)
-    | _ ->
-      apply (pc+1)
-  in
-  let () = apply 0 in
-  change_instrs (fun pc -> changes.(pc)) inp
