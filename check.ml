@@ -71,9 +71,11 @@ let well_formed prog =
         begin match scope.(pc) with
         | DeadScope -> ()
         | Scope scope ->
-          ignore (try ModedVarSet.find (Mut_var, x) scope with
-                  | Not_found -> raise (InvalidArgument (pc, actual))
-                  | Incomparable -> raise (InvalidArgument (pc, actual)))
+          begin match ModedVarSet.find (Mut_var, x) scope with
+          | exception Not_found -> raise (InvalidArgument (pc, actual))
+          | (Var_var, _) -> raise (InvalidArgument (pc, actual))
+          | (Mut_var, _) -> ()
+          end
         end in
 
     let check_signature pc (func:afunction) args =

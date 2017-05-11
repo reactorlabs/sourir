@@ -48,6 +48,13 @@ let test_decl_var = parse
   stop 0
 "
 
+let test_incr_var = parse
+" var x  = 1
+  x <- (x + 1)
+  print x
+  stop 0
+"
+
 let test_mut = parse
 " mut x = 1
   print x
@@ -1488,6 +1495,8 @@ let suite =
       &&& (trace_is Value.[int 1; int 2]));
    "decl_var">:: run test_decl_var no_input
      (has_var "x" (Value.int 1));
+   "incr_var">:: run test_incr_var no_input
+     (has_var "x" (Value.int 2));
    "print">:: run test_print no_input
      (trace_is Value.[int 1; int 2]);
    "jump">:: run test_jump no_input

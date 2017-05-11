@@ -28,14 +28,11 @@ type variable_type = Mut_var | Var_var
 
 type moded_var = variable_type * variable
 
-exception Incomparable
-
 module ModedVar = struct
   type t = moded_var
   let compare (ma, a) (mb, b) =
     match String.compare a b with
-    | 0 ->
-      if ma = mb then 0 else raise Incomparable
+    | 0 -> 0
     | c -> c
 end
 

@@ -33,10 +33,7 @@ let infer ({formals; instrs} : analysis_input) : inferred_scope array =
       let instr = instructions.(pc) in
       let added = Instr.declared_vars instr in
       let info = cur.info in
-      let shadowed =
-        try ModedVarSet.inter info added with
-        | Incomparable -> raise (DuplicateVariable (ModedVarSet.untyped added, pc))
-      in
+      let shadowed = ModedVarSet.inter info added in
       if not (ModedVarSet.is_empty shadowed) then
         raise (DuplicateVariable (ModedVarSet.untyped shadowed, pc));
       let updated = ModedVarSet.union info added in

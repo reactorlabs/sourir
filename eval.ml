@@ -39,7 +39,6 @@ exception Unbound_variable of variable
 exception Undefined_variable of variable
 exception Invalid_heap
 exception Arity_error of primop
-exception Invalid_update
 exception Invalid_clear
 exception Division_by_zero
 
@@ -69,11 +68,11 @@ let lookup heap env x =
 let update heap env x v =
   match Env.find x env with
   | exception Not_found -> raise (Unbound_variable x)
-  | Val _ -> raise Invalid_update
+  | Val _ -> heap, Env.add x (Val v) env
   | Ref a ->
     begin match Heap.find a heap with
     | exception Not_found -> raise Invalid_heap
-    | _ -> Heap.add a (Value v) heap
+    | _ -> Heap.add a (Value v) heap, env
     end
 
 let drop heap env x =
@@ -371,8 +370,8 @@ let reduce conf =
     }
   | Assign (x, e) ->
      let v = eval conf e in
-     { conf with
-       heap = update conf.heap conf.env x v;
+     let heap, env = update conf.heap conf.env x v in
+     { conf with env; heap;
        pc = pc';
      }
   | Array_assign (x, i, e) ->
@@ -391,8 +390,8 @@ let reduce conf =
   | Goto label -> { conf with pc = resolve conf.instrs label }
   | Read x ->
     let (IO.Next (v, input')) = conf.input () in
-    { conf with
-      heap = update conf.heap conf.env x v;
+    let heap, env = update conf.heap conf.env x v in
+    { conf with heap; env;
       input = input';
       pc = pc';
     }
