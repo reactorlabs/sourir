@@ -110,6 +110,36 @@ let test_eq a b = parse (
   const z = (x==y)
 ")
 
+let test_neq a b = parse (
+" mut x = "^ string_of_int a ^"
+  mut y = "^ string_of_int b ^"
+  const z = (x!=y)
+")
+
+let test_lt a b = parse (
+" mut x = "^ string_of_int a ^"
+  mut y = "^ string_of_int b ^"
+  const z = (x<y)
+")
+
+let test_lte a b = parse (
+" mut x = "^ string_of_int a ^"
+  mut y = "^ string_of_int b ^"
+  const z = (x<=y)
+")
+
+let test_gt a b = parse (
+" mut x = "^ string_of_int a ^"
+  mut y = "^ string_of_int b ^"
+  const z = (x>y)
+")
+
+let test_gte a b = parse (
+" mut x = "^ string_of_int a ^"
+  mut y = "^ string_of_int b ^"
+  const z = (x>=y)
+")
+
 let test_sum limit_ = parse (
 " mut i = 0
   mut sum = 0
@@ -1472,7 +1502,35 @@ let suite =
        (run_unchecked (test_mod "1" "0") no_input ok));
    "eq">:: run (test_eq 1 2) no_input
      (has_var "z" (Value.bool false));
-   "neq">:: run (test_eq 1 1) no_input
+   "eq2">:: run (test_eq 1 1) no_input
+     (has_var "z" (Value.bool true));
+   "neq">:: run (test_neq 1 2) no_input
+     (has_var "z" (Value.bool true));
+   "neq2">:: run (test_neq 1 1) no_input
+     (has_var "z" (Value.bool false));
+   "lt">:: run (test_lt 1 2) no_input
+     (has_var "z" (Value.bool true));
+   "lt2">:: run (test_lt 2 1) no_input
+     (has_var "z" (Value.bool false));
+   "lt3">:: run (test_lt 1 1) no_input
+     (has_var "z" (Value.bool false));
+   "lte">:: run (test_lte 1 2) no_input
+     (has_var "z" (Value.bool true));
+   "lt2">:: run (test_lte 2 1) no_input
+     (has_var "z" (Value.bool false));
+   "lt3">:: run (test_lte 1 1) no_input
+     (has_var "z" (Value.bool true));
+   "gt">:: run (test_gt 1 2) no_input
+     (has_var "z" (Value.bool false));
+   "gt2">:: run (test_gt 2 1) no_input
+     (has_var "z" (Value.bool true));
+   "gt3">:: run (test_gt 1 1) no_input
+     (has_var "z" (Value.bool false));
+   "gte">:: run (test_gte 1 2) no_input
+     (has_var "z" (Value.bool false));
+   "gte2">:: run (test_gte 2 1) no_input
+     (has_var "z" (Value.bool true));
+   "gte3">:: run (test_gte 1 1) no_input
      (has_var "z" (Value.bool true));
    "loops">:: run (test_sum 5) no_input
      (has_var "sum" (Value.int 10));
@@ -1532,6 +1590,12 @@ let suite =
    "disasm4">:: test_disasm_parse (test_mult "1" "0");
    "disasm5">:: test_disasm_parse (test_div "1" "0");
    "disasm6">:: test_disasm_parse (test_mod "1" "0");
+   "disasm7">:: test_disasm_parse (test_eq 1 0);
+   "disasm8">:: test_disasm_parse (test_neq 1 0);
+   "disasm9">:: test_disasm_parse (test_lt 1 0);
+   "disasm10">:: test_disasm_parse (test_lte 1 0);
+   "disasm11">:: test_disasm_parse (test_gt 1 0);
+   "disasm12">:: test_disasm_parse (test_gte 1 0);
    "disasm_scope1">:: test_disasm_parse test_broken_scope_4;
    "disasm_scope2">:: test_disasm_parse test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;

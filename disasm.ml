@@ -20,14 +20,19 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     let dump_expr buf exp =
       match exp with
       | Simple e          -> simple buf e
-      | Op (Plus, [a; b]) -> pr buf "(%a + %a)" simple a simple b
-      | Op (Sub,  [a; b]) -> pr buf "(%a - %a)" simple a simple b
-      | Op (Mult, [a; b]) -> pr buf "(%a * %a)" simple a simple b
-      | Op (Div,  [a; b]) -> pr buf "(%a / %a)" simple a simple b
+      | Op (Plus, [a; b]) -> pr buf "(%a + %a)"  simple a simple b
+      | Op (Sub,  [a; b]) -> pr buf "(%a - %a)"  simple a simple b
+      | Op (Mult, [a; b]) -> pr buf "(%a * %a)"  simple a simple b
+      | Op (Div,  [a; b]) -> pr buf "(%a / %a)"  simple a simple b
       | Op (Mod,  [a; b]) -> pr buf "(%a %% %a)" simple a simple b
-      | Op (Neq,  [a; b]) -> pr buf "(%a != %a)" simple a simple b
       | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
-      | Op ((Plus | Sub | Mult | Div | Mod | Neq | Eq), _) -> assert(false)
+      | Op (Neq,  [a; b]) -> pr buf "(%a != %a)" simple a simple b
+      | Op (Lt,   [a; b]) -> pr buf "(%a < %a)"  simple a simple b
+      | Op (Lte,  [a; b]) -> pr buf "(%a <= %a)" simple a simple b
+      | Op (Gt,   [a; b]) -> pr buf "(%a > %a)"  simple a simple b
+      | Op (Gte,  [a; b]) -> pr buf "(%a >= %a)" simple a simple b
+      | Op ((Plus | Sub | Mult | Div | Mod), _)
+      | Op ((Eq | Neq | Lt | Lte | Gt | Gte), _) -> assert(false)
       | Op (Array_index, [array; index]) -> pr buf "%a[%a]" simple array simple index
       | Op (Array_length, [array]) -> pr buf "length(%a)" simple array
       | Op ((Array_index | Array_length), _) -> assert(false)

@@ -3,7 +3,7 @@
 %token<int> INT
 %token<string> IDENTIFIER
 %token AMPERSAND SINGLE_QUOTE
-%token DOUBLE_EQUAL NOT_EQUAL PLUS MINUS TIMES DIVIDE MOD /* LT LTE GT GTE */
+%token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
 %token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
@@ -180,15 +180,15 @@ variable: id=IDENTIFIER { (id : Variable.t) }
 infixop:
   | DOUBLE_EQUAL { Eq }
   | NOT_EQUAL { Neq }
+  | LT { Lt }
+  | LTE { Lte }
+  | GT { Gt }
+  | GTE { Gte }
   | PLUS { Plus }
   | MINUS { Sub }
   | TIMES { Mult }
   | DIVIDE { Div }
   | MOD { Mod }
-  (* | LT { Lt } *)
-  (* | LTE { Lte } *)
-  (* | GT { Gt } *)
-  (* | GTE { Gte } *)
 
 lit:
   | NIL { (Nil : value) }

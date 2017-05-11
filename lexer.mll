@@ -57,6 +57,10 @@ rule token = parse
   | id { id_or_keyword (Lexing.lexeme lexbuf) }
   | "==" { DOUBLE_EQUAL }
   | "!=" { NOT_EQUAL }
+  | "<" { LT }
+  | "<=" { LTE }
+  | ">" { GT }
+  | ">=" { GTE }
   | "+" { PLUS }
   | "-" { MINUS }
   | "*" { TIMES }

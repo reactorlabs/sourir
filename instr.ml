@@ -117,6 +117,10 @@ and value =
 and primop =
   | Eq
   | Neq
+  | Lt
+  | Lte
+  | Gt
+  | Gte
   | Plus
   | Sub
   | Mult
