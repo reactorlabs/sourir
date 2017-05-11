@@ -68,6 +68,7 @@ rule token = parse
   | "%" { MOD }
   | "&&" { DOUBLE_AMP }
   | "||" { DOUBLE_PIPE }
+  | "!" { BANG }
   | "[" { LBRACKET }
   | "]" { RBRACKET }
   | "(" { LPAREN }

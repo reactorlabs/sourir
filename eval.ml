@@ -127,6 +127,14 @@ let value_gt (v1 : value) (v2 : value) =
 let value_gte (v1 : value) (v2 : value) =
   not (value_lt v1 v2)
 
+let value_neg (v : value) =
+  match v with
+  | Int n -> -n
+  | (Nil | Bool _ | Fun_ref _ | Array _) as x ->
+      let expected = Int in
+      let received = get_tag x in
+      raise (Type_error { expected; received })
+
 let value_plus (v1 : value) (v2 : value) =
   match v1, v2 with
   | Int n1, Int n2 -> n1 + n2
@@ -170,6 +178,14 @@ let value_mod (v1 : value) (v2 : value) =
       let expected = (Int, Int) in
       let received = get_tag x1, get_tag x2 in
       raise (ProductType_error { expected; received })
+
+let value_not (v : value) =
+  match v with
+  | Bool b -> not b
+  | (Int _ | Nil | Fun_ref _ | Array _) as x ->
+      let expected = Bool in
+      let received = get_tag x in
+      raise (Type_error { expected; received })
 
 let value_and (v1 : value) (v2 : value) =
   match v1, v2 with
@@ -234,16 +250,18 @@ let rec eval prog heap env = function
     | Lte, [v1; v2] -> Bool (value_lte v1 v2)
     | Gt, [v1; v2] -> Bool (value_gt v1 v2)
     | Gte, [v1; v2] -> Bool (value_gte v1 v2)
+    | Neg, [v] -> Int (value_neg v)
     | Plus, [v1; v2] -> Int (value_plus v1 v2)
     | Sub, [v1; v2] -> Int (value_sub v1 v2)
     | Mult, [v1; v2] -> Int (value_mult v1 v2)
     | Div, [v1; v2] -> Int (value_div v1 v2)
     | Mod, [v1; v2] -> Int (value_mod v1 v2)
+    | Not, [v] -> Bool (value_not v)
     | And, [v1; v2] -> Bool (value_and v1 v2)
     | Or, [v1; v2] -> Bool (value_or v1 v2)
     | (Eq | Neq | Lt | Lte | Gt | Gte), _vs
-    | (Plus | Sub | Mult | Div | Mod), _vs
-    | (And | Or), _vs -> raise (Arity_error op)
+    | (Neg | Plus | Sub | Mult | Div | Mod), _vs
+    | (Not | And | Or), _vs -> raise (Arity_error op)
     | Array_index, [array; index] ->
       let array, index = get_array heap array, get_int index in
       array.(index)

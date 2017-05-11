@@ -20,6 +20,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     let dump_expr buf exp =
       match exp with
       | Simple e          -> simple buf e
+      | Op (Neg,  [a])    -> pr buf "(-%a)"      simple a
       | Op (Plus, [a; b]) -> pr buf "(%a + %a)"  simple a simple b
       | Op (Sub,  [a; b]) -> pr buf "(%a - %a)"  simple a simple b
       | Op (Mult, [a; b]) -> pr buf "(%a * %a)"  simple a simple b
@@ -31,11 +32,12 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       | Op (Lte,  [a; b]) -> pr buf "(%a <= %a)" simple a simple b
       | Op (Gt,   [a; b]) -> pr buf "(%a > %a)"  simple a simple b
       | Op (Gte,  [a; b]) -> pr buf "(%a >= %a)" simple a simple b
+      | Op (Not,  [a])    -> pr buf "(!%a)"      simple a
       | Op (And,  [a; b]) -> pr buf "(%a && %a)" simple a simple b
       | Op (Or,   [a; b]) -> pr buf "(%a || %a)" simple a simple b
-      | Op ((Plus | Sub | Mult | Div | Mod), _)
+      | Op ((Neg | Plus | Sub | Mult | Div | Mod), _)
       | Op ((Eq | Neq | Lt | Lte | Gt | Gte), _)
-      | Op ((And | Or), _) -> assert(false)
+      | Op ((Not | And | Or), _) -> assert(false)
       | Op (Array_index, [array; index]) -> pr buf "%a[%a]" simple array simple index
       | Op (Array_length, [array]) -> pr buf "length(%a)" simple array
       | Op ((Array_index | Array_length), _) -> assert(false)

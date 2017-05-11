@@ -74,6 +74,11 @@ let test_overloading = parse
   stop 0
 "
 
+let test_neg a = parse (
+" mut x = "^ string_of_int a ^"
+  mut y = (-x)
+")
+
 let test_add a b = parse (
 " mut x = "^a^"
   mut y = "^b^"
@@ -138,6 +143,11 @@ let test_gte a b = parse (
 " mut x = "^ string_of_int a ^"
   mut y = "^ string_of_int b ^"
   const z = (x>=y)
+")
+
+let test_not a = parse (
+" mut x = "^ string_of_bool a ^"
+  mut y = (!x)
 ")
 
 let test_and a b = parse (
@@ -1486,6 +1496,10 @@ let suite =
      (has_var "b" (Value.bool true)
       &&& has_var "x" (Value.int 2)
       &&& has_var "y" (Value.int 1));
+   "neg">:: run (test_neg 1) no_input
+     (has_var "y" (Value.int (-1)));
+   "neg2">:: run (test_neg (-1)) no_input
+     (has_var "y" (Value.int 1));
    "add">:: run (test_add "1" "2") no_input
      (has_var "z" (Value.int 3));
    "add2">:: run (test_add "2" "1") no_input
@@ -1544,6 +1558,10 @@ let suite =
      (has_var "z" (Value.bool true));
    "gte3">:: run (test_gte 1 1) no_input
      (has_var "z" (Value.bool true));
+   "not">:: run (test_not true) no_input
+     (has_var "y" (Value.bool false));
+   "not2">:: run (test_not false) no_input
+     (has_var "y" (Value.bool true));
    "and">:: run (test_and true true) no_input
      (has_var "z" (Value.bool true));
    "and2">:: run (test_and true false) no_input
@@ -1626,6 +1644,8 @@ let suite =
    "disasm12">:: test_disasm_parse (test_gte 1 0);
    "disasm13">:: test_disasm_parse (test_and true false);
    "disasm14">:: test_disasm_parse (test_or true false);
+   "disasm15">:: test_disasm_parse (test_neg 1);
+   "disasm16">:: test_disasm_parse (test_not true);
    "disasm_scope1">:: test_disasm_parse test_broken_scope_4;
    "disasm_scope2">:: test_disasm_parse test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;

@@ -121,11 +121,13 @@ and primop =
   | Lte
   | Gt
   | Gte
+  | Neg
   | Plus
   | Sub
   | Mult
   | Div
   | Mod
+  | Not
   | And
   | Or
   | Array_index
