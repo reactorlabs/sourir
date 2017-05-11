@@ -117,7 +117,19 @@ and value =
 and primop =
   | Eq
   | Neq
+  | Lt
+  | Lte
+  | Gt
+  | Gte
+  | Neg
   | Plus
+  | Sub
+  | Mult
+  | Div
+  | Mod
+  | Not
+  | And
+  | Or
   | Array_index
   | Array_length
 

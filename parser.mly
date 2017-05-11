@@ -3,7 +3,7 @@
 %token<int> INT
 %token<string> IDENTIFIER
 %token AMPERSAND SINGLE_QUOTE
-%token DOUBLE_EQUAL NOT_EQUAL PLUS /* MINUS TIMES LT LTE GT GTE */
+%token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD DOUBLE_AMP DOUBLE_PIPE BANG
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
 %token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
@@ -169,6 +169,8 @@ expression:
   | e = simple_expression { Simple e }
   | LPAREN e1=simple_expression op=infixop e2=simple_expression RPAREN
     { Op (op, [e1;e2]) }
+  | LPAREN op=prefixop e=simple_expression RPAREN
+    { Op (op, [e]) }
   | x=variable LBRACKET index=simple_expression RBRACKET
     { Op (Array_index, [Var x; index]) }
   | LENGTH LPAREN x=simple_expression RPAREN
@@ -177,16 +179,24 @@ expression:
 label: id=IDENTIFIER { (id : Label.t) }
 variable: id=IDENTIFIER { (id : Variable.t) }
 
+prefixop:
+  | MINUS { Neg }
+  | BANG { Not }
+
 infixop:
   | DOUBLE_EQUAL { Eq }
   | NOT_EQUAL { Neq }
+  | LT { Lt }
+  | LTE { Lte }
+  | GT { Gt }
+  | GTE { Gte }
   | PLUS { Plus }
-  (* | MINUS { Sub } *)
-  (* | TIMES { Mult } *)
-  (* | LT { Lt } *)
-  (* | LTE { Lte } *)
-  (* | GT { Gt } *)
-  (* | GTE { Gte } *)
+  | MINUS { Sub }
+  | TIMES { Mult }
+  | DIVIDE { Div }
+  | MOD { Mod }
+  | DOUBLE_AMP { And }
+  | DOUBLE_PIPE { Or }
 
 lit:
   | NIL { (Nil : value) }

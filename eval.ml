@@ -41,6 +41,7 @@ exception Invalid_heap
 exception Arity_error of primop
 exception Invalid_update
 exception Invalid_clear
+exception Division_by_zero
 
 type type_error = {
   expected : type_tag;
@@ -106,6 +107,34 @@ let rec value_eq (v1 : value) (v2 : value) =
        add a refutation clause of the same shape for the new
        constructor. *)
 
+let value_neq (v1 : value) (v2 : value) =
+  not (value_eq v1 v2)
+
+let value_lt (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 -> n1 < n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_lte (v1 : value) (v2 : value) =
+  (value_eq v1 v2) || (value_lt v1 v2)
+
+let value_gt (v1 : value) (v2 : value) =
+  not (value_lte v1 v2)
+
+let value_gte (v1 : value) (v2 : value) =
+  not (value_lt v1 v2)
+
+let value_neg (v : value) =
+  match v with
+  | Int n -> -n
+  | (Nil | Bool _ | Fun_ref _ | Array _) as x ->
+      let expected = Int in
+      let received = get_tag x in
+      raise (Type_error { expected; received })
+
 let value_plus (v1 : value) (v2 : value) =
   match v1, v2 with
   | Int n1, Int n2 -> n1 + n2
@@ -114,8 +143,65 @@ let value_plus (v1 : value) (v2 : value) =
       let received = get_tag x1, get_tag x2 in
       raise (ProductType_error { expected; received })
 
-let value_neq (v1 : value) (v2 : value) =
-  not (value_eq v1 v2)
+let value_sub (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 -> n1 - n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_mult (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 -> n1 * n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_div (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 ->
+    if n2 = 0 then raise Division_by_zero
+    else n1 / n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_mod (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Int n1, Int n2 ->
+    if n2 = 0 then raise Division_by_zero
+    else n1 mod n2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Int, Int) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_not (v : value) =
+  match v with
+  | Bool b -> not b
+  | (Int _ | Nil | Fun_ref _ | Array _) as x ->
+      let expected = Bool in
+      let received = get_tag x in
+      raise (Type_error { expected; received })
+
+let value_and (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Bool b1, Bool b2 -> b1 && b2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Bool, Bool) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
+
+let value_or (v1 : value) (v2 : value) =
+  match v1, v2 with
+  | Bool b1, Bool b2 -> b1 || b2
+  | (Int _ | Nil | Bool _ | Fun_ref _ | Array _) as x1, x2 ->
+      let expected = (Bool, Bool) in
+      let received = get_tag x1, get_tag x2 in
+      raise (ProductType_error { expected; received })
 
 let eval_simple prog heap env = function
   | Var x -> lookup heap env x
@@ -160,8 +246,22 @@ let rec eval prog heap env = function
     begin match op, List.map (eval_simple prog heap env) es with
     | Eq, [v1; v2] -> Bool (value_eq v1 v2)
     | Neq, [v1; v2] -> Bool (value_neq v1 v2)
+    | Lt, [v1; v2] -> Bool (value_lt v1 v2)
+    | Lte, [v1; v2] -> Bool (value_lte v1 v2)
+    | Gt, [v1; v2] -> Bool (value_gt v1 v2)
+    | Gte, [v1; v2] -> Bool (value_gte v1 v2)
+    | Neg, [v] -> Int (value_neg v)
     | Plus, [v1; v2] -> Int (value_plus v1 v2)
-    | (Eq | Neq | Plus), _vs -> raise (Arity_error op)
+    | Sub, [v1; v2] -> Int (value_sub v1 v2)
+    | Mult, [v1; v2] -> Int (value_mult v1 v2)
+    | Div, [v1; v2] -> Int (value_div v1 v2)
+    | Mod, [v1; v2] -> Int (value_mod v1 v2)
+    | Not, [v] -> Bool (value_not v)
+    | And, [v1; v2] -> Bool (value_and v1 v2)
+    | Or, [v1; v2] -> Bool (value_or v1 v2)
+    | (Eq | Neq | Lt | Lte | Gt | Gte), _vs
+    | (Neg | Plus | Sub | Mult | Div | Mod), _vs
+    | (Not | And | Or), _vs -> raise (Arity_error op)
     | Array_index, [array; index] ->
       let array, index = get_array heap array, get_int index in
       array.(index)
