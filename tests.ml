@@ -42,8 +42,8 @@ let test_print = parse
   stop 0
 "
 
-let test_decl_const = parse
-" const x  = 1
+let test_decl_var = parse
+" var x  = 1
   print x
   stop 0
 "
@@ -66,7 +66,7 @@ let test_jump = parse
 let test_overloading = parse
 " mut b = true
   mut x = 1
-  const y = x
+  var y = x
   goto jump
   b <- false
  jump:
@@ -112,37 +112,37 @@ let test_mod a b = parse (
 let test_eq a b = parse (
 " mut x = "^ string_of_int a ^"
   mut y = "^ string_of_int b ^"
-  const z = (x==y)
+  var z = (x==y)
 ")
 
 let test_neq a b = parse (
 " mut x = "^ string_of_int a ^"
   mut y = "^ string_of_int b ^"
-  const z = (x!=y)
+  var z = (x!=y)
 ")
 
 let test_lt a b = parse (
 " mut x = "^ string_of_int a ^"
   mut y = "^ string_of_int b ^"
-  const z = (x<y)
+  var z = (x<y)
 ")
 
 let test_lte a b = parse (
 " mut x = "^ string_of_int a ^"
   mut y = "^ string_of_int b ^"
-  const z = (x<=y)
+  var z = (x<=y)
 ")
 
 let test_gt a b = parse (
 " mut x = "^ string_of_int a ^"
   mut y = "^ string_of_int b ^"
-  const z = (x>y)
+  var z = (x>y)
 ")
 
 let test_gte a b = parse (
 " mut x = "^ string_of_int a ^"
   mut y = "^ string_of_int b ^"
-  const z = (x>=y)
+  var z = (x>=y)
 ")
 
 let test_not a = parse (
@@ -165,9 +165,9 @@ let test_or a b = parse (
 let test_sum limit_ = parse (
 " mut i = 0
   mut sum = 0
-  const limit = "^string_of_int limit_^"
+  var limit = "^string_of_int limit_^"
 loop:
-  const ax = (i==limit)
+  var ax = (i==limit)
   branch ax continue loop_body
 loop_body:
   drop ax
@@ -185,16 +185,16 @@ let test_broken_scope_1 = parse
 
 let test_broken_scope_2 = parse
 " goto l
-  const x = 0
+  var x = 0
  l:
   print x
 "
 
 let test_broken_scope_3 = parse
-" const y = false
+" var y = false
   branch y cont next
  next:
-  const x = 0
+  var x = 0
   drop x
  cont:
   print x
@@ -225,16 +225,16 @@ let test_scope_1 test_var1 test_var2 = parse (
 " mut t = false
   branch t a b
 a:
-  const a = 0
-  const c = 0
+  var a = 0
+  var c = 0
   drop a
   goto cont
 b:
-  const b = 0
-  const c = 0
+  var b = 0
+  var c = 0
   drop b
 cont:
-  const res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
+  var res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
 ")
 
 let test_read_print = parse
@@ -405,7 +405,7 @@ let test_double_loop = parse
 "{} mut i
  i <- 0
  mut sum = 0
- const limit = 4
+ var limit = 4
 loop1:
   branch (i != limit) loop_body1 continue
 loop_body1:
@@ -593,7 +593,7 @@ let do_test_codemotion = function () ->
       end:
        stop 0
       bla:
-       const z = 1
+       var z = 1
        mut x = 1
        mut y = z
        goto loop
@@ -606,7 +606,7 @@ let do_test_codemotion = function () ->
       end:
        stop 0
       bla:
-       const z = 1
+       var z = 1
        mut y_1 = z
        mut x = 1
        mut y = z
@@ -679,7 +679,7 @@ let do_test_minimize_lifetime = function () ->
        drop b
        goto x
       x:
-       const b = 3
+       var b = 3
        print b
        stop 0
   " in
@@ -696,7 +696,7 @@ let do_test_minimize_lifetime = function () ->
        drop b
        goto x
       x:
-       const b = 3
+       var b = 3
        print b
        drop b
        stop 0
@@ -720,14 +720,14 @@ let do_test_const_prop_driver () =
 
   (* Simple test case; sanity check *)
   test {input|
-    const x = 1
+    var x = 1
     print x
   |input} {expect|
     print 1
   |expect};
   (* Test with branching *)
   test {input|
-    const x = 1
+    var x = 1
     branch (1==1) l1 l2
    l1:
     drop x
@@ -737,7 +737,7 @@ let do_test_const_prop_driver () =
     drop x
     goto next
    next:
-    const y = 1
+    var y = 1
     branch (1==1) l3 l4
    l3:
     print y
@@ -747,7 +747,7 @@ let do_test_const_prop_driver () =
     drop y
     stop 0
   |input} {expect|
-    const x = 1
+    var x = 1
     branch (1==1) l1 l2
    l1:
     drop x
@@ -757,7 +757,7 @@ let do_test_const_prop_driver () =
     drop x
     goto next
    next:
-    const y = 1
+    var y = 1
     branch (1==1) l3 l4
    l3:
     print 1
@@ -769,11 +769,11 @@ let do_test_const_prop_driver () =
   |expect};
   (* Test with booleans, updating mut vars, and branching *)
   test {input|
-    const a = 1
-    const b = 2
+    var a = 1
+    var b = 2
     mut c = 5
     c <- (a + b)
-    const d = true
+    var d = true
     branch d l1 l2
    l1:
     c <- (c + a)
@@ -804,7 +804,7 @@ let do_test_const_prop_driver () =
   |expect};
   (* Test with a loop *)
   test {input|
-    const n = 10
+    var n = 10
     goto bla
    loop:
     y <- z
@@ -814,7 +814,7 @@ let do_test_const_prop_driver () =
     print z
     stop 0
    bla:
-    const z = 1
+    var z = 1
     mut x = 1
     mut y = z
     goto loop
@@ -833,11 +833,11 @@ let do_test_const_prop_driver () =
   |expect};
   (* More complicated control flow *)
   test {input|
-    const x = 1
-    const t = true
-    const a = 10
-    const b = 20
-    const c = 30
+    var x = 1
+    var t = true
+    var a = 10
+    var b = 20
+    var c = 30
     branch t la lb
    la:
     branch t l1 l2
@@ -853,7 +853,7 @@ let do_test_const_prop_driver () =
     print c
     goto fin
    fin:
-    const y = (x + x)
+    var y = (x + x)
     print y
     stop 0
   |input} {expect|
@@ -872,7 +872,7 @@ let do_test_const_prop_driver () =
     print 30
     goto fin
    fin:
-    const y = (1 + 1)
+    var y = (1 + 1)
     print y
     stop 0
   |expect};
@@ -935,26 +935,26 @@ let do_test_push_drop () =
     | _ -> assert(false)
   in
   let t = parse "
-    const x = 1
-    const y = (x + 1)
-    const z = y
+    var x = 1
+    var y = (x + 1)
+    var z = y
     drop x
     " in
   let e = parse "
-    const x = 1
-    const y = (x + 1)
+    var x = 1
+    var y = (x + 1)
     drop x
-    const z = y
+    var z = y
   " in
   test t 3 e;
   let t = parse "
-    const x = 1
-    const y = (x + 1)
+    var x = 1
+    var y = (x + 1)
     drop x
     " in
   let e = parse "
-    const x = 1
-    const y = (x + 1)
+    var x = 1
+    var y = (x + 1)
     drop x
   " in
   test t 2 e;
@@ -1046,7 +1046,7 @@ let do_test_push_drop () =
    " in
   test t 7 e;
   let t = parse "
-      const a = 1
+      var a = 1
       call x = bla ()
       drop x
     function bla ()
@@ -1073,33 +1073,33 @@ let do_test_drop_driver () =
     end in
 
   test "x" {given|
-    const x = 1
-    const y = 2
-    const z = (y + y)
+    var x = 1
+    var y = 2
+    var z = (y + y)
     drop x
     drop y
   |given} {expect|
-    const y = 2
-    const z = (y + y)
+    var y = 2
+    var z = (y + y)
     drop y
   |expect};
   test "x" {given|
-    const x = 1
-    const y = 2
-    const z = (x + y)
-    const w = (y + z)
+    var x = 1
+    var y = 2
+    var z = (x + y)
+    var w = (y + z)
     drop x
     drop y
   |given} {expect|
-    const x = 1
-    const y = 2
-    const z = (x + y)
+    var x = 1
+    var y = 2
+    var z = (x + y)
     drop x
-    const w = (y + z)
+    var w = (y + z)
     drop y
   |expect};
   test "x" {given|
-    const x = 1
+    var x = 1
     branch (x == 1) la lb
    la:
     print 1
@@ -1110,7 +1110,7 @@ let do_test_drop_driver () =
     drop x
     stop 0
   |given} {expect|
-    const x = 1
+    var x = 1
     branch (x == 1) la lb
    la:
     drop x
@@ -1122,7 +1122,7 @@ let do_test_drop_driver () =
     stop 0
   |expect};
   test "x" {given|
-    const x = 1
+    var x = 1
     branch (1 == 1) la lb
    la:
     branch (1 == 1) l1 l2
@@ -1201,14 +1201,14 @@ let test_functions () =
   test {pr|
      call x = 'bla (22)
      return x
-    function bla (const y)
+    function bla (var y)
       return y
   |pr} 22;
   test {pr|
      call one = 'one ()
      call three = 'pl (one, 2)
      return three
-    function pl (const y, const z)
+    function pl (var y, var z)
       return (y+z)
     function one ()
       return 1
@@ -1248,7 +1248,7 @@ let test_functions () =
     (Check.InvalidMain)
     (fun () ->
     test {pr|
-      function main (const x)
+      function main (var x)
        return false
     |pr} 0);
   assert_raises
@@ -1256,7 +1256,7 @@ let test_functions () =
     (fun () ->
     test {pr|
       call x = 'bla (1, 2)
-      function bla (const x, const x)
+      function bla (var x, var x)
        return false
     |pr} 0);
   assert_raises
@@ -1272,14 +1272,14 @@ let test_functions () =
      mut x = 22
      call y = 'bla (x)
      return y
-    function bla (const y)
+    function bla (var y)
       return y
   |pr} 22;
   assert_raises
     (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_val (Simple (Var "x"))))))
     (fun () ->
     test {pr|
-       const x = 22
+       var x = 22
        call y = 'bla (x)
       function bla (mut y)
         return y
@@ -1288,7 +1288,7 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_ref "x"))))
     (fun () ->
     test {pr|
-       const x = 22
+       var x = 22
        call y = 'bla (&x)
       function bla (mut y)
         return y
@@ -1303,20 +1303,20 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.FunctionDoesNotExist "x"))
     (fun () ->
     test {pr|
-       const x = 'x
+       var x = 'x
     |pr} 0);
   test_p {pr|
      mut x = 'bla
      call y = x (x)
      print y
-    function bla (const y)
+    function bla (var y)
       return y
   |pr} [(Fun_ref "bla")];
   test {pr|
      mut x = 'bla
      call y = x ('bla2)
      return y
-    function bla (const y)
+    function bla (var y)
       call r = y ()
       return r
     function bla2 ()
@@ -1326,7 +1326,7 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_ref "x"))))
     (fun () ->
     test {pr|
-       const x = 22
+       var x = 22
        call y = 'bla (&x)
       function bla (mut y)
         return y
@@ -1343,8 +1343,8 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.InvalidArgument (2, (Arg_by_ref "x"))))
     (fun () ->
     test {pr|
-       const x = 22
-       const func = 'bla
+       var x = 22
+       var func = 'bla
        call y = func (&x)
       function bla (mut y)
         return y
@@ -1353,15 +1353,15 @@ let test_functions () =
     (Eval.InvalidArgument)
     (fun () ->
     test {pr|
-       const x = 22
-       const func = 'bla
+       var x = 22
+       var func = 'bla
        call y = func (x)
       function bla (mut y)
         return y
     |pr} 22);
   ();;
 
-let do_test_mut_to_const () =
+let do_test_mut_to_var () =
   let open Transform in
   let test t e =
     let input, expected = (parse t), (parse e) in
@@ -1378,7 +1378,7 @@ let do_test_mut_to_const () =
     mut x = 1
     print x
   |input} {expect|
-    const x = 1
+    var x = 1
     print x
   |expect};
   test {input|
@@ -1404,8 +1404,8 @@ let do_test_mut_to_const () =
     mut y = (x+1)
     print y
   |input} {expect|
-    const x = 1
-    const y = (x+1)
+    var x = 1
+    var y = (x+1)
     print y
   |expect};
   ();;
@@ -1426,12 +1426,12 @@ let do_test_deopt () =
   test {pr|
     function main ()
     version a
-     const x = 1
-     osr [(x==1)] (main, b, l) [const y=42]
+     var x = 1
+     osr [(x==1)] (main, b, l) [var y=42]
      return x
 
     version b
-     const y = 2
+     var y = 2
     l:
      return y
   |pr} 42;
@@ -1486,7 +1486,7 @@ let suite =
   ["mut">:: run test_mut no_input
      (has_var "x" (Value.int 2)
       &&& (trace_is Value.[int 1; int 2]));
-   "decl_const">:: run test_decl_const no_input
+   "decl_var">:: run test_decl_var no_input
      (has_var "x" (Value.int 1));
    "print">:: run test_print no_input
      (trace_is Value.[int 1; int 2]);
@@ -1616,19 +1616,19 @@ let suite =
      (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
    "scope_uninitialized">:: do_test_scope_uninitialized;
    "parser">:: test_parse_disasm   ("stop 0\n");
-   "parser1">:: test_parse_disasm  ("const x = 3\nprint x\nstop 0\n");
+   "parser1">:: test_parse_disasm  ("var x = 3\nprint x\nstop 0\n");
    "parser2">:: test_parse_disasm  ("goto l\nx <- 3\nl:\n");
-   "parser3">:: test_parse_disasm  ("const x = (y + x)\n");
+   "parser3">:: test_parse_disasm  ("var x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr [(x == y)] (f, v, l) [const x = x, mut y = &x, mut v, const x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr [(x == y)] (f, v, l) [var x = x, mut y = &x, mut v, var x = (1+2)]\nl:\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
-   "parser7">:: test_parse_disasm  ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
    "parser_arr1">:: test_parse_disasm ("array x[10]\n");
    "parser_arr2">:: test_parse_disasm ("array x = []\narray x = [1, x, nil]\n");
-   "parser_arr3">:: test_parse_disasm ("const x = y[10]\n");
-   "parser_arr4">:: test_parse_disasm ("const x = length(y)\n");
+   "parser_arr3">:: test_parse_disasm ("var x = y[10]\n");
+   "parser_arr4">:: test_parse_disasm ("var x = length(y)\n");
    "parser_arr_file">:: test_parse_disasm_file "examples/array_sum.sou";
    "disasm1">:: test_disasm_parse (test_sum 10);
    "disasm2">:: test_disasm_parse (test_add "1" "0");
@@ -1666,7 +1666,7 @@ let suite =
    "pull_drop">:: do_test_pull_drop;
    "move_drop">:: do_test_drop_driver;
    "test_functions">:: test_functions;
-   "test_mut_to_const">:: do_test_mut_to_const;
+   "test_mut_to_var">:: do_test_mut_to_var;
    "deopt">:: do_test_deopt;
    "array">:: do_test_array;
    ]

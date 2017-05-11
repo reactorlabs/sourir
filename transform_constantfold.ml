@@ -4,7 +4,7 @@ open Instr
  * Constant propagation. Takes a program `prog` and returns an updated stream.
  *
  * Finds all constant declarations of the form:
- *     const x = l
+ *     var x = l
  * where `l` is a literal.
  *
  * Then, whenever `x` is used in an expression (while x is still in scope), it
@@ -24,9 +24,9 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       Stop (replace e)
     | Return e ->
       Return (replace e)
-    | Decl_const (y, e) ->
+    | Decl_var (y, e) ->
       assert (x <> y);
-      Decl_const (y, replace e)
+      Decl_var (y, replace e)
     | Decl_mut (y, Some e) ->
       assert (x <> y);
       Decl_mut (y, Some (replace e))
@@ -46,7 +46,7 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       (* Replace all expressions in the osr environment. *)
       let map = List.map (fun osr_def ->
         match osr_def with
-        | Osr_const (y, e) -> Osr_const (y, replace e)
+        | Osr_var (y, e) -> Osr_var (y, replace e)
         | Osr_mut (y, e) -> Osr_mut (y, replace e)
         | Osr_mut_ref (_y, _z) ->
           (* we disable replacing aliases (mut y = &z) even
@@ -92,7 +92,7 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
     in
     let update pc cur =
       match[@warning "-4"] instrs.(pc) with
-      | Decl_const (x, Simple (Constant l))
+      | Decl_var (x, Simple (Constant l))
       | Decl_mut (x, Some (Simple (Constant l)))
         ->
         VarMap.add x (Value l) cur
@@ -100,7 +100,7 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
         (* this case could be improved with approximation for arrays so
            that, eg., length(x) could be constant-folded *)
         VarMap.add x Unknown cur
-      | Decl_const (x, _) | Decl_mut (x, _) ->
+      | Decl_var (x, _) | Decl_mut (x, _) ->
         VarMap.add x Unknown cur
       | Call (x, _, _) as call ->
         let mark_unknown (_, x) cur = VarMap.add x Unknown cur in
@@ -166,9 +166,9 @@ let make_constant (({formals; instrs} as inp) : analysis_input) : instructions o
         | Arg_by_ref x -> x <> var
         | Arg_by_val _ -> true
       in List.for_all is_passed_by_val exp
-    | Decl_const (_, _)
-    | Decl_mut (_, _)
+    | Decl_var (_, _)
     | Decl_array _
+    | Decl_mut (_, _)
     | Return _
     | Branch (_, _, _)
     | Label _
@@ -204,7 +204,7 @@ let make_constant (({formals; instrs} as inp) : analysis_input) : instructions o
         (* all uses keep this variable constant:
          * 1. Change the declaration to const
          * 2. Fixup osr uses: We need to materialize the heap value on osr-out *)
-        changes.(pc) <- Replace (Decl_const (var, exp));
+        changes.(pc) <- Replace (Decl_var (var, exp));
         Analysis.PcSet.iter fixup required;
       end;
       apply (pc+1)

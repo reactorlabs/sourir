@@ -18,13 +18,13 @@ Reserved Names:
   start     start label      (execution of function starts here)
 
   formal ::=      formal argument
-  | const x
+  | var x
   | mut x
 
   a  addresses
 
   i ::=    instructions
-  | const x = e                   constant variable
+  | var x = e                   constant variable
   | mut x = e                     mutable variable
   | drop x                        drop a variable from scope
   | clear x                       de-initialization of a mutable
@@ -74,7 +74,7 @@ mentioned, but &x can be used to alias the mutable variable x in an
 osr or function call.
 
   osr-map ::=    osr mapping declaration
-  | const x = e
+  | var x = e
   | mut x
   | mut x = &x
   | mut x = e
@@ -142,7 +142,7 @@ Update (partial) function, returns an H:
 `build-env H E def` builds a new heap/environment *fragment* from
 a definition intepreted in the existing context (H,E).
 
-  build-env H E (const x = e) = (∅, [x ↦ val v])
+  build-env H E (var x = e) = (∅, [x ↦ val v])
     where v := eval P H E e
   build-env H E (mut x)       = ([a ↦ ⊥], [x ↦ ref a])
     where a fresh
@@ -167,9 +167,9 @@ extended with the new heap fragment into a new heap `H'`.
 
 ## One step reduction
 
-  step   (const x = e) (P, I, T, H, E, l)
+  step   (var x = e) (P, I, T, H, E, l)
        = (I, T, H', E', succ I l)
-   where (H', E') := extend-env H E (const x = e)
+   where (H', E') := extend-env H E (var x = e)
 
   step   (mut x = e) (P, I, T, H, E, l)
        = (I, T, H', E', succ I l)
@@ -242,12 +242,12 @@ extended with the new heap fragment into a new heap `H'`.
 
 declares i =
   | mut x _         -> [x]
-  | const x _       -> [x]
+  | var x _       -> [x]
   | _               -> []
 
 requires i =
   | mut x = e
-  | const x = e
+  | var x = e
   | osr (e, f, lᵥ, l, (x = ee)*)
                     -> vars(e) ∪ vars(ee)*
   | x <- e          -> x :: vars(e)

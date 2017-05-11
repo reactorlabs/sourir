@@ -55,7 +55,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       pr buf " (%a)" (dump_comma_separated dump_arg) args;
     | Stop exp                        -> pr buf " stop %a" dump_expr exp
     | Return exp                      -> pr buf " return %a" dump_expr exp
-    | Decl_const (var, exp)           -> pr buf " const %s = %a" var dump_expr exp
+    | Decl_var (var, exp)           -> pr buf " var %s = %a" var dump_expr exp
     | Decl_mut (var, Some exp)        -> pr buf " mut %s = %a" var dump_expr exp
     | Decl_mut (var, None)            -> pr buf " mut %s" var
     | Decl_array (var, Length exp)    -> pr buf " array %s[%a]" var dump_expr exp
@@ -72,7 +72,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Read var                        -> pr buf " read %s" var
     | Osr {cond; target = {func; version; label}; map} ->
       let dump_var buf = function
-        | Osr_const (x, e)     -> pr buf "const %s = %a" x dump_expr e
+        | Osr_var (x, e)     -> pr buf "var %s = %a" x dump_expr e
         | Osr_mut (x, e)       -> pr buf "mut %s = %a" x dump_expr e
         | Osr_mut_ref (x, y)   -> pr buf "mut %s = &%s" x y
         | Osr_mut_undef x      -> pr buf "mut %s" x
@@ -92,7 +92,7 @@ let disassemble buf (prog : Instr.program) =
   List.iter (fun {name; formals; body} ->
       let print_formal buf = function
           | Mut_ref_param x -> pr buf "mut %s" x
-          | Const_val_param x -> pr buf "const %s" x in
+          | Var_param x -> pr buf "var %s" x in
       let print_formals buf = List.iter (print_formal buf) formals in
       Printf.bprintf buf "function %s (%t)\n" name print_formals;
       List.iter (fun version ->

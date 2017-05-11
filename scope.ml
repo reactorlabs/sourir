@@ -150,7 +150,7 @@ let explain_incompatible_scope outchan s1 s2 pc =
   let print_vars buf vars =
     let print_var buf (mode, var) =
       Printf.bprintf buf "%s %s"
-        (match mode with Const_var -> "const" | Mut_var -> "mut") var in
+        (match mode with Var_var -> "var" | Mut_var -> "mut") var in
     let vars = ModedVarSet.elements vars |> Array.of_list in
     Printf.bprintf buf "{";
     print_sep buf print_var vars ", " ", ";

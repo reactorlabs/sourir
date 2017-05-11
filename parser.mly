@@ -6,7 +6,7 @@
 %token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD DOUBLE_AMP DOUBLE_PIPE BANG
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
-%token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
+%token VAR MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
 %token ARRAY LENGTH
 %token<string> COMMENT
 %token NEWLINE
@@ -59,8 +59,8 @@ program_code:
   }
 
 formal_param:
-| CONST x=variable
-    { Const_val_param x }
+| VAR x=variable
+    { Var_param x }
 | MUT x=variable
     { Mut_ref_param x }
 
@@ -108,8 +108,8 @@ scope:
 | TRIPLE_DOT { (`At_least, []) }
 
 osr_def:
-| CONST x=variable EQUAL e=expression
-    { Osr_const (x, e) }
+| VAR x=variable EQUAL e=expression
+    { Osr_var (x, e) }
 | MUT x=variable
     { Osr_mut_undef x }
 | MUT x=variable EQUAL AMPERSAND y=variable
@@ -122,8 +122,8 @@ instruction:
   { Call (x, f, args) }
 | RETURN e=expression
   { Return e }
-| CONST x=variable EQUAL e=expression
-  { Decl_const (x, e) }
+| VAR x=variable EQUAL e=expression
+  { Decl_var (x, e) }
 | MUT x=variable
   { Decl_mut (x, None) }
 | MUT x=variable EQUAL e=expression

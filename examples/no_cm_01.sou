@@ -1,5 +1,5 @@
-  const zero = 0
-  const one = 1
+  var zero = 0
+  var one = 1
   mut x = 3
   mut y = 7
   mut z = 1
@@ -7,7 +7,7 @@
   mut acc = 0
   mut w = 0
   read w
-  const limit = 10
+  var limit = 10
 loop:
   branch (i == limit) continue loop_body
 loop_body:

@@ -24,7 +24,7 @@ type label = Label.t
 
 module VarSet = Set.Make(Variable)
 
-type variable_type = Mut_var | Const_var
+type variable_type = Mut_var | Var_var
 
 type moded_var = variable_type * variable
 
@@ -74,7 +74,7 @@ type unique_pos = {func : label; version : label; label : label;}
 
 type instructions = instruction array
 and instruction =
-  | Decl_const of variable * expression
+  | Decl_var of variable * expression
   | Decl_mut of variable * (expression option)
   | Decl_array of variable * array_def
   | Call of variable * expression * (argument list)
@@ -95,7 +95,7 @@ and array_def =
   | Length of expression
   | List of expression list
 and osr_def =
-  | Osr_const of variable * expression
+  | Osr_var of variable * expression
   | Osr_mut of variable * expression
   | Osr_mut_ref of variable * variable
   | Osr_mut_undef of variable
@@ -144,7 +144,7 @@ type inferred_scope =
 type annotations = scope_annotation option array
 
 type formal_parameter =
-  | Const_val_param of variable
+  | Var_param of variable
   | Mut_ref_param of variable
 
 type version = {
@@ -205,9 +205,9 @@ let list_vars ls =
 let declared_vars = function
   | Assign _ | Read _ -> ModedVarSet.empty
   | Call (x, _, _)
-  | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
+  | Decl_var (x, _) -> ModedVarSet.singleton (Var_var, x)
   | Decl_mut (x, _) -> ModedVarSet.singleton (Mut_var, x)
-  | Decl_array (x, _) -> ModedVarSet.singleton (Const_var, x)
+  | Decl_array (x, _) -> ModedVarSet.singleton (Var_var, x)
   | ( Drop _
     | Array_assign _
     | Return _
@@ -225,7 +225,7 @@ let defined_vars = function
   | Assign (x ,_)
   | Read x -> ModedVarSet.singleton (Mut_var, x)
   | ( Call _
-    | Decl_const _
+    | Decl_var _
     | Decl_mut (_, Some _)
     | Decl_array _
     | Return _
@@ -245,7 +245,7 @@ let dropped_vars = function
   | Drop x -> VarSet.singleton x
   | Return _
   | Call _
-  | Decl_const _
+  | Decl_var _
   | Decl_mut _
   | Decl_array _
   | Assign _
@@ -264,7 +264,7 @@ let cleared_vars = function
   | Clear x -> VarSet.singleton x
   | Return _
   | Call _
-  | Decl_const _
+  | Decl_var _
   | Decl_mut _
   | Decl_array _
   | Assign _
@@ -291,7 +291,7 @@ let used_vars = function
     List.fold_left VarSet.union v vs
   | Stop e
   | Return e -> expr_vars e
-  | Decl_const (_x, e) -> expr_vars e
+  | Decl_var (_x, e) -> expr_vars e
   | Decl_mut (_x, Some e) -> expr_vars e
   | Decl_mut (_x, None) -> VarSet.empty
   | Decl_array (_, Length e) -> expr_vars e
@@ -312,7 +312,7 @@ let used_vars = function
     -> VarSet.empty
   | Osr {cond; map} ->
     let exps = List.map (function
-        | Osr_const (_, e) -> e
+        | Osr_var (_, e) -> e
         | Osr_mut (_, e) -> e
         | Osr_mut_ref (_, x) -> Simple (Var x)
         | Osr_mut_undef _ -> Simple (Constant Nil)) map in
@@ -329,7 +329,7 @@ let required_vars = function
   | ( Call _
     | Stop _
     | Return _
-    | Decl_const _
+    | Decl_var _
     | Decl_mut _
     | Decl_array _
     | Array_assign _
@@ -349,8 +349,8 @@ let changed_vars = function
     in
     ModedVarSet.empty
     |> List.fold_right ModedVarSet.union (List.map changed_arg args)
-    |> ModedVarSet.add (Const_var, x)
-  | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
+    |> ModedVarSet.add (Var_var, x)
+  | Decl_var (x, _) -> ModedVarSet.singleton (Var_var, x)
   | Decl_mut (x, Some _)
   | Assign (x ,_)
   | Array_assign (x ,_ , _)

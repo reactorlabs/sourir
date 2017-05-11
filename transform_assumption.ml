@@ -26,7 +26,7 @@ let insert_checkpoints (func:afunction) =
       | DeadScope -> assert(false)
       | Scope scope ->
         let osr = List.map (function
-          | (Const_var, x) -> Osr_const (x, (Simple (Var x)))
+          | (Var_var, x) -> Osr_var (x, (Simple (Var x)))
           | (Mut_var, x)   ->
             if List.mem x (live (pc-1)) then
               Osr_mut_ref (x, x)

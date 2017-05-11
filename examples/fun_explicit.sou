@@ -1,5 +1,5 @@
 function main ()
- const x = 1
+ var x = 1
  call y = 'foo ()
  print y
 

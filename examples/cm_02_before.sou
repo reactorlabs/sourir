@@ -1,6 +1,6 @@
 # Moving a loop invariant
 # BEFORE
-  const one = 1
+  var one = 1
   mut x = 3
   mut y = 7
   mut z = 0

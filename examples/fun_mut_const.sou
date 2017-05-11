@@ -1,15 +1,15 @@
 mut x = 1
-const y = 2
+var y = 2
 
-call c1 = 'take_const (x)
-call c2 = 'take_const (y)
-const s1 = (c1+c2)
+call c1 = 'take_var (x)
+call c2 = 'take_var (y)
+var s1 = (c1+c2)
 call c3 = 'take_mut (&x)
 
 print (s1+x)
 
 
-function take_const (const a)
+function take_var (var a)
   return a
 
 function take_mut (mut a)

@@ -44,7 +44,7 @@ let well_formed prog =
   (* Formals args shall not contain duplicate variables *)
   let check_formals name formals =
     let formals = List.map (fun f -> match f with
-        | Const_val_param x -> x | Mut_ref_param x -> x) formals in
+        | Var_param x -> x | Mut_ref_param x -> x) formals in
     let check seen var =
       if VarSet.mem var seen
       then raise (DuplicateParameter (name, var))
@@ -81,7 +81,7 @@ let well_formed prog =
       then raise (InvalidNumArgs pc);
       let check_arg (formal, actual) =
         match[@warning "-4"] formal, actual with
-        | Const_val_param _, Arg_by_val _
+        | Var_param _, Arg_by_val _
         | Mut_ref_param _, Arg_by_ref _ -> ()
         | _ -> raise (InvalidArgument (pc, actual)) in
       List.iter check_arg (List.combine func.formals args) in
@@ -103,14 +103,14 @@ let well_formed prog =
         | Arg_by_val e -> check_expr e
         | Arg_by_ref x -> () in
       let check_osr = function
-        | Osr_const (_, e)
+        | Osr_var (_, e)
         | Osr_mut (_, e) -> check_expr e
         | Osr_mut_ref _ | Osr_mut_undef _ -> () in
       match instr with
       | Call (_x, f, es) ->
         (check_expr f;
          List.iter check_arg es)
-      | Decl_const (_, e)
+      | Decl_var (_, e)
       | Decl_mut (_, Some e)
       | Decl_array (_, Length e)
       | Assign (_, e)

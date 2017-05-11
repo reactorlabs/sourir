@@ -26,7 +26,7 @@ let successors_at (instrs : instructions) pc : pc list =
   let resolve = Instr.resolve instrs in
   let all_succ =
     match instr with
-    | Decl_const _ | Decl_mut _ | Decl_array _
+    | Decl_var _ | Decl_mut _ | Decl_array _
     | Assign _ | Array_assign _
     | Drop _ | Clear _ | Read _ | Call _ | Label _
     | Comment _ | Osr _ | Print _ ->
@@ -180,7 +180,7 @@ exception DuplicateFormalParameter
 
 let as_var_set (formals : formal_parameter list) =
   let to_moded_var = function
-    | Const_val_param x -> (Const_var, x)
+    | Var_param x -> (Var_var, x)
     | Mut_ref_param x -> (Mut_var, x)
   in
   let formals' = ModedVarSet.of_list (List.map to_moded_var formals) in
@@ -318,7 +318,7 @@ let aliased ({formals; instrs} : analysis_input) : pc -> VarSet.t =
   let ref_param params v =
     match v with
     | Mut_var, x -> x :: params
-    | Const_var, _ -> params
+    | Var_var, _ -> params
   in
   let mut_formals = List.fold_left ref_param [] (ModedVarSet.elements formals) in
   fun _ -> VarSet.of_list mut_formals

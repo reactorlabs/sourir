@@ -124,7 +124,7 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     | Arg_by_ref x -> if x = old_name then Arg_by_ref new_name else Arg_by_ref x in
   let in_osr osr : osr_def =
     match osr with
-    | Osr_const (x, exp) -> Osr_const (x, in_expression exp)
+    | Osr_var (x, exp) -> Osr_var (x, in_expression exp)
     | Osr_mut (x, exp) -> Osr_mut (x, in_expression exp)
     | Osr_mut_ref (x, y) ->
       if y = old_name then Osr_mut_ref (x, new_name) else osr
@@ -138,9 +138,9 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     Stop (in_expression e)
   | Return e ->
     Return (in_expression e)
-  | Decl_const (x, exp) ->
+  | Decl_var (x, exp) ->
     assert(x <> old_name);   (* -> invalid scope *)
-    Decl_const (x, in_expression exp)
+    Decl_var (x, in_expression exp)
   | Decl_mut (x, Some exp) ->
     assert (x <> old_name);
     Decl_mut (x, Some (in_expression exp))

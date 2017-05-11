@@ -1,11 +1,11 @@
-  const zero = 0
-  const one = 1
+  var zero = 0
+  var one = 1
   mut x = 3
   mut y = 7
   mut z = 0
   mut i = 0
   mut acc = 0
-  const limit = 10
+  var limit = 10
 loop:
   branch (i == limit) continue loop_body
 loop_body:

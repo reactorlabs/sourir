@@ -46,7 +46,7 @@ let remove_unused_decl ({instrs} as inp : analysis_input) : instructions option 
   let transform pc =
     match[@warning "-4"] instrs.(pc) with
     | Decl_mut (x, _)
-    | Decl_const (x, _) when PcSet.is_empty (required pc) ->
+    | Decl_var (x, _) when PcSet.is_empty (required pc) ->
       Remove 1
     | Assign (x, _) when PcSet.is_empty (uses pc) && not (aliased x pc) ->
       Remove 1

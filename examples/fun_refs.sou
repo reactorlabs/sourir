@@ -1,10 +1,10 @@
-const afunref = 'foo
+var afunref = 'foo
 call res = afunref ('bar)
 print res
 
-function foo (const a)
+function foo (var a)
   call res = a (2)
   return res
 
-function bar (const x)
+function bar (var x)
   return (40+x)

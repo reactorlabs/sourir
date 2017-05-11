@@ -243,7 +243,7 @@ let reduce conf =
   let build_call_frame formals actuals =
     let eval_arg env (formal, actual) =
       match[@warning "-4"] formal, actual with
-      | Instr.Const_val_param x, Arg_by_val e ->
+      | Instr.Var_param x, Arg_by_val e ->
         let value = eval conf e in
         Env.add x (Val value) env
       | Instr.Mut_ref_param x, Arg_by_ref var ->
@@ -261,7 +261,7 @@ let reduce conf =
 
   let build_osr_frame osr_def old_env old_heap =
     let add (env, heap) = function
-      | Osr_const (x, e) ->
+      | Osr_var (x, e) ->
         (Env.add x (Val (eval conf e)) env, heap)
       | Osr_mut_ref (x, x') ->
         begin match Env.find x' old_env with
@@ -322,7 +322,7 @@ let reduce conf =
        status = Result v }
   | Comment _ -> { conf with
                    pc = pc' }
-  | Decl_const (x, e) ->
+  | Decl_var (x, e) ->
      let v = eval conf e in
      { conf with
        env = Env.add x (Val v) conf.env;
