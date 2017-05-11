@@ -1,3 +1,5 @@
+  const u = true
+  const v = false
   const x = 2
   const y = 3
   const z = -1
@@ -10,3 +12,5 @@
   print (x<=y)
   print (x>y)
   print (x>=y)
+  print (u&&v)
+  print (u||v)

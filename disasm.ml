@@ -31,8 +31,11 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       | Op (Lte,  [a; b]) -> pr buf "(%a <= %a)" simple a simple b
       | Op (Gt,   [a; b]) -> pr buf "(%a > %a)"  simple a simple b
       | Op (Gte,  [a; b]) -> pr buf "(%a >= %a)" simple a simple b
+      | Op (And,  [a; b]) -> pr buf "(%a && %a)" simple a simple b
+      | Op (Or,   [a; b]) -> pr buf "(%a || %a)" simple a simple b
       | Op ((Plus | Sub | Mult | Div | Mod), _)
-      | Op ((Eq | Neq | Lt | Lte | Gt | Gte), _) -> assert(false)
+      | Op ((Eq | Neq | Lt | Lte | Gt | Gte), _)
+      | Op ((And | Or), _) -> assert(false)
       | Op (Array_index, [array; index]) -> pr buf "%a[%a]" simple array simple index
       | Op (Array_length, [array]) -> pr buf "length(%a)" simple array
       | Op ((Array_index | Array_length), _) -> assert(false)

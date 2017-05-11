@@ -66,6 +66,8 @@ rule token = parse
   | "*" { TIMES }
   | "/" { DIVIDE }
   | "%" { MOD }
+  | "&&" { DOUBLE_AMP }
+  | "||" { DOUBLE_PIPE }
   | "[" { LBRACKET }
   | "]" { RBRACKET }
   | "(" { LPAREN }

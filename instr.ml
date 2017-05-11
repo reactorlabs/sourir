@@ -126,6 +126,8 @@ and primop =
   | Mult
   | Div
   | Mod
+  | And
+  | Or
   | Array_index
   | Array_length
 

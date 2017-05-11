@@ -140,6 +140,18 @@ let test_gte a b = parse (
   const z = (x>=y)
 ")
 
+let test_and a b = parse (
+" mut x = "^ string_of_bool a^"
+  mut y = "^ string_of_bool b^"
+  mut z = (x && y)
+")
+
+let test_or a b = parse (
+" mut x = "^ string_of_bool a^"
+  mut y = "^ string_of_bool b^"
+  mut z = (x || y)
+")
+
 let test_sum limit_ = parse (
 " mut i = 0
   mut sum = 0
@@ -1532,6 +1544,22 @@ let suite =
      (has_var "z" (Value.bool true));
    "gte3">:: run (test_gte 1 1) no_input
      (has_var "z" (Value.bool true));
+   "and">:: run (test_and true true) no_input
+     (has_var "z" (Value.bool true));
+   "and2">:: run (test_and true false) no_input
+     (has_var "z" (Value.bool false));
+   "and3">:: run (test_and false true) no_input
+     (has_var "z" (Value.bool false));
+   "and4">:: run (test_and false false) no_input
+     (has_var "z" (Value.bool false));
+   "or">:: run (test_or true true) no_input
+     (has_var "z" (Value.bool true));
+   "or2">:: run (test_or true false) no_input
+     (has_var "z" (Value.bool true));
+   "or3">:: run (test_or false true) no_input
+     (has_var "z" (Value.bool true));
+   "or4">:: run (test_or false false) no_input
+     (has_var "z" (Value.bool false));
    "loops">:: run (test_sum 5) no_input
      (has_var "sum" (Value.int 10));
    "read">:: run test_read_print (input [Value.bool false; Value.int 1])
@@ -1596,6 +1624,8 @@ let suite =
    "disasm10">:: test_disasm_parse (test_lte 1 0);
    "disasm11">:: test_disasm_parse (test_gt 1 0);
    "disasm12">:: test_disasm_parse (test_gte 1 0);
+   "disasm13">:: test_disasm_parse (test_and true false);
+   "disasm14">:: test_disasm_parse (test_or true false);
    "disasm_scope1">:: test_disasm_parse test_broken_scope_4;
    "disasm_scope2">:: test_disasm_parse test_broken_scope_4_fixed;
    "disasm_scope3">:: test_disasm_parse test_broken_scope_5;
