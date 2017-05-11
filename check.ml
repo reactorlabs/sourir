@@ -88,9 +88,8 @@ let well_formed prog =
 
     let check_fun_ref instr =
       let rec check_value = function
-        | Nil | Bool _ | Int _ -> ()
+        | Nil | Bool _ | Int _ | Array _ -> ()
         | Fun_ref x -> ignore (lookup_fun x)
-        | Array vs -> Array.iter check_value vs
       in
       let check_simple_expr = function
         | Var _ -> ()
@@ -113,12 +112,14 @@ let well_formed prog =
          List.iter check_arg es)
       | Decl_const (_, e)
       | Decl_mut (_, Some e)
+      | Decl_array (_, Length e)
       | Assign (_, e)
       | Branch (e, _, _)
       | Print e
       | Stop e
-      | Return e ->
-        check_expr e
+      | Return e
+        -> check_expr e
+      | Decl_array (_, List es) -> List.iter check_expr es
       | Decl_mut (_, None)
       | Drop _ | Clear _ | Read _
       | Label _ | Goto _ | Comment _ -> ()

@@ -26,7 +26,8 @@ let successors_at (instrs : instructions) pc : pc list =
   let resolve = Instr.resolve instrs in
   let all_succ =
     match instr with
-    | Decl_const _ | Decl_mut _ | Assign _ | Array_assign _
+    | Decl_const _ | Decl_mut _ | Decl_array _
+    | Assign _ | Array_assign _
     | Drop _ | Clear _ | Read _ | Call _ | Label _
     | Comment _ | Osr _ | Print _ ->
       let is_last = pc' = Array.length instrs in
@@ -106,14 +107,14 @@ let make_total result =
 let forward_analysis init_state instrs merge update =
   let successors = successors instrs in
   let starts = starts instrs in
-  assert (starts != []);
+  assert (starts <> []);
   let init = List.map (fun pos -> (init_state, pos)) starts in
   make_total (dataflow_analysis successors init instrs merge update)
 
 let backwards_analysis init_state instrs merge update =
   let predecessors = predecessors instrs in
   let exits = stops instrs @ osrs instrs in
-  assert (exits != []);
+  assert (exits <> []);
   let init = List.map (fun pos -> (init_state, pos)) exits in
   make_total (dataflow_analysis predecessors init instrs merge update)
 

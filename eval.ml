@@ -62,6 +62,7 @@ let lookup heap env x =
     | exception Not_found -> raise Invalid_heap
     | Undefined -> raise (Undefined_variable x)
     | Value v -> v
+    | Block _ -> raise Invalid_heap
     end
 
 let update heap env x v =
@@ -96,13 +97,7 @@ let rec value_eq (v1 : value) (v2 : value) =
   | Int _, _ | _, Int _ -> false
   | Fun_ref f1, Fun_ref f2 -> f1 = f2
   | Fun_ref _, _ | _, Fun_ref _ -> false
-  | Array vs1, Array vs2 ->
-    let forall2 p arr1 arr2 =
-      Array.mapi (fun i v1 -> p v1 arr2.(i)) arr1
-      |> Array.for_all (fun b -> b)
-    in
-    Array.length vs1 = Array.length vs2
-    && forall2 value_eq vs1 vs2
+  | Array addr1, Array addr2 -> Address.compare addr1 addr2 = 0
   | Array _, _ | _, Array _ -> .
     (* The case above cannot happen (`.` means "unreachable case",
        this is called a refutation clause) because all constructors
@@ -147,12 +142,17 @@ let get_fun (v : value) =
      let expected, received = Fun_ref, get_tag other in
      raise (Type_error { expected; received })
 
-let get_array (v : value) =
+let get_array heap (v : value) =
   match v with
-  | Array vs -> vs
   | (Nil | Int _ | Bool _ | Fun_ref _) as other ->
      let expected, received = Array, get_tag other in
      raise (Type_error { expected; received })
+  | Array addr ->
+    begin match Heap.find addr heap with
+      | exception Not_found -> raise Invalid_heap
+      | Undefined | Value _ -> raise Invalid_heap
+      | Block vs -> vs
+    end
 
 let rec eval prog heap env = function
   | Simple e -> eval_simple prog heap env e
@@ -162,17 +162,13 @@ let rec eval prog heap env = function
     | Neq, [v1; v2] -> Bool (value_neq v1 v2)
     | Plus, [v1; v2] -> Int (value_plus v1 v2)
     | (Eq | Neq | Plus), _vs -> raise (Arity_error op)
-    | Array_alloc, [size] ->
-      let size = get_int size in
-      Array (Array.make size (Nil : value))
-    | Array_of_list, vs -> Array (Array.of_list vs)
     | Array_index, [array; index] ->
-      let array, index = get_array array, get_int index in
+      let array, index = get_array heap array, get_int index in
       array.(index)
     | Array_length, [array] ->
-      let array = get_array array in
+      let array = get_array heap array in
       Int (Array.length array)
-    | ((Array_alloc | Array_index | Array_length), _) -> raise (Arity_error op)
+    | ((Array_index | Array_length), _) -> raise (Arity_error op)
     end
 
 exception InvalidArgument
@@ -296,6 +292,20 @@ let reduce conf =
        env = Env.add x (Ref a) conf.env;
        pc = pc';
      }
+  | Decl_array (x, def) ->
+    let a = Address.fresh () in
+    let block = match def with
+      | Length e ->
+        let length = get_int (eval conf e) in
+        Array.make length (Nil : value)
+      | List es ->
+        Array.of_list (List.map (eval conf) es)
+    in
+    { conf with
+      heap = Heap.add a (Block block : heap_value) conf.heap;
+      env = Env.add x (Val (Array a)) conf.env;
+      pc = pc';
+    }
   | Drop x ->
     let (heap, env) = drop conf.heap conf.env x in
     { conf with
@@ -318,10 +328,9 @@ let reduce conf =
     let vi = eval conf i in
     let ve = eval conf e in
     let arr = lookup conf.heap conf.env x in
-    let vs = get_array arr in
+    let vs = get_array conf.heap arr in
     vs.(get_int vi) <- ve;
     { conf with
-      heap = update conf.heap conf.env x (Array vs);
       pc = pc';
     }
   | Branch (e, l1, l2) ->

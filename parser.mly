@@ -128,6 +128,10 @@ instruction:
   { Decl_mut (x, None) }
 | MUT x=variable EQUAL e=expression
   { Decl_mut (x, Some e) }
+| ARRAY x=variable LBRACKET e=expression RBRACKET
+  { Decl_array (x, Length e) }
+| ARRAY x=variable EQUAL LBRACKET es=separated_list(COMMA, expression) RBRACKET
+  { Decl_array (x, List es) }
 | x=variable LEFTARROW e=expression
   { Assign (x, e) }
 | x=variable LBRACKET i=expression RBRACKET LEFTARROW e=expression
@@ -165,10 +169,6 @@ expression:
   | e = simple_expression { Simple e }
   | LPAREN e1=simple_expression op=infixop e2=simple_expression RPAREN
     { Op (op, [e1;e2]) }
-  | ARRAY LPAREN size=simple_expression RPAREN
-    { Op (Array_alloc, [size]) }
-  | LBRACKET xs=separated_list(COMMA, simple_expression) RBRACKET
-    { Op (Array_of_list, xs) }
   | x=variable LBRACKET index=simple_expression RBRACKET
     { Op (Array_index, [Var x; index]) }
   | LENGTH LPAREN x=simple_expression RPAREN
@@ -196,5 +196,4 @@ lit:
 
 value:
   | lit { $1 }
-  | LBRACKET vs=separated_list(COMMA, value) RBRACKET
-    { (Array (Array.of_list vs) : value) }
+

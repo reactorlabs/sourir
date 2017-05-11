@@ -1,10 +1,10 @@
-const x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+array x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 const len = length(x)
-mut y = array(len)
+array y[len]
 mut i = 0
 loop:
+  print x[i]
   y[i] <- x[i]
   i <- (i + 1)
   branch (i == len) done loop
 done:
-  print y
