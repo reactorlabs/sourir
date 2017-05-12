@@ -1,5 +1,21 @@
 open Instr
 
+let remove_fallthroughs_to_label instrs =
+  let rec loop pc acc =
+    if pc = Array.length instrs then acc
+    else match[@warning "-4"] instrs.(pc-1), instrs.(pc) with
+    | Goto _, Label _
+    | Branch _, Label _ ->
+      loop (pc+1) acc
+    | _, Label l ->
+      let edit = (pc, 0, [| Goto l |]) in
+      loop (pc+1) (edit :: acc)
+    | _, _ ->
+      loop (pc+1) acc
+  in
+  let edits = loop 1 [] in
+  fst (Edit.subst_many instrs edits)
+
 type push_status =
   | Stop of Edit.result
   | Blocked
@@ -58,8 +74,12 @@ let push_instr cond instrs pc : push_status =
         we can move the drop above all predecessors. For a predecessor in (pc),
         we move the drop to ((pc_map pc) - 1), that is above a (Goto label)
         instruction at (pc_map pc). This assumes that there is no fallthrough
-        to our label, that [Transform.remove_fallthroughs_to_label] has been
+        to our label, that [remove_fallthroughs_to_label] has been
         applied to the input program. *)
+     let not_a_fallthrough pc = match[@warning "-4"] instrs.(pc) with
+       | Goto _ | Branch _ -> true
+       | _ -> false in
+     List.iter (fun pc -> assert (not_a_fallthrough pc)) preds.(pc_above);
      let delete = (pc, 1, [||]) in
      let insert pred_pc = (pred_pc, 0, [| to_move |]) in
      let substs = delete :: List.map insert preds.(pc_above) in
@@ -178,8 +198,6 @@ module Drop = struct
     | Call (x, _, _) when x = var -> true
     | _ ->
       let blocking = VarSet.mem var (required_vars instr) in
-      let declared = VarSet.mem var (ModedVarSet.untyped (declared_vars instr)) in
-      assert (blocking || not(declared));
       blocking
 
   let is_eliminating var instr =
@@ -207,6 +225,7 @@ module Drop = struct
     pull is_target (conditions_var var) instrs
 
   let apply ({formals; instrs} : analysis_input) : instructions option =
+    let instrs = remove_fallthroughs_to_label instrs in
     let collect vars instr =
       match[@warning "-4"] instr with
       | Drop x -> VarSet.add x vars
