@@ -342,7 +342,14 @@ let required_vars = function
     ) as e -> used_vars e
 
 let changed_vars = function
-  | Call (x, _, _)
+  | Call (x, _, args) ->
+    let changed_arg = function
+      | Arg_by_val _ -> ModedVarSet.empty
+      | Arg_by_ref x -> ModedVarSet.singleton (Mut_var, x)
+    in
+    ModedVarSet.empty
+    |> List.fold_right ModedVarSet.union (List.map changed_arg args)
+    |> ModedVarSet.add (Const_var, x)
   | Decl_const (x, _) -> ModedVarSet.singleton (Const_var, x)
   | Decl_mut (x, Some _)
   | Assign (x ,_)
