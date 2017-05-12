@@ -136,6 +136,7 @@ let make_constant (({formals; instrs} as inp) : analysis_input) : instructions o
       in List.for_all is_passed_by_val exp
     | Decl_const (_, _)
     | Decl_mut (_, _)
+    | Decl_array _
     | Return _
     | Branch (_, _, _)
     | Label _
