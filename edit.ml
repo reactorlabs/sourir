@@ -204,5 +204,5 @@ let replace_var_in_arg var (exp : simple_expression) (in_arg : argument) : argum
   let replace = replace_var_in_exp var exp in
   match in_arg with
     | Arg_by_val e -> Arg_by_val (replace e)
-    | Arg_by_ref x as a -> assert (var <> x); a
+    | Arg_by_ref x as a -> a
 
