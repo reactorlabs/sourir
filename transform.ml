@@ -48,7 +48,15 @@ let as_opt_program (transform : opt_function) : opt_prog =
     | None -> false, instrs
     | Some instrs -> true, instrs in
   fun prog ->
-    let changed, main = transform' prog.main in
+    let changed, main =
+      try transform' prog.main
+      with exn ->
+        prerr_endline "Optimization Failure on the following program:";
+        let buf = Buffer.create 42 in
+        Disasm.disassemble buf prog;
+        prerr_string (Buffer.contents buf);
+        raise exn
+    in
     let reduce (changed, functions) func =
       let c, f = transform' func in
       (changed||c, f::functions) in
