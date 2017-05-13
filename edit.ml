@@ -147,8 +147,6 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     Array_assign (x', in_expression index, in_expression exp)
   | Drop x ->
     if x = old_name then Drop new_name else instr
-  | Clear x ->
-    if x = old_name then Clear new_name else instr
   | Print exp ->
     Print (in_expression exp)
   | Branch (exp, l1, l2) ->

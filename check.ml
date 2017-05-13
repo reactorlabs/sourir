@@ -96,7 +96,7 @@ let well_formed prog =
       | Return e
         -> check_expr e
       | Decl_array (_, List es) -> List.iter check_expr es
-      | Drop _ | Clear _ | Read _
+      | Drop _ | Read _
       | Label _ | Goto _ | Comment _ -> ()
       | Array_assign (_, i, e) ->
         check_expr i;

@@ -5,7 +5,6 @@ open Instr
 *)
 
 exception UndeclaredVariable of VarSet.t * pc
-exception UninitializedVariable of VarSet.t * pc
 exception ExtraneousVariable of VarSet.t * pc
 exception DuplicateVariable of VarSet.t * pc
 
@@ -45,36 +44,16 @@ let infer ({formals; instrs} : analysis_input) : inferred_scope array =
     let res = Analysis.forward_analysis initial_state instrs merge update in
     fun pc -> (res pc).info in
 
-  let check_initialized instructions =
-    let merge pc cur incom =
-      let merged = VarSet.inter cur incom in
-      if VarSet.equal cur merged then None else Some merged
-    in
-    let update pc cur =
-      let instr = instructions.(pc) in
-      let written = Instr.defined_vars instr in
-      let updated = VarSet.union cur written in
-      let dropped, cleared = Instr.dropped_vars instr, Instr.cleared_vars instr in
-      (* dropped variables must also be undefined, to preserve the property
-         that only declared variables are defined. *)
-      VarSet.diff updated (VarSet.union dropped cleared)
-    in
-    Analysis.forward_analysis formals instrs merge update in
-
   let inferred = infer_scope instrs in
-  let initialized = check_initialized instrs in
 
   let resolve pc instr =
-    match inferred pc, initialized pc with
+    match inferred pc with
     | exception Analysis.UnreachableCode _ -> DeadScope
-    | declared, defined ->
-      let used = Instr.used_vars instr in
+    | declared ->
       let required = Instr.required_vars instr in
       if not (VarSet.subset required declared)
       then raise (UndeclaredVariable (VarSet.diff required declared, pc));
-      if not (VarSet.subset used defined)
-      then raise (UninitializedVariable (VarSet.diff used defined, pc));
-      Scope defined in
+      Scope declared in
 
   Array.mapi resolve instrs
 

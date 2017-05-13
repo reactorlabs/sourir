@@ -56,7 +56,6 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Decl_array (var, List li)       -> pr buf " array %s = [%a]" var
                                            (dump_comma_separated dump_expr) li
     | Drop var                        -> pr buf " drop %s" var
-    | Clear var                       -> pr buf " clear %s" var
     | Assign (var, exp)               -> pr buf " %s <- %a" var dump_expr exp
     | Array_assign (var, index, exp)  -> pr buf " %s[%a] <- %a" var dump_expr index dump_expr exp
     | Branch (exp, l1, l2)            -> pr buf " branch %a %s %s" dump_expr exp l1 l2

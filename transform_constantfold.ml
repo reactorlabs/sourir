@@ -45,7 +45,6 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       let cond = List.map replace cond in
       Osr {cond; target; map}
     | Drop y
-    | Clear y
     | Read y ->
       instr
     | Label _ | Goto _ | Comment _ -> instr in
@@ -93,7 +92,7 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
         |> VarMap.add x Unknown
       | Drop x ->
         VarMap.remove x cur
-      | Array_assign (x, _, _) | Read x | Clear x ->
+      | Array_assign (x, _, _) | Read x ->
         assert (VarMap.mem x cur);
         (* the array case could be improved with approximation for
            arrays *)

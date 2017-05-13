@@ -49,7 +49,6 @@ and instruction =
   | Drop of variable
   | Assign of variable * expression
   | Array_assign of variable * expression * expression
-  | Clear of variable
   | Read of variable
   | Branch of expression * label * label
   | Label of label
@@ -168,7 +167,6 @@ let declared_vars = function
   | ( Drop _
     | Array_assign _
     | Return _
-    | Clear _
     | Branch _
     | Label _
     | Goto _
@@ -185,7 +183,6 @@ let defined_vars = function
     | Decl_array _
     | Return _
     | Drop _
-    | Clear _
     | Branch _
     | Label _
     | Goto _
@@ -204,7 +201,6 @@ let dropped_vars = function
   | Decl_array _
   | Assign _
   | Array_assign _
-  | Clear _
   | Read _
   | Branch _
   | Label _
@@ -213,25 +209,6 @@ let dropped_vars = function
   | Print _
   | Osr _
   | Stop _ -> VarSet.empty
-
-let cleared_vars = function
-  | Clear x -> VarSet.singleton x
-  | Return _
-  | Call _
-  | Decl_var _
-  | Decl_array _
-  | Assign _
-  | Array_assign _
-  | Drop _
-  | Read _
-  | Branch _
-  | Label _
-  | Goto _
-  | Comment _
-  | Print _
-  | Osr _
-  | Stop _ -> VarSet.empty
-
 
 (* Which variables need to be defined
  * Producer: defined_vars *)
@@ -256,7 +233,6 @@ let used_vars = function
     |> VarSet.union (expr_vars i)
     |> VarSet.union (expr_vars e)
   | Drop _
-  | Clear _
   | Label _
   | Goto _
   | Comment _
@@ -271,7 +247,6 @@ let required_vars = function
   | (Assign (x, _)
     | Read x
     | Drop x
-    | Clear x
     ) as e -> VarSet.add x (used_vars e)
   | ( Call _
     | Stop _
@@ -293,7 +268,6 @@ let changed_vars = function
   | Assign (x ,_)
   | Array_assign (x ,_ , _)
   | Drop x
-  | Clear x
   | Decl_array (x, _)
   | Read x -> VarSet.singleton x
   | Return _

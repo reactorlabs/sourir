@@ -44,16 +44,6 @@ let () =
                     "line %d: Variables {%s} are not declared.\n%!"
                     l (String.concat ", " xs)
         end;
-      | Scope.UninitializedVariable (xs, pc) ->
-        let l = pc+1 in
-        begin match VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "line %d: Variable %s might be uninitialized.\n%!"
-                     l x
-          | xs -> Printf.eprintf
-                    "line %d: Variables {%s} might be uninitialized.\n%!"
-                    l (String.concat ", " xs)
-        end;
       | Scope.ExtraneousVariable (xs, pc) ->
         let l = pc+1 in
         let func = lookup_fun program f in

@@ -39,7 +39,6 @@ exception Unbound_variable of variable
 exception Undefined_variable of variable
 exception Invalid_heap
 exception Arity_error of primop
-exception Invalid_clear
 exception Division_by_zero
 
 type type_error = {
@@ -80,12 +79,6 @@ let drop heap env x =
   | exception Not_found -> raise (Unbound_variable x)
   | Val _ -> (heap, Env.remove x env)
   | Ref a -> (Heap.remove a heap, Env.remove x env)
-
-let clear heap env x =
-  match Env.find x env with
-  | exception Not_found -> raise (Unbound_variable x)
-  | Val _ -> raise Invalid_clear
-  | Ref a -> Heap.add a Undefined heap
 
 let rec value_eq (v1 : value) (v2 : value) =
   match v1, v2 with
@@ -318,12 +311,6 @@ let reduce conf =
     let (heap, env) = drop conf.heap conf.env x in
     { conf with
       heap; env;
-      pc = pc';
-    }
-  | Clear x ->
-    let heap = clear conf.heap conf.env x in
-    { conf with
-      heap;
       pc = pc';
     }
   | Assign (x, e) ->

@@ -200,7 +200,7 @@ module Drop = struct
 
   let is_eliminating var instr =
     match[@warning "-4"] instr with
-    | Assign (x, _) | Clear x -> x = var
+    | Assign (x, _) -> x = var
     | _ -> false
 
   let is_annihilating var instr =
