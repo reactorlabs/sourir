@@ -1292,37 +1292,6 @@ let do_test_deopt () =
      return y
   |pr} 42;
 
-(*
-  test {pr|
-    function main ()
-     var aliased = 33
-     call x = 'foo(&aliased)
-     return aliased
-    function foo(var x)
-    version vers_a
-     osr [(1==1)] (foo,vers_b,st) [var x = &x]
-     return 0
-    version vers_b
-     st:
-     x <- 42
-     return 0
-  |pr} 42;
-
-  test {pr|
-    function main ()
-     var aliased = 33
-     call x = 'foo(&aliased)
-     return aliased
-    function foo(var x)
-    version vers_a
-     osr [(1==1)] (foo,vers_b,st) [var x = x]
-     return 0
-    version vers_b
-     st:
-     x <- 42
-     return 0
-  |pr} 33;
-*)
   test {pr|
     function main ()
      call x = 'foo()
