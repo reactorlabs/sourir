@@ -1,8 +1,14 @@
-OCAMLBUILD=ocamlbuild -use-ocamlfind -use-menhir -no-links
-# -use-ocamlfind: use the ocamlfind library manager
-# -use-menhir: use the Menhir parser generator
-# -no-links: do not create symlink from build outputs in _build into
-#            the project directory
+OCAMLBUILD=ocamlbuild
+
+# use the ocamlfind library manager
+OCAMLBUILD+= -use-ocamlfind
+
+# use the Menhir parser generator
+OCAMLBUILD+= -use-menhir
+
+# do not create symlink from build outputs in _build
+# into the project directory
+OCAMLBUILD+= -no-links
 
 all: tests test_examples sourir
 
