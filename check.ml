@@ -119,7 +119,7 @@ let well_formed prog =
         | _ -> ()
         end;
         check_fun_ref instr
-      | Osr {target = {func; version; label}} ->
+      | Osr {target = {func; version; pos=label}} ->
         (* check if the function exists and if the actual arguments
          * are compatible with the formals *)
         let func = lookup_fun func in

@@ -38,7 +38,11 @@ end
 type pc = Pc.t
 type address = Address.t
 
-type unique_pos = {func : label; version : label; label : label;}
+type 'a position = {
+  func : label;
+  version : label;
+  pos : 'a;
+}
 
 type instructions = instruction array
 and instruction =
@@ -55,7 +59,7 @@ and instruction =
   | Goto of label
   | Print of expression
   | Stop of expression
-  | Osr of {cond : expression list; target : unique_pos; map : osr_def list; }
+  | Osr of {cond : expression list; target : label position; map : osr_def list; }
   | Comment of string
 and array_def =
   | Length of expression

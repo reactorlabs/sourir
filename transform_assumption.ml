@@ -26,7 +26,11 @@ let insert_checkpoints (func:afunction) =
       | Scope scope ->
         let vars = VarSet.elements scope in
         let osr = List.map (fun x -> Osr_var (x, (Simple (Var x)))) vars in
-        let target = { func=func.name; version=version.label; label=checkpoint_label pc } in
+        let target = {
+          func=func.name;
+          version=version.label;
+          pos=checkpoint_label pc;
+        } in
         Insert [Label (checkpoint_label pc); Osr {cond=[]; target; map=osr};]
     in
     if pc = 0 then Unchanged else
@@ -79,8 +83,8 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
     let cur_version = Instr.active_version func in
     let transform pc =
       match[@warning "-4"] cur_version.instrs.(pc) with
-      | Osr {cond; target={func; version; label}; map} ->
-        let target = {func; version = cur_version.label; label} in
+      | Osr {cond; target; map} ->
+        let target = {target with version = cur_version.label} in
         Replace (Osr {cond; target; map})
       | _ -> Unchanged
     in

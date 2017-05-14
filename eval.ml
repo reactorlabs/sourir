@@ -9,8 +9,7 @@ type environment = binding Env.t
 type heap = heap_value Heap.t
 
 type status = Running | Result of value
-type position = identifier * label * pc
-type continuation = variable * environment * position
+type continuation = variable * environment * pc position
 
 type configuration = {
   input : input;
@@ -51,6 +50,23 @@ type product_type_error = {
   received : type_tag * type_tag;
 }
 exception Product_type_error of product_type_error
+
+let position conf =
+  {
+    func = conf.cur_fun;
+    version = conf.cur_vers;
+    pos = conf.pc;
+  }
+
+let move_to_position pos conf =
+  let func = Instr.lookup_fun conf.program pos.func in
+  let version = Instr.get_version func pos.version in
+  { conf with
+    cur_fun = func.name;
+    cur_vers = version.label;
+    instrs = version.instrs;
+    pc = pos.pos;
+  }
 
 let lookup heap env x =
   match Env.find x env with
@@ -254,14 +270,14 @@ let reduce conf =
     if List.length func.formals <> List.length args then raise InvalidNumArgs;
     let version = Instr.active_version func in
     let call_env = build_call_frame func.formals args in
-    let cont_pos = (conf.cur_fun, conf.cur_vers, pc') in
+    let return_pos = position { conf with pc = pc' } in
     { conf with
       env = call_env;
       instrs = version.instrs;
       pc = 0;
       cur_fun = func.name;
       cur_vers = version.label;
-      continuation = (x, conf.env, cont_pos) :: conf.continuation
+      continuation = (x, conf.env, return_pos) :: conf.continuation
     }
   | Return e ->
      let res = eval conf e in
@@ -269,17 +285,12 @@ let reduce conf =
      | [] ->
        { conf with
          status = Result res }
-     | (x, env, (f, v, pc)) :: cont ->
-       let env = Env.add x (Val res) env in
-       let func = Instr.lookup_fun conf.program f in
-       let version = Instr.get_version func v in
-       { conf with
-         env = env;
-         cur_fun = func.name;
-         cur_vers = version.label;
-         instrs = version.instrs;
-         pc = pc;
-         continuation = cont; }
+     | (x, env, pos) :: cont ->
+       move_to_position pos {
+         conf with
+         env = Env.add x (Val res) env;
+         continuation = cont;
+       }
      end
   | Stop e ->
      let v = eval conf e in
@@ -346,7 +357,7 @@ let reduce conf =
       trace = v :: conf.trace;
       pc = pc';
     }
-  | Osr {cond; target={func;version; label}; map} ->
+  | Osr {cond; target={func;version; pos=label}; map} ->
     let triggered = List.exists (fun cond -> get_bool (eval conf cond)) cond in
     if not triggered then
       { conf with
