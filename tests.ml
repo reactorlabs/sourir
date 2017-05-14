@@ -1488,14 +1488,16 @@ let suite =
    ]
 ;;
 
-(*
-let () =
+(* use this instead of run_test_tt_main below
+   if you want to be able to see the backtrace
+   raised by an in-test exception with OCAMLRUNPARAM=b
+*)
+let run_test_raw  testsuite =
   let rec run = function
     | TestCase test_fun -> test_fun ()
     | TestLabel (_label, test) -> run test
     | TestList tests -> List.iter run tests
-  in run suite
-*)
+  in run testsuite
 
 let () =
   let test_result = run_test_tt_main suite in
