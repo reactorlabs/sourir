@@ -10,6 +10,9 @@ OCAMLBUILD+= -use-menhir
 # into the project directory
 OCAMLBUILD+= -no-links
 
+# Bisect ocamlbuild plugin for coverage analysis
+OCAMLBUILD+= -plugin-tag 'package(bisect_ppx.ocamlbuild)'
+
 all: tests test_examples sourir
 
 tests:
@@ -35,6 +38,29 @@ test_examples: sourir
 clean:
 	ocamlbuild -clean
 
+# bisect-ppx coverage machinery
+
+COVERAGE_DIR=_build/_coverage
+COVERAGE_TARGETS=tests test_examples
+
+coverage-run:
+	mkdir -p $(COVERAGE_DIR)
+	$(MAKE) \
+	  BISECT_COVERAGE=YES \
+	  BISECT_FILE=$(shell pwd)/$(COVERAGE_DIR)/bisect \
+	  $(COVERAGE_TARGETS)
+
+coverage-report:
+	bisect-ppx-report -I _build $(COVERAGE_DIR)/*.out -html $(COVERAGE_DIR)/report
+	@echo summary
+	@bisect-ppx-report -I _build $(COVERAGE_DIR)/*.out -text -
+	@echo
+	@echo see $(COVERAGE_DIR)/report/index.html for more details
+
+coverage:
+	$(MAKE) coverage-run
+	$(MAKE) coverage-report
+
 # The parser.messages file is maintained semi-automatically: a human
 # should maintain the error messages, but the parser generators update
 # the error state numbers and the example of token inputs that lead to
@@ -49,4 +75,4 @@ install-deps:
 	opam pin add sourir . --no-action # tell opam about a local "sourir" package
 	opam install --deps-only sourir # then install its dependencies
 
-.PHONY: all run tests clean sourir test_examples
+.PHONY: all run tests clean sourir test_examples coverage-run coverage-report

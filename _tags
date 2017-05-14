@@ -4,6 +4,13 @@ true: package(menhirLib)
 
 true: debug
 
+# coverage analysis is only actually enabled
+# when the BISECT_COVERAGE environment variable
+# is set to YES, see
+#   https://github.com/aantron/bisect_ppx/blob/master/doc/advanced.md#Ocamlbuild
+true: coverage
+<parser.*>: -coverage
+
 # fragile pattern matching
 true: warn(+4)
 
