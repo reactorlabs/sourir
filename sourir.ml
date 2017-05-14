@@ -30,7 +30,7 @@ let () =
   opts := if !opts = ["all"] then Transform.all_opts else !opts;
 
   begin try Scope.check_program program with
-  | Scope.ScopeExceptionAt (f, v, e) ->
+  | Scope.ScopeExceptionAt (f, v, e) as exn ->
     begin
       Printf.eprintf "Error in function %s version %s " f v;
       begin match e with
@@ -42,16 +42,6 @@ let () =
                      l x
           | xs -> Printf.eprintf
                     "line %d: Variables {%s} are not declared.\n%!"
-                    l (String.concat ", " xs)
-        end;
-      | Scope.UninitializedVariable (xs, pc) ->
-        let l = pc+1 in
-        begin match VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "line %d: Variable %s might be uninitialized.\n%!"
-                     l x
-          | xs -> Printf.eprintf
-                    "line %d: Variables {%s} might be uninitialized.\n%!"
                     l (String.concat ", " xs)
         end;
       | Scope.ExtraneousVariable (xs, pc) ->
@@ -93,7 +83,7 @@ let () =
         Disasm.pretty_print_version stderr (v, instrs);
         Scope.explain_incompatible_scope stderr scope1 scope2 pc;
         flush stderr;
-      | _ -> assert(false)
+      | _ -> raise exn
       end;
       exit 1
     end

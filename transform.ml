@@ -93,7 +93,6 @@ let const_prop_instrs = combine_transform_instructions [
     Transform_cleanup.remove_unused_decl;]
 
 let cleanup_all = as_opt_function cleanup_all_instrs
-let make_constant = as_opt_function Transform_constantfold.make_constant
 let const_prop = as_opt_function const_prop_instrs
 let minimize_liverange = as_opt_function minimize_liverange_instrs
 let hoist_assignment = as_opt_function Transform_hoist_assign.hoist_assignment
@@ -107,7 +106,7 @@ let branch_prune = optimistic_as_opt_function
 (* Main optimizer loop *)
 exception UnknownOptimization of string
 
-let all_opts = ["prune";"make_const";"const_prop";"hoist_assign";"hoist_drop";"min_live"]
+let all_opts = ["prune";"const_prop";"hoist_assign";"hoist_drop";"min_live"]
 let assumption_opts = ["prune"]
 
 let optimize (opts : string list) (prog : program) : program option =
@@ -120,8 +119,6 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program minimize_liverange
     | "const_prop" ->
       as_opt_program const_prop
-    | "make_const" ->
-      as_opt_program make_constant
     | "prune" ->
       as_opt_program branch_prune
     | o ->

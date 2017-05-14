@@ -1,11 +1,11 @@
 # Code motion without branch pruning
 # BEFORE
-  const zero = 0
-  const one = 1
-  const two = 2
-  const three = 3
-  mut x = 10
-  mut z = 0
+  var zero = 0
+  var one = 1
+  var two = 2
+  var three = 3
+  var x = 10
+  var z = 0
   read z
   branch (z == zero) l1 l2
 l1:

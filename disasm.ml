@@ -42,11 +42,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       | Op (Array_length, [array]) -> pr buf "length(%a)" simple array
       | Op ((Array_index | Array_length), _) -> assert(false)
     in
-    let dump_arg buf arg =
-      match arg with
-      | Arg_by_val e      -> dump_expr buf e
-      | Arg_by_ref x      -> pr buf "&%s" x
-    in
+    let dump_arg buf arg = dump_expr buf arg in
     format_pc buf pc;
     begin match instr with
     | Call (var, f, args)               ->
@@ -55,14 +51,11 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
       pr buf " (%a)" (dump_comma_separated dump_arg) args;
     | Stop exp                        -> pr buf " stop %a" dump_expr exp
     | Return exp                      -> pr buf " return %a" dump_expr exp
-    | Decl_const (var, exp)           -> pr buf " const %s = %a" var dump_expr exp
-    | Decl_mut (var, Some exp)        -> pr buf " mut %s = %a" var dump_expr exp
-    | Decl_mut (var, None)            -> pr buf " mut %s" var
+    | Decl_var (var, exp)           -> pr buf " var %s = %a" var dump_expr exp
     | Decl_array (var, Length exp)    -> pr buf " array %s[%a]" var dump_expr exp
     | Decl_array (var, List li)       -> pr buf " array %s = [%a]" var
                                            (dump_comma_separated dump_expr) li
     | Drop var                        -> pr buf " drop %s" var
-    | Clear var                       -> pr buf " clear %s" var
     | Assign (var, exp)               -> pr buf " %s <- %a" var dump_expr exp
     | Array_assign (var, index, exp)  -> pr buf " %s[%a] <- %a" var dump_expr index dump_expr exp
     | Branch (exp, l1, l2)            -> pr buf " branch %a %s %s" dump_expr exp l1 l2
@@ -72,10 +65,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Read var                        -> pr buf " read %s" var
     | Osr {cond; target = {func; version; label}; map} ->
       let dump_var buf = function
-        | Osr_const (x, e)     -> pr buf "const %s = %a" x dump_expr e
-        | Osr_mut (x, e)       -> pr buf "mut %s = %a" x dump_expr e
-        | Osr_mut_ref (x, y)   -> pr buf "mut %s = &%s" x y
-        | Osr_mut_undef x      -> pr buf "mut %s" x
+        | Osr_var (x, e)     -> pr buf "var %s = %a" x dump_expr e
       in
       pr buf " osr [%a] (%s, %s, %s) [%a]"
         (dump_comma_separated dump_expr) cond
@@ -90,9 +80,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
 let disassemble buf (prog : Instr.program) =
   (* TODO: disassemble annotations *)
   List.iter (fun {name; formals; body} ->
-      let print_formal buf = function
-          | Mut_ref_param x -> pr buf "mut %s" x
-          | Const_val_param x -> pr buf "const %s" x in
+      let print_formal buf (Param x) = pr buf "var %s" x in
       let print_formals buf = List.iter (print_formal buf) formals in
       Printf.bprintf buf "function %s (%t)\n" name print_formals;
       List.iter (fun version ->

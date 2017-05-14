@@ -1,8 +1,8 @@
-  const u = true
-  const v = false
-  const x = 2
-  const y = 3
-  const z = -1
+  var u = true
+  var v = false
+  var x = 2
+  var y = 3
+  var z = -1
   print (-x)
   print (-z)
   print (x+y)

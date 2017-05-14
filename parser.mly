@@ -2,11 +2,11 @@
 %token<bool> BOOL
 %token<int> INT
 %token<string> IDENTIFIER
-%token AMPERSAND SINGLE_QUOTE
+%token SINGLE_QUOTE
 %token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD DOUBLE_AMP DOUBLE_PIPE BANG
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
-%token CONST MUT BRANCH GOTO PRINT OSR STOP READ DROP CLEAR RETURN CALL VERSION FUNCTION
+%token VAR BRANCH GOTO PRINT OSR STOP READ DROP RETURN CALL VERSION FUNCTION
 %token ARRAY LENGTH
 %token<string> COMMENT
 %token NEWLINE
@@ -59,10 +59,8 @@ program_code:
   }
 
 formal_param:
-| CONST x=variable
-    { Const_val_param x }
-| MUT x=variable
-    { Mut_ref_param x }
+| VAR x=variable
+    { Param x }
 
 afunction:
 | FUNCTION name=variable LPAREN formals=separated_list(COMMA, formal_param) RPAREN NEWLINE optional_newlines prog=list(instruction_line)
@@ -107,27 +105,18 @@ scope:
 | { (`Exact, []) }
 | TRIPLE_DOT { (`At_least, []) }
 
-osr_def:
-| CONST x=variable EQUAL e=expression
-    { Osr_const (x, e) }
-| MUT x=variable
-    { Osr_mut_undef x }
-| MUT x=variable EQUAL AMPERSAND y=variable
-    { Osr_mut_ref (x, y) }
-| MUT x=variable EQUAL e=expression
-    { Osr_mut (x, e) }
+var_def:
+| VAR x=variable EQUAL e=expression { (x, e) }
+| VAR x=variable { (x, Simple (Constant Nil)) }
+
+osr_def: d=var_def { let (x, e) = d in Osr_var (x, e) }
 
 instruction:
 | CALL x=variable EQUAL f=expression LPAREN args=separated_list(COMMA, argument) RPAREN
   { Call (x, f, args) }
 | RETURN e=expression
   { Return e }
-| CONST x=variable EQUAL e=expression
-  { Decl_const (x, e) }
-| MUT x=variable
-  { Decl_mut (x, None) }
-| MUT x=variable EQUAL e=expression
-  { Decl_mut (x, Some e) }
+| d=var_def { let (x, e) = d in Decl_var (x, e) }
 | ARRAY x=variable LBRACKET e=expression RBRACKET
   { Decl_array (x, Length e) }
 | ARRAY x=variable EQUAL LBRACKET es=separated_list(COMMA, expression) RBRACKET
@@ -146,8 +135,6 @@ instruction:
   { Read x }
 | DROP x=variable
   { Drop x }
-| CLEAR x=variable
-  { Clear x }
 | PRINT e=expression
   { Print e }
 | OSR LBRACKET cs=separated_list(COMMA, expression) RBRACKET LPAREN f=label COMMA v=label COMMA l=label RPAREN LBRACKET xs=separated_list(COMMA, osr_def) RBRACKET
@@ -161,9 +148,7 @@ simple_expression:
   | v=lit { Constant v }
   | x=variable { Var x }
 
-argument:
-  | AMPERSAND x=variable { Arg_by_ref x }
-  | e=expression { Arg_by_val e }
+argument: e=expression { e }
 
 expression:
   | e = simple_expression { Simple e }

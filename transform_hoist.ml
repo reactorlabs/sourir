@@ -196,18 +196,16 @@ module Drop = struct
   let is_blocking var instr =
     match[@warning "-4"] instr with
     | Call (x, _, _) when x = var -> true
-    | _ ->
-      let blocking = VarSet.mem var (required_vars instr) in
-      blocking
+    | _ -> VarSet.mem var (required_vars instr)
 
   let is_eliminating var instr =
     match[@warning "-4"] instr with
-    | Assign (x, _) | Clear x -> x = var
+    | Assign (x, _) -> x = var
     | _ -> false
 
   let is_annihilating var instr =
     match[@warning "-4"] instr with
-    | Decl_const (x, _) | Decl_mut (x, _) -> x = var
+    | Decl_var (x, _) -> x = var
     | _ -> false
 
   let conditions_var var = {

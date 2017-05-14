@@ -1,7 +1,7 @@
- mut x
- mut y = 1
+ var x
+ var y = 1
  read x
- mut i = 0
+ var i = 0
 loop:
   branch (x==1) c1 c2
  c1:

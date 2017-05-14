@@ -22,6 +22,7 @@ trap cleanup EXIT
 
 # Test file $1
 function runtest {
+  echo "running test $1"
   yes 0 | $SOURIR "$1" --quiet --opt all > $TEMPDIR/$1.opt.out && \
   yes 0 | $SOURIR "$1" --quiet > $TEMPDIR/$1.out && \
   diff $TEMPDIR/$1.out $TEMPDIR/$1.opt.out > /dev/null && \

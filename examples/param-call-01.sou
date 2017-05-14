@@ -1,0 +1,15 @@
+# This test should print 0, 42, 0
+  var x = 42
+  call y = 'foo (x)
+  print x
+  # prints 42
+  print y
+  # prints 0
+  stop y
+
+function foo (var x)
+  x <- 0
+  print x
+  # prints 0
+  return x
+

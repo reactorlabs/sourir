@@ -32,9 +32,9 @@ let at_least vars = Some Scope.(AtLeastScope (VarSet.of_list vars))
 
 let parse str : program =
   try Parse.program_of_string str
-  with Parse.Error error ->
+  with Parse.Error error as exn ->
     Parse.report_error error;
-    exit 2
+    raise exn
 
 let test_print = parse
 " print 1
@@ -42,14 +42,21 @@ let test_print = parse
   stop 0
 "
 
-let test_decl_const = parse
-" const x  = 1
+let test_decl_var = parse
+" var x = 1
   print x
   stop 0
 "
 
-let test_mut = parse
-" mut x = 1
+let test_incr_var = parse
+" var x = 1
+  x <- (x + 1)
+  print x
+  stop 0
+"
+
+let test_var = parse
+" var x = 1
   print x
   x <- 2
   print x
@@ -57,16 +64,16 @@ let test_mut = parse
 "
 
 let test_jump = parse
-" mut x = true
+" var x = true
   goto jmp
   x <- false
  jmp:
 "
 
 let test_overloading = parse
-" mut b = true
-  mut x = 1
-  const y = x
+" var b = true
+  var x = 1
+  var y = x
   goto jump
   b <- false
  jump:
@@ -75,99 +82,99 @@ let test_overloading = parse
 "
 
 let test_neg a = parse (
-" mut x = "^ string_of_int a ^"
-  mut y = (-x)
+" var x = "^ string_of_int a ^"
+  var y = (-x)
 ")
 
 let test_add a b = parse (
-" mut x = "^a^"
-  mut y = "^b^"
-  mut z = (x + y)
+" var x = "^a^"
+  var y = "^b^"
+  var z = (x + y)
 ")
 
 let test_sub a b = parse (
-" mut x = "^a^"
-  mut y = "^b^"
-  mut z = (x - y)
+" var x = "^a^"
+  var y = "^b^"
+  var z = (x - y)
 ")
 
 let test_mult a b = parse (
-" mut x = "^a^"
-  mut y = "^b^"
-  mut z = (x * y)
+" var x = "^a^"
+  var y = "^b^"
+  var z = (x * y)
 ")
 
 let test_div a b = parse (
-" mut x = "^a^"
-  mut y = "^b^"
-  mut z = (x / y)
+" var x = "^a^"
+  var y = "^b^"
+  var z = (x / y)
 ")
 
 let test_mod a b = parse (
-" mut x = "^a^"
-  mut y = "^b^"
-  mut z = (x % y)
+" var x = "^a^"
+  var y = "^b^"
+  var z = (x % y)
 ")
 
 let test_eq a b = parse (
-" mut x = "^ string_of_int a ^"
-  mut y = "^ string_of_int b ^"
-  const z = (x==y)
+" var x = "^ string_of_int a ^"
+  var y = "^ string_of_int b ^"
+  var z = (x==y)
 ")
 
 let test_neq a b = parse (
-" mut x = "^ string_of_int a ^"
-  mut y = "^ string_of_int b ^"
-  const z = (x!=y)
+" var x = "^ string_of_int a ^"
+  var y = "^ string_of_int b ^"
+  var z = (x!=y)
 ")
 
 let test_lt a b = parse (
-" mut x = "^ string_of_int a ^"
-  mut y = "^ string_of_int b ^"
-  const z = (x<y)
+" var x = "^ string_of_int a ^"
+  var y = "^ string_of_int b ^"
+  var z = (x<y)
 ")
 
 let test_lte a b = parse (
-" mut x = "^ string_of_int a ^"
-  mut y = "^ string_of_int b ^"
-  const z = (x<=y)
+" var x = "^ string_of_int a ^"
+  var y = "^ string_of_int b ^"
+  var z = (x<=y)
 ")
 
 let test_gt a b = parse (
-" mut x = "^ string_of_int a ^"
-  mut y = "^ string_of_int b ^"
-  const z = (x>y)
+" var x = "^ string_of_int a ^"
+  var y = "^ string_of_int b ^"
+  var z = (x>y)
 ")
 
 let test_gte a b = parse (
-" mut x = "^ string_of_int a ^"
-  mut y = "^ string_of_int b ^"
-  const z = (x>=y)
+" var x = "^ string_of_int a ^"
+  var y = "^ string_of_int b ^"
+  var z = (x>=y)
 ")
 
 let test_not a = parse (
-" mut x = "^ string_of_bool a ^"
-  mut y = (!x)
+" var x = "^ string_of_bool a ^"
+  var y = (!x)
 ")
 
 let test_and a b = parse (
-" mut x = "^ string_of_bool a^"
-  mut y = "^ string_of_bool b^"
-  mut z = (x && y)
+" var x = "^ string_of_bool a^"
+  var y = "^ string_of_bool b^"
+  var z = (x && y)
 ")
 
 let test_or a b = parse (
-" mut x = "^ string_of_bool a^"
-  mut y = "^ string_of_bool b^"
-  mut z = (x || y)
+" var x = "^ string_of_bool a^"
+  var y = "^ string_of_bool b^"
+  var z = (x || y)
 ")
 
 let test_sum limit_ = parse (
-" mut i = 0
-  mut sum = 0
-  const limit = "^string_of_int limit_^"
+" var i = 0
+  var sum = 0
+  var limit = "^string_of_int limit_^"
 loop:
-  const ax = (i==limit)
+  var ax = (i==limit)
   branch ax continue loop_body
 loop_body:
   drop ax
@@ -185,61 +192,61 @@ let test_broken_scope_1 = parse
 
 let test_broken_scope_2 = parse
 " goto l
-  const x = 0
+  var x = 0
  l:
   print x
 "
 
 let test_broken_scope_3 = parse
-" const y = false
+" var y = false
   branch y cont next
  next:
-  const x = 0
+  var x = 0
   drop x
  cont:
   print x
 "
 
 let test_broken_scope_4 = parse
-"mut x = 0
-mut y = 0
-{x} mut z = false
+"var x = 0
+var y = 0
+{x} var z = false
 z <- (x == y)
 "
 
 let test_broken_scope_4_fixed = parse
-"mut x = 0
-mut y = 0
-{x, ...} mut z = false
+"var x = 0
+var y = 0
+{x, ...} var z = false
 z <- (x == y)
 "
 
 let test_broken_scope_5 = parse
-"mut x = 0
-mut y = 0
-{w, ...} mut z = false
+"var x = 0
+var y = 0
+{w, ...} var z = false
 z <- (x == y)
 "
 
 let test_scope_1 test_var1 test_var2 = parse (
-" mut t = false
+" var t = false
   branch t a b
 a:
-  const a = 0
-  const c = 0
+  var a = 0
+  var c = 0
   drop a
   goto cont
 b:
-  const b = 0
-  const c = 0
+  var b = 0
+  var c = 0
   drop b
 cont:
-  const res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
+  var res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
 ")
 
 let test_read_print = parse
-"   mut n
-    mut b
+"   var n
+    var b
     read b
     read n
     print n
@@ -248,22 +255,22 @@ let test_read_print = parse
     drop b
 "
 let test_read_print_err = parse
-"   mut n
+"   var n
     read b
     read n
     print n
     print b
 "
 let test_read_print_err_2 = parse
-"   mut n
-    mut b
+"   var n
+    var b
     read b
     print n
     print b
 "
 let test_read_print_err_3 = parse
-"   mut n
-    mut b
+"   var n
+    var b
     read b
     read n
     drop b
@@ -271,49 +278,14 @@ let test_read_print_err_3 = parse
     print b
 "
 let test_read_print_err_4 = parse
-"   mut n
-    mut b
+"   var n
+    var b
     read b
     read n
-    clear b
+    b <- nil
     print n
     print b
 "
-
-let do_test_scope_uninitialized = function () ->
-  assert_raises (Scope.ScopeExceptionAt("main", "anon", Scope.UninitializedVariable (VarSet.singleton "x", 2)))
-    (fun () -> Scope.check_program (parse "
-     mut x = 1
-    loop:
-     print x
-     clear x
-     goto loop
-    "));
-  assert_raises (Scope.ScopeExceptionAt("main", "anon", (Scope.UninitializedVariable (VarSet.singleton "x", 2))))
-    (fun () -> Scope.check_program (parse "
-     mut x = 1
-    loop:
-     print x
-     branch (x==1) clearit loop
-    clearit:
-     clear x
-     goto loop
-    "));
-  (* Positive example: even though one branch cleares x it is restored at the end *)
-  ignore (parse "
-     mut x = 1
-    loop:
-     print x
-     branch (x==1) clearit skip
-    clearit:
-     clear x
-    skip:
-     x <- 7
-     goto loop
-    ")
-
-
-
 
 let undeclared missing_vars pos =
   Scope.ScopeExceptionAt("main", "anon", Scope.UndeclaredVariable (VarSet.of_list missing_vars, pos))
@@ -346,9 +318,9 @@ let test_disasm_parse prog = function() ->
   assert_equal disasm1 disasm2
 
 let test_branch = parse
-"mut x = 9
- mut y = 10
- mut r = 1
+"var x = 9
+ var y = 10
+ var r = 1
  branch (x == y) l1 l2
 l1:
  r <- 2
@@ -358,23 +330,21 @@ l2:
  goto c
 c:
  print r
- clear r
 "
 
 let test_branch_pruned =
-" mut x = 9
- mut y = 10
- osr [(x == y)] (main, anon, checkpoint_2) [mut x = &x, mut y = &y]
- mut r = 1
+" var x = 9
+ var y = 10
+ osr [(x == y)] (main, anon, checkpoint_2) [var x = x, var y = y]
+ var r = 1
  r <- 3
  print r
- clear r
 "
 
 let test_loop_branch = parse
-"mut x = 9
- mut y = 10
- mut r = 1
+"var x = 9
+ var y = 10
+ var r = 1
 loop:
  branch (x == y) l1 l2
 l1:
@@ -390,10 +360,10 @@ end:
 "
 
 let test_loop_branch_pruned =
-" mut x = 9
- mut y = 10
- osr [(x == y)] (main, anon, checkpoint_2) [mut x = &x, mut y = &y]
- mut r = 1
+" var x = 9
+ var y = 10
+ osr [(x == y)] (main, anon, checkpoint_2) [var x = x, var y = y]
+ var r = 1
 loop:
  r <- 3
  print r
@@ -402,15 +372,15 @@ end:
 "
 
 let test_double_loop = parse
-"{} mut i
+"{} var i
  i <- 0
- mut sum = 0
- const limit = 4
+ var sum = 0
+ var limit = 4
 loop1:
   branch (i != limit) loop_body1 continue
 loop_body1:
-   mut i2 = 0
-   mut sum2 = 0
+   var i2 = 0
+   var sum2 = 0
 loop2:
     branch (i2 != limit) loop_body2 continue2
 loop_body2:
@@ -478,19 +448,19 @@ let do_test_pred = function () ->
   assert_equal_sorted (pred 7) []
 
 let test_df = parse
-"mut a = 1
- mut b = 2
- mut d = (a+b)
+"var a = 1
+ var b = 2
+ var d = (a+b)
  # space
  b <- 3
- mut z = (a+b)
+ var z = (a+b)
 l:
- mut y = (a+b)
+ var y = (a+b)
  b <- 4
  branch b l l2
  # gap
 l2:
- mut y = (y+b)
+ var y = (y+b)
  branch b l l3
 l3:
 "
@@ -548,14 +518,14 @@ let do_test_reaching = function () ->
 let test_df2 = parse
 " goto jmp
 start:
-  mut i = 1
-  mut c = 0
-  mut v = 123
-  mut x = 0
+  var i = 1
+  var c = 0
+  var v = 123
+  var x = 0
   loop:
     branch (i==10) loop_end loop_begin
   loop_begin:
-    mut w = 3
+    var w = 3
     branch (c==2) tr fs
     tr:
       w <- 3
@@ -593,9 +563,9 @@ let do_test_codemotion = function () ->
       end:
        stop 0
       bla:
-       const z = 1
-       mut x = 1
-       mut y = z
+       var z = 1
+       var x = 1
+       var y = z
        goto loop
   " in
   let expected = parse "
@@ -606,17 +576,17 @@ let do_test_codemotion = function () ->
       end:
        stop 0
       bla:
-       const z = 1
-       mut y_1 = z
-       mut x = 1
-       mut y = z
+       var z = 1
+       var y_1 = z
+       var x = 1
+       var y = z
        goto loop
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse "
-       mut x = 1
-       mut y = 2
+       var x = 1
+       var y = 2
       loop:
        y <- 1
        x <- (x + y)
@@ -624,9 +594,9 @@ let do_test_codemotion = function () ->
       end:
   " in
   let expected = parse "
-       mut y_1 = 1
-       mut x = 1
-       mut y = 2
+       var y_1 = 1
+       var x = 1
+       var y = 2
       loop:
        x <- (x + y_1)
        branch (x == 10) end loop
@@ -635,8 +605,8 @@ let do_test_codemotion = function () ->
   let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   let t = parse "
-       mut x = 1
-       mut y = 2
+       var x = 1
+       var y = 2
       loop:
        y <- x
        x <- (x + y)
@@ -647,8 +617,8 @@ let do_test_codemotion = function () ->
   (* cannot hoist because depends on previous loop iteration *)
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
   let t = parse "
-       mut x = 1
-       mut y = 2
+       var x = 1
+       var y = 2
       loop:
        branch (x==5) la lb
       la:
@@ -666,9 +636,9 @@ let do_test_codemotion = function () ->
 let do_test_minimize_lifetime = function () ->
   let open Transform in
   let t = parse "
-       mut a = 12
-       mut b = false
-       mut c
+       var a = 12
+       var b = false
+       var c
        branch b o1 o2
       o1:
        a <- 22
@@ -679,13 +649,13 @@ let do_test_minimize_lifetime = function () ->
        drop b
        goto x
       x:
-       const b = 3
+       var b = 3
        print b
        stop 0
   " in
   let expected = parse "
-       mut a = 12
-       mut b = false
+       var a = 12
+       var b = false
        branch b o1 o2
       o1:
        a <- 1
@@ -696,7 +666,7 @@ let do_test_minimize_lifetime = function () ->
        drop b
        goto x
       x:
-       const b = 3
+       var b = 3
        print b
        drop b
        stop 0
@@ -720,14 +690,14 @@ let do_test_const_prop_driver () =
 
   (* Simple test case; sanity check *)
   test {input|
-    const x = 1
+    var x = 1
     print x
   |input} {expect|
     print 1
   |expect};
   (* Test with branching *)
   test {input|
-    const x = 1
+    var x = 1
     branch (1==1) l1 l2
    l1:
     drop x
@@ -737,7 +707,7 @@ let do_test_const_prop_driver () =
     drop x
     goto next
    next:
-    const y = 1
+    var y = 1
     branch (1==1) l3 l4
    l3:
     print y
@@ -747,7 +717,7 @@ let do_test_const_prop_driver () =
     drop y
     stop 0
   |input} {expect|
-    const x = 1
+    var x = 1
     branch (1==1) l1 l2
    l1:
     drop x
@@ -757,7 +727,7 @@ let do_test_const_prop_driver () =
     drop x
     goto next
    next:
-    const y = 1
+    var y = 1
     branch (1==1) l3 l4
    l3:
     print 1
@@ -767,13 +737,13 @@ let do_test_const_prop_driver () =
     drop y
     stop 0
   |expect};
-  (* Test with booleans, updating mut vars, and branching *)
+  (* Test with booleans, updating vars, and branching *)
   test {input|
-    const a = 1
-    const b = 2
-    mut c = 5
+    var a = 1
+    var b = 2
+    var c = 5
     c <- (a + b)
-    const d = true
+    var d = true
     branch d l1 l2
    l1:
     c <- (c + a)
@@ -787,7 +757,7 @@ let do_test_const_prop_driver () =
     print c
     stop 0
   |input} {expect|
-    mut c = 5
+    var c = 5
     c <- (1 + 2)
     branch true l1 l2
    l1:
@@ -804,7 +774,7 @@ let do_test_const_prop_driver () =
   |expect};
   (* Test with a loop *)
   test {input|
-    const n = 10
+    var n = 10
     goto bla
    loop:
     y <- z
@@ -814,9 +784,9 @@ let do_test_const_prop_driver () =
     print z
     stop 0
    bla:
-    const z = 1
-    mut x = 1
-    mut y = z
+    var z = 1
+    var x = 1
+    var y = z
     goto loop
   |input} {expect|
     goto bla
@@ -827,17 +797,17 @@ let do_test_const_prop_driver () =
     print 1
     stop 0
    bla:
-    mut x = 1
-    mut y = 1
+    var x = 1
+    var y = 1
     goto loop
   |expect};
   (* More complicated control flow *)
   test {input|
-    const x = 1
-    const t = true
-    const a = 10
-    const b = 20
-    const c = 30
+    var x = 1
+    var t = true
+    var a = 10
+    var b = 20
+    var c = 30
     branch t la lb
    la:
     branch t l1 l2
@@ -853,7 +823,7 @@ let do_test_const_prop_driver () =
     print c
     goto fin
    fin:
-    const y = (x + x)
+    var y = (x + x)
     print y
     stop 0
   |input} {expect|
@@ -872,7 +842,7 @@ let do_test_const_prop_driver () =
     print 30
     goto fin
    fin:
-    const y = (1 + 1)
+    var y = (1 + 1)
     print y
     stop 0
   |expect};
@@ -889,8 +859,8 @@ let do_test_pull_drop () =
     assert (instrs = expected);
   in
   let t = parse "
-      mut e = true
-      mut x
+      var e = true
+      var x
       branch e l1 l2
      l1:
       drop x
@@ -899,8 +869,8 @@ let do_test_pull_drop () =
       drop x
     " in
   let e = parse "
-      mut e = true
-      mut x
+      var e = true
+      var x
       drop x
       branch e l1 l2
      l1:
@@ -909,8 +879,8 @@ let do_test_pull_drop () =
   " in
   test t 2 "x" e;
   let t = parse "
-      mut e = true
-      mut x
+      var e = true
+      var x
       branch e l1 l2
      l1:
       stop 0
@@ -935,59 +905,59 @@ let do_test_push_drop () =
     | _ -> assert(false)
   in
   let t = parse "
-    const x = 1
-    const y = (x + 1)
-    const z = y
+    var x = 1
+    var y = (x + 1)
+    var z = y
     drop x
     " in
   let e = parse "
-    const x = 1
-    const y = (x + 1)
+    var x = 1
+    var y = (x + 1)
     drop x
-    const z = y
+    var z = y
   " in
   test t 3 e;
   let t = parse "
-    const x = 1
-    const y = (x + 1)
+    var x = 1
+    var y = (x + 1)
     drop x
     " in
   let e = parse "
-    const x = 1
-    const y = (x + 1)
+    var x = 1
+    var y = (x + 1)
     drop x
   " in
   test t 2 e;
   let t = parse "
-    mut x = 1
+    var x = 1
     read x
     drop x
     " in
   let e = parse "
-    mut x = 1
+    var x = 1
     read x
     drop x
   " in
   test t 2 e;
   let t = parse "
-    mut x = 1
+    var x = 1
     drop x
     " in
   let e = parse "function main ()
   " in
   test t 1 e;
   let t = parse "
-    mut x = 1
+    var x = 1
     x <- 33
     drop x
     " in
   let e = parse "
-    mut x = 1
+    var x = 1
     drop x
   " in
   test t 2 e;
   let t = parse "
-    mut x = 1
+    var x = 1
     branch (1==1) l1 l2
    l1:
     stop 0
@@ -996,7 +966,7 @@ let do_test_push_drop () =
     " in
   test t 5 t;
   let t = parse "
-    mut x = 1
+    var x = 1
     branch (x==1) l1 l2
    l1:
     stop 0
@@ -1005,7 +975,7 @@ let do_test_push_drop () =
     " in
   test t 5 t;
   let t = parse "
-    mut x = 1
+    var x = 1
     branch (1==1) l1 l2
    l1:
     goto l2
@@ -1013,7 +983,7 @@ let do_test_push_drop () =
     drop x
     " in
   let e = parse "
-    mut x = 1
+    var x = 1
     branch (1 == 1) l1 l2_1
    l1:
     goto l2
@@ -1024,7 +994,7 @@ let do_test_push_drop () =
    " in
   test t 5 e;
   let t = parse "
-    mut x = 1
+    var x = 1
     branch (1==1) e1 e2
    e1:
     goto l
@@ -1034,7 +1004,7 @@ let do_test_push_drop () =
     drop x
    " in
   let e = parse "
-    mut x = 1
+    var x = 1
     branch (1==1) e1 e2
    e1:
     drop x
@@ -1046,7 +1016,7 @@ let do_test_push_drop () =
    " in
   test t 7 e;
   let t = parse "
-      const a = 1
+      var a = 1
       call x = bla ()
       drop x
     function bla ()
@@ -1073,33 +1043,33 @@ let do_test_drop_driver () =
     end in
 
   test "x" {given|
-    const x = 1
-    const y = 2
-    const z = (y + y)
+    var x = 1
+    var y = 2
+    var z = (y + y)
     drop x
     drop y
   |given} {expect|
-    const y = 2
-    const z = (y + y)
+    var y = 2
+    var z = (y + y)
     drop y
   |expect};
   test "x" {given|
-    const x = 1
-    const y = 2
-    const z = (x + y)
-    const w = (y + z)
+    var x = 1
+    var y = 2
+    var z = (x + y)
+    var w = (y + z)
     drop x
     drop y
   |given} {expect|
-    const x = 1
-    const y = 2
-    const z = (x + y)
+    var x = 1
+    var y = 2
+    var z = (x + y)
     drop x
-    const w = (y + z)
+    var w = (y + z)
     drop y
   |expect};
   test "x" {given|
-    const x = 1
+    var x = 1
     branch (x == 1) la lb
    la:
     print 1
@@ -1110,7 +1080,7 @@ let do_test_drop_driver () =
     drop x
     stop 0
   |given} {expect|
-    const x = 1
+    var x = 1
     branch (x == 1) la lb
    la:
     drop x
@@ -1122,7 +1092,7 @@ let do_test_drop_driver () =
     stop 0
   |expect};
   test "x" {given|
-    const x = 1
+    var x = 1
     branch (1 == 1) la lb
    la:
     branch (1 == 1) l1 l2
@@ -1201,40 +1171,31 @@ let test_functions () =
   test {pr|
      call x = 'bla (22)
      return x
-    function bla (const y)
+    function bla (var y)
       return y
   |pr} 22;
   test {pr|
      call one = 'one ()
      call three = 'pl (one, 2)
      return three
-    function pl (const y, const z)
+    function pl (var y, var z)
       return (y+z)
     function one ()
       return 1
   |pr} 3;
-  assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (0, (Arg_by_val (Simple (Constant (Int 22)))))))
-    (fun () ->
-    test {pr|
-       call x = 'bla (22)
-       return x
-      function bla (mut y)
-        return y
-    |pr} 22);
   test {pr|
-     mut a = 3
-     call x = 'bla (&a)
-     return x
-    function bla (mut y)
+     array a = [3]
+     call x = 'bla (a)
+     return x[0]
+    function bla (var y)
       return y
   |pr} 3;
   test {pr|
-     mut a = 3
-     call x = 'bla (&a)
-     return a
-    function bla (mut y)
-     y <- 4
+     array a = [3]
+     call x = 'bla (a)
+     return a[0]
+    function bla (var y)
+     y[0] <- 4
      return false
   |pr} 4;
   assert_raises
@@ -1248,7 +1209,7 @@ let test_functions () =
     (Check.InvalidMain)
     (fun () ->
     test {pr|
-      function main (const x)
+      function main (var x)
        return false
     |pr} 0);
   assert_raises
@@ -1256,43 +1217,16 @@ let test_functions () =
     (fun () ->
     test {pr|
       call x = 'bla (1, 2)
-      function bla (const x, const x)
+      function bla (var x, var x)
        return false
     |pr} 0);
-  assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_val (Simple (Var "x"))))))
-    (fun () ->
-    test {pr|
-       mut x = 22
-       call y = 'bla (x)
-      function bla (mut y)
-        return y
-    |pr} 22);
   test {pr|
-     mut x = 22
+     var x = 22
      call y = 'bla (x)
      return y
-    function bla (const y)
+    function bla (var y)
       return y
   |pr} 22;
-  assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_val (Simple (Var "x"))))))
-    (fun () ->
-    test {pr|
-       const x = 22
-       call y = 'bla (x)
-      function bla (mut y)
-        return y
-    |pr} 22);
-  assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_ref "x"))))
-    (fun () ->
-    test {pr|
-       const x = 22
-       call y = 'bla (&x)
-      function bla (mut y)
-        return y
-    |pr} 22);
   assert_raises
     (Check.ErrorAt ("main", "anon", Check.FunctionDoesNotExist "x"))
     (fun () ->
@@ -1303,111 +1237,33 @@ let test_functions () =
     (Check.ErrorAt ("main", "anon", Check.FunctionDoesNotExist "x"))
     (fun () ->
     test {pr|
-       const x = 'x
+       var x = 'x
     |pr} 0);
   test_p {pr|
-     mut x = 'bla
+     var x = 'bla
      call y = x (x)
      print y
-    function bla (const y)
+    function bla (var y)
       return y
   |pr} [(Fun_ref "bla")];
   test {pr|
-     mut x = 'bla
+     var x = 'bla
      call y = x ('bla2)
      return y
-    function bla (const y)
+    function bla (var y)
       call r = y ()
       return r
     function bla2 ()
       return 33
   |pr} 33;
-  assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (1, (Arg_by_ref "x"))))
-    (fun () ->
-    test {pr|
-       const x = 22
-       call y = 'bla (&x)
-      function bla (mut y)
-        return y
-    |pr} 22);
   let open Eval in
   assert_raises (Eval.Type_error {expected = Eval.Fun_ref; received = Eval.Int})
     (fun () ->
      test {pr|
-       mut x = 1
+       var x = 1
        call y = x ()
        return y
     |pr} 33);
-  assert_raises
-    (Check.ErrorAt ("main", "anon", Check.InvalidArgument (2, (Arg_by_ref "x"))))
-    (fun () ->
-    test {pr|
-       const x = 22
-       const func = 'bla
-       call y = func (&x)
-      function bla (mut y)
-        return y
-    |pr} 22);
-  assert_raises
-    (Eval.InvalidArgument)
-    (fun () ->
-    test {pr|
-       const x = 22
-       const func = 'bla
-       call y = func (x)
-      function bla (mut y)
-        return y
-    |pr} 22);
-  ();;
-
-let do_test_mut_to_const () =
-  let open Transform in
-  let test t e =
-    let input, expected = (parse t), (parse e) in
-    let output = { input with main = try_opt make_constant input.main } in
-    if (active_version output.main).instrs <> (active_version expected.main).instrs then begin
-      Printf.printf "input: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
-        (Disasm.disassemble_s input)
-        (Disasm.disassemble_s output)
-        (Disasm.disassemble_s expected);
-      assert false
-    end in
-
-  test {input|
-    mut x = 1
-    print x
-  |input} {expect|
-    const x = 1
-    print x
-  |expect};
-  test {input|
-    mut x = 1
-    x <- 1
-    print x
-  |input} {expect|
-    mut x = 1
-    x <- 1
-    print x
-  |expect};
-  test {input|
-    mut x = 1
-    call y = x (&x)
-    print x
-  |input} {expect|
-    mut x = 1
-    call y = x (&x)
-    print x
-  |expect};
-  test {input|
-    mut x = 1
-    mut y = (x+1)
-    print y
-  |input} {expect|
-    const x = 1
-    const y = (x+1)
-    print y
-  |expect};
   ();;
 
 let do_test_array () =
@@ -1426,45 +1282,15 @@ let do_test_deopt () =
   test {pr|
     function main ()
     version a
-     const x = 1
-     osr [(x==1)] (main, b, l) [const y=42]
+     var x = 1
+     osr [(x==1)] (main, b, l) [var y=42]
      return x
 
     version b
-     const y = 2
+     var y = 2
     l:
      return y
   |pr} 42;
-
-  test {pr|
-    function main ()
-     mut aliased = 33
-     call x = 'foo(&aliased)
-     return aliased
-    function foo(mut x)
-    version vers_a
-     osr [(1==1)] (foo,vers_b,st) [mut x = &x]
-     return 0
-    version vers_b
-     st:
-     x <- 42
-     return 0
-  |pr} 42;
-
-  test {pr|
-    function main ()
-     mut aliased = 33
-     call x = 'foo(&aliased)
-     return aliased
-    function foo(mut x)
-    version vers_a
-     osr [(1==1)] (foo,vers_b,st) [mut x = x]
-     return 0
-    version vers_b
-     st:
-     x <- 42
-     return 0
-  |pr} 33;
 
   test {pr|
     function main ()
@@ -1472,10 +1298,10 @@ let do_test_deopt () =
      return x
     function foo()
     version vers_a
-     osr [(1==1)] (foo,vers_b,st) [mut x = (41 + 1)]
+     osr [(1==1)] (foo,vers_b,st) [var x = (41 + 1)]
      return 0
     version vers_b
-     mut x = 0
+     var x = 0
      st:
      return x
   |pr} 42;
@@ -1483,11 +1309,13 @@ let do_test_deopt () =
 
 let suite =
   "suite">:::
-  ["mut">:: run test_mut no_input
+  ["var">:: run test_var no_input
      (has_var "x" (Value.int 2)
       &&& (trace_is Value.[int 1; int 2]));
-   "decl_const">:: run test_decl_const no_input
+   "decl_var">:: run test_decl_var no_input
      (has_var "x" (Value.int 1));
+   "incr_var">:: run test_incr_var no_input
+     (has_var "x" (Value.int 2));
    "print">:: run test_print no_input
      (trace_is Value.[int 1; int 2]);
    "jump">:: run test_jump no_input
@@ -1592,16 +1420,6 @@ let suite =
    "mut_undeclared3">::
    (fun () -> assert_raises (Scope.ScopeExceptionAt("main", "anon", (Scope.UndeclaredVariable (VarSet.singleton "b", 6))))
        (fun() -> Scope.check_function test_read_print_err_3.main));
-   "mut_undefined">::
-   (fun () -> assert_raises (Eval.Undefined_variable "n")
-       (run_unchecked test_read_print_err_2
-          (input [Value.bool false; Value.int 1]) ok));
-   "mut_undefined2">::
-   (fun () -> assert_raises (Scope.ScopeExceptionAt("main", "anon", (Scope.UninitializedVariable (VarSet.singleton "n", 3))))
-       (fun() -> Scope.check_function test_read_print_err_2.main));
-   "mut_undefined3">::
-   (fun () -> assert_raises (Scope.ScopeExceptionAt("main", "anon", (Scope.UninitializedVariable (VarSet.singleton "b", 6))))
-       (fun() -> Scope.check_function test_read_print_err_4.main));
    "scope1">:: infer_broken_scope test_broken_scope_1 (undeclared ["x"] 0);
    "scope2">:: infer_broken_scope test_broken_scope_2 (undeclared ["x"] 3);
    "scope3">:: infer_broken_scope test_broken_scope_3 (undeclared ["x"] 6);
@@ -1614,21 +1432,20 @@ let suite =
      (test_scope_1 "a" "c") (undeclared ["a"] 12);
    "scope1broken2">:: infer_broken_scope
      (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
-   "scope_uninitialized">:: do_test_scope_uninitialized;
    "parser">:: test_parse_disasm   ("stop 0\n");
-   "parser1">:: test_parse_disasm  ("const x = 3\nprint x\nstop 0\n");
+   "parser1">:: test_parse_disasm  ("var x = 3\nprint x\nstop 0\n");
    "parser2">:: test_parse_disasm  ("goto l\nx <- 3\nl:\n");
-   "parser3">:: test_parse_disasm  ("const x = (y + x)\n");
+   "parser3">:: test_parse_disasm  ("var x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr [(x == y)] (f, v, l) [const x = x, mut y = &x, mut v, const x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\nl:\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
-   "parser7">:: test_parse_disasm  ("const x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
    "parser_arr1">:: test_parse_disasm ("array x[10]\n");
    "parser_arr2">:: test_parse_disasm ("array x = []\narray x = [1, x, nil]\n");
-   "parser_arr3">:: test_parse_disasm ("const x = y[10]\n");
-   "parser_arr4">:: test_parse_disasm ("const x = length(y)\n");
+   "parser_arr3">:: test_parse_disasm ("var x = y[10]\n");
+   "parser_arr4">:: test_parse_disasm ("var x = length(y)\n");
    "parser_arr_file">:: test_parse_disasm_file "examples/array_sum.sou";
    "disasm1">:: test_disasm_parse (test_sum 10);
    "disasm2">:: test_disasm_parse (test_add "1" "0");
@@ -1666,11 +1483,21 @@ let suite =
    "pull_drop">:: do_test_pull_drop;
    "move_drop">:: do_test_drop_driver;
    "test_functions">:: test_functions;
-   "test_mut_to_const">:: do_test_mut_to_const;
    "deopt">:: do_test_deopt;
    "array">:: do_test_array;
    ]
 ;;
+
+(* use this instead of run_test_tt_main below
+   if you want to be able to see the backtrace
+   raised by an in-test exception with OCAMLRUNPARAM=b
+*)
+let run_test_raw  testsuite =
+  let rec run = function
+    | TestCase test_fun -> test_fun ()
+    | TestLabel (_label, test) -> run test
+    | TestList tests -> List.iter run tests
+  in run testsuite
 
 let () =
   let test_result = run_test_tt_main suite in

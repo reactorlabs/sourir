@@ -4,8 +4,7 @@ open Parser
 exception Error of string * Lexing.position
 
 let keyword_table = [
-  "const", CONST;
-  "mut", MUT;
+  "var", VAR;
   "branch", BRANCH;
   "goto", GOTO;
   "print", PRINT;
@@ -13,7 +12,6 @@ let keyword_table = [
   "stop", STOP;
   "read", READ;
   "drop", DROP;
-  "clear", CLEAR;
   "return", RETURN;
   "call", CALL;
   "version", VERSION;
@@ -80,7 +78,6 @@ rule token = parse
   | ":" { COLON }
   | "=" { EQUAL }
   | "<-" { LEFTARROW }
-  | "&" { AMPERSAND }
   | "'" { SINGLE_QUOTE }
   | eof { EOF }
   | _ { lexing_error lexbuf }

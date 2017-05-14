@@ -1,12 +1,12 @@
 # Moving a loop invariant
 # BEFORE
-  const one = 1
-  mut x = 3
-  mut y = 7
-  mut z = 0
-  mut i = 0
-  mut acc = 0
-  mut limit = 10
+  var one = 1
+  var x = 3
+  var y = 7
+  var z = 0
+  var i = 0
+  var acc = 0
+  var limit = 10
   read limit
   print z
 loop:

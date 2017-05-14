@@ -18,17 +18,17 @@ Reserved Names:
   start     start label      (execution of function starts here)
 
   formal ::=      formal argument
-  | const x
+  | var x
   | mut x
 
   a  addresses
 
   i ::=    instructions
-  | const x = e                   constant variable
-  | mut x = e                     mutable variable
+  | var x = e                     variable declaration
   | drop x                        drop a variable from scope
-  | clear x                       de-initialization of a mutable
   | x <- e                        assignment
+  | array x[e]                    array allocation
+  | array x = [e₁, ..., eₙ]       array creation
   | x[e] <- e                     array assignment
   | branch e l₁ l₂                conditional
   | goto l                        goto
@@ -49,15 +49,13 @@ the function has returned.
   e ::=     expression
   | se                    simple expression
   | primop(se*)           primitive operation
-  | array(se)             empty array constructor
-  | [se*]                 array constructor
   | x[se]                 array index
-  | length(x)             array length
+  | length(se)             array length
 
   se ::=    simple expressions
   | lit                   literals
   | x                     variables
-  | 'f                    create function reference
+  | 'f                    function reference
 
   lit ::=  literals
   | nil
@@ -67,22 +65,15 @@ the function has returned.
   v :=     values
   | lit                   literals
   | f                     function reference
-  | [v*]                  array
-
-Note: heap adresses are not values. They cannot be explicitly
-mentioned, but &x can be used to alias the mutable variable x in an
-osr or function call.
+  | a                     heap array address
 
   osr-map ::=    osr mapping declaration
-  | const x = e
-  | mut x
-  | mut x = &x
-  | mut x = e
+  | var x = e
 
 # Natural operational semantics
 
-  E ::= (x ↦ val v | x ↦ ref a | x ↦ ⊥)*  lexical environment
-  H ::= (a ↦ v)                           mutable heap
+  E ::= (x ↦ v)*            lexical environment
+  H ::= (a ↦ [v₁, ..., vₙ])*  heap
 
   T ::= (lit)*                    output trace
 
@@ -103,20 +94,9 @@ osr or function call.
   pred I l =
     { l' ∈ I : succ I l' = l }
 
-Lookup (partial) function, returns a v:
-
-  (H,E)[x] :=
-    v    if E ∋ (x ↦ val v)
-    H(a) if E ∋ (x ↦ ref a)
-
-Update (partial) function, returns an H:
-
-  (H,E)[x ← v] :=
-    H[a ↦ v] if E ∋ (x ↦ ref a)
-
 ## Evaluation of (simple) expressions:
 
-  simple-eval P H E x   = (H,E)[x]
+  simple-eval P H E x   = E[x]
   simple-eval P H E lit = lit
   simple-eval P H E 'f  = f
     where Df ∈ dom P
@@ -125,74 +105,51 @@ Update (partial) function, returns an H:
   eval P H E se          = simple-eval P H E se
   eval P H E primop(se*) = 〚primop〛(v*)
     where (v := simple-eval P H E se)*
-  eval P H E [se*]       = [v*]
-    where (v := simple-eval P H E se)*
-  eval P H E x[se]       = vₙ
-    where v := (H,E)[x]
-      and n := simple-eval P H E se
-      and v  = [v₁..., vₙ, ...]
-  eval P H E array(se)   = [nil⁽ⁿ⁾]
-    where n := simple-eval P H E se
-  eval P H E length(x)   = n
-    where v := (H,E)[x]
-      and v  = [v₁..., vₙ]
-
-## Environment actions (variable binding, function call, osr)
-
-`build-env H E def` builds a new heap/environment *fragment* from
-a definition intepreted in the existing context (H,E).
-
-  build-env H E (const x = e) = (∅, [x ↦ val v])
-    where v := eval P H E e
-  build-env H E (mut x)       = ([a ↦ ⊥], [x ↦ ref a])
-    where a fresh
-  build-env H E (mut x = e)   = ([a ↦ v], [x ↦ ref a])
-    where a fresh
-      and v := eval P H E e
-  build-env H E (mut x = &y)  = (∅, [x ↦ ref a])
-    where E ∋ (y ↦ ref a)
-
-`extend-env H E def` extends the runtime context `(H,E)` with the
-fragment generated from `def` – in particular it returns an extended
-lexical environment `E'`.
-
-  extend-env H E def := (H, E) + build-env H E def
-
-`replace-env H E def*` creates a new lexical environment `E'` from
-scratch (it does not extend the input environment `E`) from the list
-of definitions `def*`, interpreted/evaluated in `E`. The heap `H` is
-extended with the new heap fragment into a new heap `H'`.
-
-  replace-env H E def* := (H, ∅) + (build-env H E def)*
+  eval P H E x[se]       = vᵢ
+    where a := E[x]
+      and i := simple-eval P H E se
+      and H[a] = [v₁, ..., vᵢ, ...]
+  eval P H E length(se)   = n
+    where a := simple-eval P H E se
+      and H[a] = [v₁, ..., vₙ]
 
 ## One step reduction
 
-  step   (const x = e) (P, I, T, H, E, l)
-       = (I, T, H', E', succ I l)
-   where (H', E') := extend-env H E (const x = e)
-
-  step   (mut x = e) (P, I, T, H, E, l)
-       = (I, T, H', E', succ I l)
-   where (H', E') := extend-env H E (mut x = e)
+  step   (var x = e) (P, I, T, H, E, l)
+       = (I, T, H, E', succ I l)
+   where v := eval P H E e
+     and E' := E[x ↦ v]
 
   step   (x ← e) (P, I, T, H, E, l)
-       = (I, T, (H,E)[x ← v], E, succ I l)
+       = (I, T, H, E', succ I l)
     when v := eval P H E e
-
-  step   (clear x) (P, I, T, H, E, l)
-       = (I, T, (H,E)[x ← ⊥], E, succ I l)
+     and E' := E[x ↦ v]
 
   step   (drop x) (P, I, T, H, E, l)
        = (I, T, H, E', succ I l)
     when E' := E \ {x}
 
+  step    (array x[e]) (P, I, T, H, E, l)
+        = (I, T, H', E', succ I l)
+   when a fresh
+      n := eval P H E e
+     H' := H[a ↦ [nil⁽ⁿ⁾]]
+     E' := E[x ↦ a]
+
+  step    (array x = [e₁, ..., eₙ]) (P, I, T, H, E, l)
+        = (I, T, H', E', succ I l)
+   when a fresh
+     (vᵢ := eval P H E eᵢ)*
+     H' := H[a ↦ [v₁, ..., vₙ]]
+     E' := E[x ↦ a]
+
   step   (x[eᵢ] ← eₐ) (P, I, T, H, E, l)
-       = (I, T, (H,E)[x ← v'], E, succ I l)
-    when n  := eval P H E eᵢ
-     and vₐ := eval P H E eₐ
-     and v  := (H,E)[x]
-     and v   = [v₁..., vₙ, ...]
-     and v' := [v₁..., vₐ, ...]
+       = (I, T, H', E, succ I l)
+    when i := eval P H E eᵢ
+     and v := eval P H E eₐ
+     and a  := E[x]
+     and H[a] = [v₁, ..., vᵢ, ...]
+     and H' := H[a ↦ [v₁, ..., v, ...]]
 
   step   (print e) (P, I, T, H, E, l)
        = (I, (T, v), H, E, succ I l)
@@ -241,19 +198,14 @@ extended with the new heap fragment into a new heap `H'`.
 # Scopes
 
 declares i =
-  | mut x _         -> [x]
-  | const x _       -> [x]
+  | var x _
+  | array x[e]
+  | array x = [...]
+  | call x = ...
+                    -> [x]
   | _               -> []
 
-requires i =
-  | mut x = e
-  | const x = e
-  | osr (e, f, lᵥ, l, (x = ee)*)
-                    -> vars(e) ∪ vars(ee)*
-  | x <- e          -> x :: vars(e)
-  | branch x _
-  | print x         -> [x]
-  | _               -> []
+requires i = bound_vars(i)
 
 removes i =
   | drop x -> [x]

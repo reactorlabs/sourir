@@ -1,6 +1,6 @@
 program: BRANCH NIL IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 144.
+## Ends in an error in state: 121.
 ##
 ## instruction -> BRANCH expression label . label [ NEWLINE ]
 ##
@@ -15,7 +15,7 @@ instruction
 
 program: BRANCH NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 143.
+## Ends in an error in state: 120.
 ##
 ## instruction -> BRANCH expression . label label [ NEWLINE ]
 ##
@@ -29,7 +29,7 @@ example "foo", is now expected to construct a branch instruction
 
 program: BRANCH TRIPLE_DOT 
 ##
-## Ends in an error in state: 142.
+## Ends in an error in state: 119.
 ##
 ## instruction -> BRANCH . expression label label [ NEWLINE ]
 ##
@@ -41,51 +41,51 @@ Parsing an instruction, we parsed "branch" so far; an expression, for
 example "(x == 2)", is now expected to construct a branch instruction
 "branch <expr> <label> <label>".
 
-program: CONST IDENTIFIER EQUAL TRIPLE_DOT 
+program: VAR IDENTIFIER EQUAL TRIPLE_DOT 
 ##
-## Ends in an error in state: 123.
+## Ends in an error in state: 100.
 ##
-## instruction -> CONST variable EQUAL . expression [ NEWLINE ]
-##
-## The known suffix of the stack is as follows:
-## CONST variable EQUAL 
-##
-
-Parsing an instruction, we parsed "const <var> =" so far; an expression, for
-example "(x + 1)", is now expected to construct a constant declaration
-"const <var> = <expr>".
-
-program: CONST IDENTIFIER TRIPLE_DOT 
-##
-## Ends in an error in state: 122.
-##
-## instruction -> CONST variable . EQUAL expression [ NEWLINE ]
+## instruction -> VAR variable EQUAL . expression [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## CONST variable 
+## VAR variable EQUAL 
 ##
 
-Parsing an instruction, we parsed "const <var>" so far; the equal sign
-"=" is now expected to construct a constant declaration
-"const <var> = <expr>".
+Parsing an instruction, we parsed "var <var> =" so far; an expression, for
+example "(x + 1)", is now expected to construct a variable declaration
+"var <var> = <expr>".
 
-program: CONST TRIPLE_DOT 
+program: VAR IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 121.
+## Ends in an error in state: 99.
 ##
-## instruction -> CONST . variable EQUAL expression [ NEWLINE ]
+## instruction -> VAR variable . EQUAL expression [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## CONST 
+## VAR variable 
+##
+
+Parsing an instruction, we parsed "var <var>" so far; the equal sign
+"=" is now expected to construct a variable declaration
+"var <var> = <expr>".
+
+program: VAR TRIPLE_DOT 
+##
+## Ends in an error in state: 98.
+##
+## instruction -> VAR . variable EQUAL expression [ NEWLINE ]
+##
+## The known suffix of the stack is as follows:
+## VAR 
 ##
 
 Parsing an instruction, we parsed "const" so far; a variable, for
-example "x", is now expected to construct a constant declaration
-"const <var> = <expr>".
+example "x", is now expected to construct a variable declaration
+"var <var> = <expr>".
 
 program: GOTO TRIPLE_DOT 
 ##
-## Ends in an error in state: 117.
+## Ends in an error in state: 94.
 ##
 ## instruction -> GOTO . label [ NEWLINE ]
 ##
@@ -99,7 +99,7 @@ Parsing an instruction, we parsed "goto" so far; a label, for example
 
 program: IDENTIFIER LEFTARROW TRIPLE_DOT 
 ##
-## Ends in an error in state: 156.
+## Ends in an error in state: 124.
 ##
 ## instruction -> variable LEFTARROW . expression [ NEWLINE ]
 ##
@@ -113,22 +113,22 @@ for example "(x + 1)", is now expected to construct an assignment
 
 program: IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 116.
+## Ends in an error in state: 93.
 ##
 ## label -> IDENTIFIER . [ COLON ]
-## variable -> IDENTIFIER . [ LEFTARROW LBRACKET ]
+## variable -> IDENTIFIER . [ LEFTARROW ]
 ##
 ## The known suffix of the stack is as follows:
 ## IDENTIFIER 
 ##
 
 Parsing an instruction, we parsed an identifier so far (variable or label). 
-- if this is a label declaration, we expect a colon: "<label>:"
+- if this is a label declaration, we expect a semicolon: "<label>:"
 - if this is an assignment, we expect a left arrow: "<var> <- <expression>"
 
 program: OSR LBRACKET NIL RBRACKET LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 92.
+## Ends in an error in state: 69.
 ##
 ## instruction -> OSR LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET LPAREN label COMMA label COMMA label RPAREN LBRACKET . loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
 ##
@@ -144,7 +144,7 @@ or just "mut x". For example,
 
 program: OSR LBRACKET NIL RBRACKET LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN TRIPLE_DOT 
 ##
-## Ends in an error in state: 91.
+## Ends in an error in state: 68.
 ##
 ## instruction -> OSR LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET LPAREN label COMMA label COMMA label RPAREN . LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
 ##
@@ -161,7 +161,7 @@ of terms of the form "const x = e" (where "e" is an expression),
 
 program: OSR LBRACKET NIL RBRACKET LPAREN TRIPLE_DOT 
 ##
-## Ends in an error in state: 84.
+## Ends in an error in state: 61.
 ##
 ## instruction -> OSR LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET LPAREN . label COMMA label COMMA label RPAREN LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
 ##
@@ -177,7 +177,7 @@ For example,
 
 program: OSR LBRACKET NIL RBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 83.
+## Ends in an error in state: 60.
 ##
 ## instruction -> OSR LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET . LPAREN label COMMA label COMMA label RPAREN LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
 ##
@@ -193,7 +193,7 @@ For example,
 
 program: OSR LBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 80.
+## Ends in an error in state: 57.
 ##
 ## instruction -> OSR LBRACKET . loption(separated_nonempty_list(COMMA,expression)) RBRACKET LPAREN label COMMA label COMMA label RPAREN LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
 ##
@@ -210,7 +210,7 @@ For example,
 
 program: OSR TRIPLE_DOT 
 ##
-## Ends in an error in state: 79.
+## Ends in an error in state: 56.
 ##
 ## instruction -> OSR . LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET LPAREN label COMMA label COMMA label RPAREN LBRACKET loption(separated_nonempty_list(COMMA,osr_def)) RBRACKET [ NEWLINE ]
 ##
@@ -263,7 +263,7 @@ program: LBRACE STOP
 ##
 ## Ends in an error in state: 5.
 ##
-## scope_annotation -> LBRACE . scope RBRACE optional_newlines [ STOP RETURN READ PRINT OSR MUT IDENTIFIER GOTO DROP CONST COMMENT CLEAR CALL BRANCH ARRAY ]
+## scope_annotation -> LBRACE . scope RBRACE optional_newlines [ STOP RETURN READ PRINT OSR MUT IDENTIFIER GOTO DROP VAR COMMENT CLEAR CALL BRANCH ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE 
@@ -280,7 +280,7 @@ program: LBRACE TRIPLE_DOT RBRACE BOOL
 ##
 ## Ends in an error in state: 12.
 ##
-## scope_annotation -> LBRACE scope RBRACE . optional_newlines [ STOP RETURN READ PRINT OSR MUT IDENTIFIER GOTO DROP CONST COMMENT CLEAR CALL BRANCH ARRAY ]
+## scope_annotation -> LBRACE scope RBRACE . optional_newlines [ STOP RETURN READ PRINT OSR MUT IDENTIFIER GOTO DROP VAR COMMENT CLEAR CALL BRANCH ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE scope RBRACE 
@@ -293,7 +293,7 @@ program: LBRACE TRIPLE_DOT TRIPLE_DOT
 ##
 ## Ends in an error in state: 11.
 ##
-## scope_annotation -> LBRACE scope . RBRACE optional_newlines [ STOP RETURN READ PRINT OSR MUT IDENTIFIER GOTO DROP CONST COMMENT CLEAR CALL BRANCH ARRAY ]
+## scope_annotation -> LBRACE scope . RBRACE optional_newlines [ STOP RETURN READ PRINT OSR MUT IDENTIFIER GOTO DROP VAR COMMENT CLEAR CALL BRANCH ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE scope 
@@ -302,54 +302,9 @@ program: LBRACE TRIPLE_DOT TRIPLE_DOT
 In a scope annotation, "..." should be the last item. "{ x, ... }" or
 "{ ... }" are valid, but "{ ..., x }" is not.
 
-program: MUT IDENTIFIER EQUAL TRIPLE_DOT 
-##
-## Ends in an error in state: 114.
-##
-## instruction -> MUT variable EQUAL . expression [ NEWLINE ]
-##
-## The known suffix of the stack is as follows:
-## MUT variable EQUAL 
-##
-
-Parsing a mutable declaration instruction, we parsed "mut <var> =" so
-far; an expression is now expected, for example "(x + 1)", to
-construct a constant mutable instruction "mut <var> = <expr>".
-
-program: MUT IDENTIFIER TRIPLE_DOT 
-##
-## Ends in an error in state: 113.
-##
-## instruction -> MUT variable . [ NEWLINE ]
-## instruction -> MUT variable . EQUAL expression [ NEWLINE ]
-##
-## The known suffix of the stack is as follows:
-## MUT variable 
-##
-
-Parsing a mutable declaration instruction, we parsed "mut <var>" so
-far; an equal sign "=" is now expected to construct a constant mutable
-instruction "mut <var> = <expr>".
-
-program: MUT TRIPLE_DOT 
-##
-## Ends in an error in state: 112.
-##
-## instruction -> MUT . variable [ NEWLINE ]
-## instruction -> MUT . variable EQUAL expression [ NEWLINE ]
-##
-## The known suffix of the stack is as follows:
-## MUT 
-##
-
-Parsing an instruction, we parsed "mut" so far; a variable, for
-example "x", is now expected to construct a mutable variable
-declaration
-"mut <var> = <expr>".
-
 program: PRINT LPAREN IDENTIFIER PLUS IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 57.
+## Ends in an error in state: 45.
 ##
 ## expression -> LPAREN simple_expression infixop simple_expression . RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
 ##
@@ -362,7 +317,7 @@ a closing parenthesis ")" is now expected.
 
 program: PRINT LPAREN IDENTIFIER PLUS TRIPLE_DOT 
 ##
-## Ends in an error in state: 56.
+## Ends in an error in state: 44.
 ##
 ## expression -> LPAREN simple_expression infixop . simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
 ##
@@ -376,7 +331,7 @@ Parsing an expression, we parsed "( <arg> <op>" so far; an argument
 
 program: PRINT LPAREN IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 42.
+## Ends in an error in state: 40.
 ##
 ## expression -> LPAREN simple_expression . infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
 ##
@@ -393,21 +348,18 @@ program: PRINT LPAREN TRIPLE_DOT
 ## Ends in an error in state: 36.
 ##
 ## expression -> LPAREN . simple_expression infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
-## expression -> LPAREN . prefixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAREN 
 ##
 
-Parsing an expression, we parsed "(" so far.
-- if this is a binary expression, we expect an argument (variable or
-  literal value) to construct an expression: "( <arg> <op> <arg> )"
-- if this is a unary expression, we expect an operator to construct
-  an expression: "( <op> <arg> )"
+Parsing an expression, we parsed "(" so far; an argument (variable or
+literal value) is now expected to construct an expression
+"( <arg> <op> <arg> )".
 
 program: PRINT TRIPLE_DOT 
 ##
-## Ends in an error in state: 77.
+## Ends in an error in state: 54.
 ##
 ## instruction -> PRINT . expression [ NEWLINE ]
 ##
@@ -422,7 +374,7 @@ to construct a print instruction
 
 program: READ TRIPLE_DOT 
 ##
-## Ends in an error in state: 75.
+## Ends in an error in state: 52.
 ##
 ## instruction -> READ . variable [ NEWLINE ]
 ##
@@ -438,9 +390,9 @@ Note that the variable needs to have been declared as mutable first.
 
 program: STOP NIL NEWLINE TRIPLE_DOT 
 ##
-## Ends in an error in state: 166.
+## Ends in an error in state: 129.
 ##
-## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ VERSION STOP RETURN READ PRINT OSR MUT LBRACE IDENTIFIER GOTO FUNCTION EOF DROP CONST COMMENT CLEAR CALL BRANCH ARRAY ]
+## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ VERSION STOP RETURN READ PRINT OSR MUT LBRACE IDENTIFIER GOTO FUNCTION EOF DROP VAR COMMENT CLEAR CALL BRANCH ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction NEWLINE 
@@ -451,9 +403,9 @@ instruction on the next line, or the end of the file.
 
 program: STOP NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 165.
+## Ends in an error in state: 128.
 ##
-## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ VERSION STOP RETURN READ PRINT OSR MUT LBRACE IDENTIFIER GOTO FUNCTION EOF DROP CONST COMMENT CLEAR CALL BRANCH ARRAY ]
+## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ VERSION STOP RETURN READ PRINT OSR MUT LBRACE IDENTIFIER GOTO FUNCTION EOF DROP VAR COMMENT CLEAR CALL BRANCH ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction 

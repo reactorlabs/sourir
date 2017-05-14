@@ -1,0 +1,12 @@
+# this test should print 42, 0, 0
+  array x = [42]
+  call y = 'foo (x)
+  print x[0]
+  # prints 0
+  print y[0]
+  # prints 0
+function foo (var x)
+  print x[0]
+  # prints 42
+  x[0] <- 0
+  return x
