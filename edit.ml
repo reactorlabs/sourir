@@ -149,6 +149,8 @@ let replace_uses_in_instruction old_name new_name instr : instruction =
     if x = old_name then Drop new_name else instr
   | Print exp ->
     Print (in_expression exp)
+  | Assert exp ->
+    Assert (in_expression exp)
   | Branch (exp, l1, l2) ->
     Branch (in_expression exp, l1, l2)
   | Osr {cond; target; map} ->

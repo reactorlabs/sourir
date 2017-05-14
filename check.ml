@@ -92,6 +92,7 @@ let well_formed prog =
       | Assign (_, e)
       | Branch (e, _, _)
       | Print e
+      | Assert e
       | Stop e
       | Return e
         -> check_expr e

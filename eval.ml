@@ -39,6 +39,7 @@ exception Undefined_variable of variable
 exception Invalid_heap
 exception Arity_error of primop
 exception Division_by_zero
+exception User_assert_failure of pc position
 
 type type_error = {
   expected : type_tag;
@@ -357,6 +358,15 @@ let reduce conf =
       trace = v :: conf.trace;
       pc = pc';
     }
+  | Assert e ->
+    let v = eval conf e in
+    begin match get_bool v with
+      | false -> raise (User_assert_failure (position conf))
+      | true ->
+        { conf with
+          pc = pc';
+        }
+    end
   | Osr {cond; target={func;version; pos=label}; map} ->
     let triggered = List.exists (fun cond -> get_bool (eval conf cond)) cond in
     if not triggered then

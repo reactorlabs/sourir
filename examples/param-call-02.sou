@@ -1,12 +1,19 @@
 # this test should print 42, 0, 0
   array x = [42]
   call y = 'foo (x)
-  print x[0]
-  # prints 0
-  print y[0]
-  # prints 0
+  var x0 = x[0]
+  print x0
+  assert (x0 == 0)
+  drop x0
+  var y0 = y[0]
+  print y0
+  assert (y0 == 0)
+  drop y0
 function foo (var x)
-  print x[0]
-  # prints 42
+  var x0 = x[0]
+  print x0
+  assert (x0 == 42)
   x[0] <- 0
+  assert (x0 == 42)
+  drop x0
   return x

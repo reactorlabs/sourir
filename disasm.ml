@@ -62,6 +62,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Label label                     -> pr buf "%s:" label
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print %a" dump_expr exp
+    | Assert exp                      -> pr buf " assert %a" dump_expr exp
     | Read var                        -> pr buf " read %s" var
     | Osr {cond; target = {func; version; pos=label}; map} ->
       let dump_var buf = function
