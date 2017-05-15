@@ -91,13 +91,16 @@ let rec value_eq (v1 : value) (v2 : value) =
   | Fun_ref f1, Fun_ref f2 -> f1 = f2
   | Fun_ref _, _ | _, Fun_ref _ -> false
   | Array addr1, Array addr2 -> Address.compare addr1 addr2 = 0
+(*
   | Array _, _ | _, Array _ -> .
-    (* The case above cannot happen (`.` means "unreachable case",
-       this is called a refutation clause) because all constructors
-       other than Array have been filtered before.  If you add a new
-       constructor, this line may need to return "false" and you can
-       add a refutation clause of the same shape for the new
+    (* The case above cannot happen. If you add a new constructor,
+       this line may need to return "false" and you can add
+       a refutation clause of the same shape for the new
        constructor. *)
+    (* Remark: bisect-ppx 1.2.0 has a bug that makes refutation clauses
+       (p -> .) break code coverage instrumentation, so this case is
+       commented out. We sent a bugfix upstream (#118). *)
+*)
 
 let get_int (v : value) =
   match v with

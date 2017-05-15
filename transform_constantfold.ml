@@ -65,11 +65,10 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
     let open Approx in
     let merge pc cur incom =
       let merge_approx x mv1 mv2 = match mv1, mv2 with
-        | None, _ | _, None ->
-          failwith "scope error?"
         | Some Unknown, _ | _, Some Unknown -> Some Unknown
         | Some (Value v1), Some (Value v2) ->
           if Eval.value_eq v1 v2 then Some (Value v1) else Some Unknown
+        | None, _ | _, None -> (*BISECT-IGNORE*) failwith "scope error?"
       in
       if VarMap.equal Approx.equal cur incom then None
       else Some (VarMap.merge merge_approx cur incom)

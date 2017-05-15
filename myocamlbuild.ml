@@ -33,7 +33,9 @@ let menhir_update_messages env build =
     Cmd(S[A "mv"; P tmp; P messages]);
   ]
 
-let _ = dispatch begin function
+let _ = dispatch begin fun hook ->
+    Bisect_ppx_plugin.dispatch hook;
+    match hook with
     | Before_options ->
       Options.use_ocamlfind := true;
       Options.use_menhir := true;
@@ -52,4 +54,4 @@ let _ = dispatch begin function
         ~deps:["%.mly"; "%.messages"]
         menhir_update_messages;
     | _ -> ()
-end
+  end
