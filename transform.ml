@@ -61,6 +61,7 @@ let as_opt_program (transform : opt_function) : opt_prog =
       let c, f = transform' func in
       (changed||c, f::functions) in
     let changed, functions = List.fold_left reduce (changed, []) prog.functions in
+    let functions = List.rev functions in
     if changed then Some { functions; main; } else None
 
 let optimistic_as_opt_function (transformation : create_optimistic_version)
