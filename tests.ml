@@ -672,29 +672,50 @@ let do_test_minimize_lifetime = function () ->
   assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
   ()
 
-let do_test_const_prop_driver () =
+let do_test_const_fold_driver () =
   let open Transform in
   let test t e =
     let input, expected = (parse t), (parse e) in
-    let output = { input with main = try_opt const_prop input.main } in
-    if (active_version output.main).instrs <> (active_version expected.main).instrs then begin
-      Printf.printf "input: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
+    let output = try_opt (as_opt_program const_fold) input in
+    if (Disasm.disassemble_s output) <> (Disasm.disassemble_s expected) then begin
+      Printf.printf "\ninput: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
         (Disasm.disassemble_s input)
         (Disasm.disassemble_s output)
         (Disasm.disassemble_s expected);
       assert false
     end in
 
-  (* Simple test case; sanity check *)
+  (* Simple constant propagation test case; sanity check *)
   test {input|
     var x = 1
     print x
   |input} {expect|
     print 1
   |expect};
-  (* Test with branching *)
+  (* Constant propagation with some mutation *)
+  test {input|
+    var w = 0
+    var z = w
+    w <- 1
+    print w
+    print z
+  |input} {expect|
+    var w = 0
+    print 1
+    print 0
+  |expect};
+  (* Folding and propagation *)
   test {input|
     var x = 1
+    var y = (2 + x)
+    var z = (3 + y)
+    print z
+  |input} {expect|
+    print 6
+  |expect};
+  (* Test with branching *)
+  test {input|
+    var x = (1 + 0)
     branch (1==1) l1 l2
    l1:
     drop x
@@ -705,7 +726,7 @@ let do_test_const_prop_driver () =
     goto next
    next:
     var y = 1
-    branch (1==1) l3 l4
+    branch (1!=0) l3 l4
    l3:
     print y
     drop y
@@ -715,7 +736,7 @@ let do_test_const_prop_driver () =
     stop 0
   |input} {expect|
     var x = 1
-    branch (1==1) l1 l2
+    branch true l1 l2
    l1:
     drop x
     goto next
@@ -725,7 +746,7 @@ let do_test_const_prop_driver () =
     goto next
    next:
     var y = 1
-    branch (1==1) l3 l4
+    branch true l3 l4
    l3:
     print 1
     drop y
@@ -738,7 +759,9 @@ let do_test_const_prop_driver () =
   test {input|
     var a = 1
     var b = 2
-    var c = 5
+    var ccc = 5
+    var cc = ccc
+    var c = (cc + 0)
     c <- (a + b)
     var d = true
     branch d l1 l2
@@ -755,14 +778,13 @@ let do_test_const_prop_driver () =
     stop 0
   |input} {expect|
     var c = 5
-    c <- (1 + 2)
     branch true l1 l2
    l1:
-    c <- (c + 1)
+    c <- 4
     print 1
     goto fin
    l2:
-    c <- (c + 2)
+    c <- 5
     print 2
     goto fin
    fin:
@@ -782,8 +804,9 @@ let do_test_const_prop_driver () =
     stop 0
    bla:
     var z = 1
+    var zz = z
     var x = 1
-    var y = z
+    var y = (zz + 0)
     goto loop
   |input} {expect|
     goto bla
@@ -802,7 +825,7 @@ let do_test_const_prop_driver () =
   test {input|
     var x = 1
     var t = true
-    var a = 10
+    var a = (10 + 0)
     var b = 20
     var c = 30
     branch t la lb
@@ -811,7 +834,7 @@ let do_test_const_prop_driver () =
    lb:
     branch t l2 l3
    l1:
-    print a
+    print (a + 0)
     goto fin
    l2:
     print b
@@ -839,9 +862,57 @@ let do_test_const_prop_driver () =
     print 30
     goto fin
    fin:
-    var y = (1 + 1)
-    print y
+    print 2
     stop 0
+  |expect};
+  (* Propagating function references *)
+  test {input|
+    var f = 'foo
+    call x = f ()
+   function foo ()
+    return 42
+  |input} {expect|
+    call x = 'foo ()
+   function foo ()
+    return 42
+  |expect};
+  (* Constant folding within functions *)
+  test {input|
+    var a = 1
+    var b = 2
+    call w = 'f ((a + a))
+    call y = 'f (b)
+    call z = 'g (b)
+   function f (var n)
+    var a = (2 + 3)
+    return a
+   function g (var m)
+    var b = (42 + 0)
+    # Can't remove assignment
+    # Analysis assumes all params might be aliased
+    m <- b
+    return m
+  |input} {expect|
+    call w = 'f (2)
+    call y = 'f (2)
+    call z = 'g (2)
+   function f (var n)
+    return 5
+   function g (var m)
+    # Can't remove assignment
+    # Analysis assumes all params might be aliased
+    m <- 42
+    return 42
+  |expect};
+  (* Constant fold arrays *)
+  test {input|
+    var zero = 0
+    var x = 5
+    array a = [4, x]
+    a[zero] <- (1 + 2)
+  |input} {expect|
+    array a = [4, 5]
+    a[0] <- 3
   |expect};
   ()
 
@@ -1491,7 +1562,7 @@ let suite =
    "liveness">:: do_test_liveness;
    "codemotion">:: do_test_codemotion;
    "min_lifetimes">:: do_test_minimize_lifetime;
-   "constant_prop">:: do_test_const_prop_driver;
+   "constant_fold">:: do_test_const_fold_driver;
    "push_drop">:: do_test_push_drop;
    "pull_drop">:: do_test_pull_drop;
    "move_drop">:: do_test_drop_driver;
