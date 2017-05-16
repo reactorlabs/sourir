@@ -182,14 +182,14 @@ let value_not = prim1 not bool
 let value_and = prim2 (&&) bool bool
 let value_or = prim2 (||) bool bool
 
-let eval_simple prog heap env = function
+let eval_simple heap env = function
   | Var x -> lookup heap env x
   | Constant c -> c
 
-let rec eval prog heap env = function
-  | Simple e -> eval_simple prog heap env e
+let rec eval heap env = function
+  | Simple e -> eval_simple heap env e
   | Op (op, es) ->
-    begin match op, List.map (eval_simple prog heap env) es with
+    begin match op, List.map (eval_simple heap env) es with
     | Eq, [v1; v2] -> Bool (value_eq v1 v2)
     | Neq, [v1; v2] -> Bool (value_neq v1 v2)
     | Lt, [v1; v2] -> Bool (value_lt v1 v2)
@@ -229,7 +229,7 @@ let instruction conf =
   else assert (false)
 
 let reduce conf =
-  let eval conf e = eval conf.program conf.heap conf.env e in
+  let eval conf e = eval conf.heap conf.env e in
   let resolve instrs label = Instr.resolve instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);

@@ -27,9 +27,6 @@ let run_unchecked prog input pred () =
   let final_conf = Eval.run_forever input prog in
   assert (pred final_conf)
 
-let exact vars = Some Scope.(ExactScope (VarSet.of_list vars))
-let at_least vars = Some Scope.(AtLeastScope (VarSet.of_list vars))
-
 let parse str : program =
   try Parse.program_of_string str
   with Parse.Error error as exn ->
