@@ -1,0 +1,18 @@
+  branch true la lb
+la:
+  branch true l1 l2
+lb:
+  branch true l2 l3
+l1:
+  print 10
+  goto fin
+l2:
+  print 20
+  goto fin
+l3:
+  print 30
+  goto fin
+fin:
+  print 2
+  stop 0
+

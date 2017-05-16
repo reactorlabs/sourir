@@ -1,0 +1,5 @@
+  var x = 1
+  var y = (x + 1)
+  var z = y
+  # drop can be hoisted
+  drop x

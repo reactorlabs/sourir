@@ -1,0 +1,20 @@
+  # "annihilated" by hoisting the drop
+  var x = 1
+  branch (1 == 1) la lb
+la:
+  branch (1 == 1) l1 l2
+lb:
+  branch (2 == 2) l2 l3
+l1:
+  print 1
+  goto die_ende
+l2:
+  print 2
+  goto die_ende
+l3:
+  print 3
+  goto die_ende
+die_ende:
+  # can be hoisted all the way to the top
+  drop x
+  stop 0

@@ -7,8 +7,8 @@ let remove_jmp ({instrs} as inp : analysis_input) : instructions option =
   let transform pc =
     if (pc+1) = Array.length instrs then Unchanged else
     match[@warning "-4"] instrs.(pc), instrs.(pc+1) with
-    | Goto l1, Label l2 when l1 = l2 && List.length pred.(pc+1) = 1 ->
-      Remove 2
+    | Goto l1, Label l2 when l1 = l2 && pred.(pc+1) = [pc] ->
+      Remove (if is_checkpoint_label l1 then 1 else 2)
     | Label l, _ when
         pred.(pc) = [pc-1] &&
         succ.(pc-1) = [pc] &&

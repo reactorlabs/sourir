@@ -406,7 +406,7 @@ let test_branch_pruning_exp prog expected =
                           (as_opt_function Transform_assumption.hoist_assumption);
                           cleanup_all;
                           (as_opt_function Transform_assumption.remove_empty_osr);
-                          (as_opt_function Transform_assumption.remove_checkpoint_labels)]) in
+                          Transform_assumption.remove_checkpoint_labels]) in
   let prog2 = { prog with main = prune prog.main } in
   assert_equal (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) expected
 

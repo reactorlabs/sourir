@@ -1,0 +1,8 @@
+  var m = 2
+  call z = 'foo (1, m)
+function foo (var x, var y)
+  var b = y
+  print x
+  print b
+  return 0
+

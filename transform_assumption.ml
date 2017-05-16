@@ -55,13 +55,21 @@ let remove_empty_osr ({instrs} as inp) : instructions option =
  * and checks if the labels are really unused. *)
 (* Removes all checkpoint labels. Can be applied as a final cleanup
  * when there are no osr-in points. *)
-let remove_checkpoint_labels ({instrs} as inp) : instructions option =
+let remove_checkpoint_labels (func : afunction) : afunction option =
+  (* only apply to active version -- see comment above *)
+  let vrs = List.hd func.body in
   let transform pc =
-    match[@warning "-4"] instrs.(pc) with
+    match[@warning "-4"] vrs.instrs.(pc) with
     | Label l when is_checkpoint_label l -> Remove 1
     | _ -> Unchanged
   in
-  change_instrs transform inp
+  let inp = Analysis.as_analysis_input func vrs in
+  match change_instrs transform inp with
+  | None -> None
+  | Some res ->
+    Some {
+      func with
+      body = { vrs with instrs = res } :: List.tl func.body }
 
 (* Inserts the assumption that osr_condition is false at position pc.
  * The approach is to
@@ -96,7 +104,7 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
   (* Finds the highest up osr checkpoint in that basic block where the
    * assumption can be placed. *)
   let rec find_candidate_osr cond_vars pc acc =
-    if pc = 0 then acc else
+    if pc < 0 then acc else
     match[@warning "-4"] instrs.(pc) with
     | Osr _ -> find_candidate_osr cond_vars (pc-1) (Some pc)
     | Label _ ->
@@ -105,8 +113,8 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
       | _ -> acc
       end
     | _ ->
-      assert (preds.(pc) = [pc-1]);
-      if Instr.independent instrs.(pc) osr_cond
+      assert (preds.(pc) = [pc-1] || preds.(pc) = []);
+      if preds.(pc) <> [] && Instr.independent instrs.(pc) osr_cond
       then find_candidate_osr cond_vars (pc-1) acc
       else acc
   in
@@ -186,7 +194,7 @@ let hoist_assumption ({instrs} as inp) : instructions option =
    * unique dominator if the assumption is available on all other
    * predecessors. *)
   let rec find_candidate_osr osr_cond cond_vars pc acc =
-    if pc = 0 then acc else
+    if pc < 0 then acc else
     match[@warning "-4"] instrs.(pc) with
     | Osr _ -> find_candidate_osr osr_cond cond_vars (pc-1) (Some pc)
     | Label _ ->
@@ -203,8 +211,8 @@ let hoist_assumption ({instrs} as inp) : instructions option =
       | _ -> acc
       end
     | _ ->
-      assert (preds.(pc) = [pc-1]);
-      if Instr.independent instrs.(pc) osr_cond
+      assert (preds.(pc) = [pc-1] || preds.(pc) == []);
+      if preds.(pc) <> [] && Instr.independent instrs.(pc) osr_cond
       then find_candidate_osr osr_cond cond_vars (pc-1) acc
       else acc
   in

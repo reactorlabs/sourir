@@ -304,7 +304,7 @@ end
 let checkpoint_prefix = "checkpoint_"
 let is_checkpoint_label l =
   let len = String.length checkpoint_prefix in
-  String.length l > len && (String.sub l 0 11) = checkpoint_prefix
+  String.length l > len && (String.sub l 0 len) = checkpoint_prefix
 let checkpoint_label pc =
   checkpoint_prefix ^ (string_of_int pc)
 
