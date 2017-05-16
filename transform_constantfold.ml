@@ -25,13 +25,24 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
       | Value v1, Value v2 -> Eval.value_eq v1 v2
   end in
 
-  (* constant-fold by evaluating closed expressions *)
-  let fold = object
+  (* constant-fold by evaluating expressions
+     that become closed after approximation-environment substitution *)
+  let fold env = object
     inherit Instr.map as super
 
     method! expression exp =
-      if not (VarSet.is_empty (expr_vars exp)) then exp
-      else Simple (Constant (Eval.eval Eval.Heap.empty Eval.Env.empty exp))
+      let all_propagated = ref true in
+      let propagate x e =
+        match VarMap.find x env with
+        | Approx.Unknown -> all_propagated := false; e
+        | Approx.Value l -> (Edit.replace_var x (Constant l))#expression e
+      in
+      let eval_closed exp =
+        Eval.eval Eval.Heap.empty Eval.Env.empty exp in
+      let exp = VarSet.fold propagate (expr_vars exp) exp in
+      if not !all_propagated
+      then exp
+      else Simple (Constant (eval_closed exp))
   end in
 
   (* for each instruction, what is the set of variables that are constant? *)
@@ -51,16 +62,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
     in
 
     let update pc cur =
-      (* Before we check if the variable declaration `var x = e` is constant,
-       * we have to normalize `e`. We do this by constant propagating the
-       * current variables, and then constant folding the expression. *)
-      let approx env exp =
-        let try_prop x e =
-          match VarMap.find x env with
-          | Approx.Unknown -> e
-          | Approx.Value l -> (Edit.replace_var x (Constant l))#expression e
-        in
-        match fold#expression (VarSet.fold try_prop (expr_vars exp) exp) with
+      let approx env exp = match (fold env)#expression exp with
         | Simple (Constant l) -> Value l
         | Simple (Var _) | Op _ -> Unknown
       in
@@ -103,12 +105,8 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
   in
 
   let transform_instr pc instr =
-    let consts = constants pc in
-    let transform x approx instr =
-      match approx with
-      | Approx.Unknown -> instr
-      | Approx.Value l -> (Edit.replace_var x (Constant l))#instruction instr in
-    VarMap.fold transform consts instr |> fold#instruction in
+    let env = constants pc in
+    (fold env)#instruction instr in
 
   let new_instrs = Array.mapi transform_instr instrs in
   if new_instrs = instrs
