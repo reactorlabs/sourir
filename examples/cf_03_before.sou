@@ -1,8 +1,8 @@
-  const x = 1
-  const t = true
-  const a = (10 + 0)
-  const b = 20
-  const c = 30
+  var x = 1
+  var t = true
+  var a = (10 + 0)
+  var b = 20
+  var c = 30
   branch t la lb
 la:
   branch t l1 l2
@@ -18,7 +18,7 @@ l3:
   print c
   goto fin
 fin:
-  const y = (x + x)
+  var y = (x + x)
   print y
   stop 0
 

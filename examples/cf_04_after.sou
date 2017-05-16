@@ -1,14 +1,14 @@
-  mut b = 2
-  const f1 = 'f
-  mut f2 = 'f
+  var b = 2
+  var f1 = 'f
+  var f2 = 'f
   call w = f1 (2)
   call y = f2 (b)
-  call z = 'g (&b)
+  call z = 'g (b)
   print (y + z)
-function f (const n)
+function f (var n)
   return 5
-function g (mut m)
-  const b = 42
+function g (var m)
+  var b = 42
   m <- b
   return m
 

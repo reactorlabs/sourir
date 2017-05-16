@@ -1,5 +1,5 @@
-  mut e = true
-  mut x
+  var e = true
+  var x
   # pulled from below the branch
   drop x
   branch e l1 l2

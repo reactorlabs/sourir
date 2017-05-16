@@ -6,7 +6,7 @@ end:
   print 1
   stop 0
 bla:
-  mut x = 1
-  mut y = 1
+  var x = 1
+  var y = 1
   goto loop
 

@@ -1,9 +1,9 @@
-  mut m = 2
-  call z = 'foo (1, &m)
-function foo (const x, mut y)
-  const a = x
-  const b = y
-  const c = a
+  var m = 2
+  call z = 'foo (1, m)
+function foo (var x, var y)
+  var a = x
+  var b = y
+  var c = a
   print c
   print b
   return (0 + 0)

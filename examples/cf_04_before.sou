@@ -1,16 +1,16 @@
-  const a = 1
-  mut b = 2
-  const f1 = 'f
-  mut f2 = 'f
+  var a = 1
+  var b = 2
+  var f1 = 'f
+  var f2 = 'f
   call w = f1 ((a + a))
   call y = 'f (b)
-  call z = 'g (&b)
+  call z = 'g (b)
   print (y + z)
-function f (const n)
-  const a = (2 + 3)
+function f (var n)
+  var a = (2 + 3)
   return a
-function g (mut m)
-  const b = (42 + 0)
+function g (var m)
+  var b = (42 + 0)
   m <- b
   return m
 

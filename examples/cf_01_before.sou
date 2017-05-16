@@ -1,10 +1,10 @@
-  const a = 1
-  const b = 2
-  const ccc = 5
-  const cc = ccc
-  mut c = (cc + 0)
+  var a = 1
+  var b = 2
+  var ccc = 5
+  var cc = ccc
+  var c = (cc + 0)
   c <- (a + b)
-  const d = true
+  var d = true
   branch d l1 l2
 l1:
   c <- (c + a)

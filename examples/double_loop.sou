@@ -1,12 +1,12 @@
-{} mut i
+{} var i
  i <- 0
- mut sum = 0
- const limit = 4
+ var sum = 0
+ var limit = 4
 loop1:
   branch (i != limit) loop_body1 continue
 loop_body1:
-   mut i2 = 0
-   mut sum2 = 0
+   var i2 = 0
+   var sum2 = 0
 loop2:
     branch (i2 != limit) loop_body2 continue2
 loop_body2:

@@ -1,5 +1,5 @@
-  mut a = 12
-  mut b = false
+  var a = 12
+  var b = false
   branch b o1 o2
 o1:
   a <- 1
@@ -10,7 +10,7 @@ o2:
   drop b
   goto x
 x:
-  const b = 3
+  var b = 3
   print b
   drop b
   stop 0
