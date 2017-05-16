@@ -130,17 +130,10 @@ let freshen_assign ({instrs} as inp : analysis_input) (def : pc) =
     assert(false)
 open Instr
 
-let replace_var_in_exp var (exp : simple_expression) (in_exp : expression) : expression =
-  let in_simple_exp in_exp =
-    match in_exp with
-    | Constant _ -> in_exp
-    | Var x -> if x = var then exp else in_exp in
 
-  match in_exp with
-  | Simple se -> Simple (in_simple_exp se)
-  | Op (op, exps) ->
-    Op (op, List.map in_simple_exp exps)
-
-let replace_var_in_arg var (exp : simple_expression) (in_arg : argument) : argument =
-  replace_var_in_exp var exp in_arg
-
+let replace_var var simple_exp = object (self)
+  inherit Instr.map as super
+  method! simple_expression e = match e with
+    | Constant _ -> e
+    | Var x -> if x = var then simple_exp else e
+end

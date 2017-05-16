@@ -55,44 +55,6 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
     | Drop _ | Read _ | Label _ | Goto _ | Comment _ -> instr
   in
 
-  (* Replaces the var `x` with var or val `v` in instruction `instr`. *)
-  let replace x v instr =
-    let replace = Edit.replace_var_in_exp x v in
-    let replace_arg = Edit.replace_var_in_arg x v in
-    match instr with
-    | Call (y, f, es) ->
-      assert (x <> y);
-      Call (y, replace f, List.map replace_arg es)
-    | Stop e ->
-      Stop (replace e)
-    | Return e ->
-      Return (replace e)
-    | Decl_var (y, e) ->
-      assert (x <> y);
-      Decl_var (y, replace e)
-    | Decl_array (y, def) ->
-      assert (x <> y);
-      let def = match def with
-        | Length e -> Length (replace e)
-        | List es -> List (List.map replace es)
-      in Decl_array (y, def)
-    | Assign (y, e) ->
-      Assign (y, replace e)
-    | Array_assign (y, i, e) ->
-      Array_assign (y, replace i, replace e)
-    | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
-    | Print e -> Print (replace e)
-    | Assert e -> Assert (replace e)
-    | Osr {cond; target; map} ->
-      (* Replace all expressions in the osr environment. *)
-      let map = List.map (fun (Osr_var (y, e)) -> Osr_var (y, replace e)) map in
-      let cond = List.map replace cond in
-      Osr {cond; target; map}
-    | Drop y
-    | Read y ->
-      instr
-    | Label _ | Goto _ | Comment _ -> instr in
-
   (* for each instruction, what is the set of variables that are constant? *)
   let constants =
     let open Analysis in
@@ -117,7 +79,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
         let try_prop x e =
           match VarMap.find x env with
           | Approx.Unknown -> e
-          | Approx.Value l -> Edit.replace_var_in_exp x (Constant l) e
+          | Approx.Value l -> (Edit.replace_var x (Constant l))#expression e
         in
         match fold (VarSet.fold try_prop (expr_vars exp) exp) with
         | Simple (Constant l) -> Value l
@@ -166,7 +128,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
     let transform x approx instr =
       match approx with
       | Approx.Unknown -> instr
-      | Approx.Value l -> replace x (Constant l) instr in
+      | Approx.Value l -> (Edit.replace_var x (Constant l))#instruction instr in
     VarMap.fold transform consts instr |> fold_instr in
 
   let new_instrs = Array.mapi transform_instr instrs in
