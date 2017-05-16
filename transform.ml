@@ -61,6 +61,7 @@ let as_opt_program (transform : opt_function) : opt_prog =
       let c, f = transform' func in
       (changed||c, f::functions) in
     let changed, functions = List.fold_left reduce (changed, []) prog.functions in
+    let functions = List.rev functions in
     if changed then Some { functions; main; } else None
 
 let optimistic_as_opt_function (transformation : create_optimistic_version)
@@ -88,12 +89,12 @@ let cleanup_all_instrs = combine_transform_instructions [
 let minimize_liverange_instrs = combine_transform_instructions [
     Transform_cleanup.remove_unused_decl;
     Transform_liveness.minimize_liverange; ]
-let const_prop_instrs = combine_transform_instructions [
-    Transform_constantfold.const_prop;
+let const_fold_instrs = combine_transform_instructions [
+    Transform_constantfold.const_fold;
     Transform_cleanup.remove_unused_decl;]
 
 let cleanup_all = as_opt_function cleanup_all_instrs
-let const_prop = as_opt_function const_prop_instrs
+let const_fold = as_opt_function const_fold_instrs
 let minimize_liverange = as_opt_function minimize_liverange_instrs
 let hoist_assignment = as_opt_function Transform_hoist_assign.hoist_assignment
 let hoist_drop = as_opt_function Transform_hoist.Drop.apply
@@ -106,7 +107,7 @@ let branch_prune = optimistic_as_opt_function
 (* Main optimizer loop *)
 exception UnknownOptimization of string
 
-let all_opts = ["prune";"const_prop";"hoist_assign";"hoist_drop";"min_live"]
+let all_opts = ["prune";"const_fold";"hoist_assign";"hoist_drop";"min_live"]
 let assumption_opts = ["prune"]
 
 let optimize (opts : string list) (prog : program) : program option =
@@ -117,8 +118,8 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program hoist_drop
     | "min_live" ->
       as_opt_program minimize_liverange
-    | "const_prop" ->
-      as_opt_program const_prop
+    | "const_fold" ->
+      as_opt_program const_fold
     | "prune" ->
       as_opt_program branch_prune
     | o ->

@@ -5,14 +5,14 @@ let line_number buf pc = Printf.bprintf buf "% 6d |" pc
 
 let pr = Printf.bprintf
 
+let rec dump_comma_separated how buf what =
+  match what with
+  | [] -> ()
+  | [e] -> how buf e
+  | e::t -> pr buf "%a, %a" how e (dump_comma_separated how) t
+
 let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
   let dump_instr buf pc instr =
-    let rec dump_comma_separated how buf what =
-      match what with
-      | [] -> ()
-      | [e] -> how buf e
-      | e::t -> pr buf "%a, %a" how e (dump_comma_separated how) t
-    in
     let simple buf = function
       | Var v             -> pr buf "%s" v
       | Constant c        -> pr buf "%s" (IO.string_of_value c)
@@ -82,7 +82,7 @@ let disassemble buf (prog : Instr.program) =
   (* TODO: disassemble annotations *)
   List.iter (fun {name; formals; body} ->
       let print_formal buf (Param x) = pr buf "var %s" x in
-      let print_formals buf = List.iter (print_formal buf) formals in
+      let print_formals buf = (dump_comma_separated print_formal) buf formals in
       Printf.bprintf buf "function %s (%t)\n" name print_formals;
       List.iter (fun version ->
           pr buf "version %s\n" version.label;

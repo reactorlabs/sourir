@@ -1,14 +1,10 @@
-  var b = 2
-  var f1 = 'f
-  var f2 = 'f
-  call w = f1 (2)
-  call y = f2 (b)
-  call z = 'g (b)
+  call w = 'f (2)
+  call y = 'f (2)
+  call z = 'f (2)
   print (y + z)
 function f (var n)
   return 5
 function g (var m)
-  var b = 42
-  m <- b
-  return m
+  m <- 42
+  return 42
 

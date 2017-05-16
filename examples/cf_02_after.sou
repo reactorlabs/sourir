@@ -7,6 +7,5 @@ end:
   stop 0
 bla:
   var x = 1
-  var y = 1
   goto loop
 
