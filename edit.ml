@@ -110,62 +110,11 @@ let split_edge instrs pc label pc' =
   new_instrs.(pc_map pc) <- new_branch;
   new_instrs, pc_map
 
-let replace_uses_in_instruction old_name new_name instr : instruction =
-  let in_simple_expression (exp:simple_expression) : simple_expression =
-    match exp with
-    | Constant _ -> exp
-    | Var x -> if x = old_name then Var new_name else exp in
-  let in_expression exp : expression =
-    match exp with
-    | Simple se -> Simple (in_simple_expression se)
-    | Op (op, exps) ->
-      Op (op, List.map in_simple_expression exps) in
-  let in_arg e : argument = in_expression e in
-  let in_osr osr : osr_def =
-    match osr with
-    | Osr_var (x, exp) -> Osr_var (x, in_expression exp)
-  in
-  match instr with
-  | Call (x, f, exs) ->
-    assert(x <> old_name);   (* -> invalid scope *)
-    Call (x, in_expression f, List.map in_arg exs)
-  | Stop e ->
-    Stop (in_expression e)
-  | Return e ->
-    Return (in_expression e)
-  | Decl_var (x, exp) ->
-    assert(x <> old_name);   (* -> invalid scope *)
-    Decl_var (x, in_expression exp)
-  | Decl_array (x, def) ->
-    assert (x <> old_name);
-    let def = match def with
-      | Length e -> Length (in_expression e)
-      | List es -> List (List.map in_expression es)
-    in Decl_array (x, def)
-  | Assign (x, exp) ->
-    Assign (x, in_expression exp)
-  | Array_assign (x, index, exp) ->
-    let x' = if x = old_name then new_name else x in
-    Array_assign (x', in_expression index, in_expression exp)
-  | Drop x ->
-    if x = old_name then Drop new_name else instr
-  | Print exp ->
-    Print (in_expression exp)
-  | Assert exp ->
-    Assert (in_expression exp)
-  | Branch (exp, l1, l2) ->
-    Branch (in_expression exp, l1, l2)
-  | Osr {cond; target; map} ->
-    let cond = List.map in_expression cond in
-    let map = List.map in_osr map in
-    Osr {cond; target; map}
-  | Read x ->
-    assert (x <> old_name);
-    instr
-
-  | Label _ | Goto _ | Comment _ ->
-    assert (VarSet.is_empty (used_vars instr));
-    instr
+let replace_uses old_name new_name = object (self)
+  inherit Instr.map as super
+  method! variable_use x =
+    if x = old_name then new_name else x
+end
 
 let freshen_assign ({instrs} as inp : analysis_input) (def : pc) =
   let uses = Analysis.PcSet.elements (Analysis.uses inp def) in
@@ -174,8 +123,9 @@ let freshen_assign ({instrs} as inp : analysis_input) (def : pc) =
   | Assign (x, exp) ->
     let fresh = fresh_var instrs x in
     instrs.(def) <- Decl_var (fresh, exp);
-    List.iter (fun pc ->
-      instrs.(pc) <- replace_uses_in_instruction x fresh instrs.(pc)) uses
+    let fix_use pc =
+      instrs.(pc) <- (replace_uses x fresh)#instruction instrs.(pc) in
+    List.iter fix_use uses;
   | _ ->
     assert(false)
 open Instr
