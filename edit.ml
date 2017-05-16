@@ -89,6 +89,7 @@ let subst_many instrs substs =
     assumption hold.
 *)
 let split_edge instrs pc label pc' =
+  assert (not (is_checkpoint_label label));
   assert (instrs.(pc') = Label label);
   let split_label = fresh_label instrs label in
   let split_edge = [|
