@@ -6,7 +6,7 @@
 %token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD DOUBLE_AMP DOUBLE_PIPE BANG
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
-%token VAR BRANCH GOTO PRINT OSR STOP READ DROP RETURN CALL VERSION FUNCTION
+%token VAR BRANCH GOTO PRINT ASSERT OSR STOP READ DROP RETURN CALL VERSION FUNCTION
 %token ARRAY LENGTH
 %token<string> COMMENT
 %token NEWLINE
@@ -137,8 +137,13 @@ instruction:
   { Drop x }
 | PRINT e=expression
   { Print e }
-| OSR LBRACKET cs=separated_list(COMMA, expression) RBRACKET LPAREN f=label COMMA v=label COMMA l=label RPAREN LBRACKET xs=separated_list(COMMA, osr_def) RBRACKET
-  { Osr {cond=cs; target= {func=f; version=v; label=l}; map=xs} }
+| ASSERT e=expression
+  { Assert e }
+| OSR
+  LBRACKET cond=separated_list(COMMA, expression) RBRACKET
+  LPAREN func=label COMMA version=label COMMA pos=label RPAREN
+  LBRACKET map=separated_list(COMMA, osr_def) RBRACKET
+  { Osr {cond; target= {func; version; pos}; map} }
 | STOP e=expression
   { Stop e }
 | s=COMMENT

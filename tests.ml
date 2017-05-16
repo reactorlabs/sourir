@@ -1304,6 +1304,21 @@ let do_test_deopt () =
   |pr} 42;
   ()
 
+let do_test_assert () =
+  let postcondition = has_var "x" (Value.int 2) in
+  let assert_true = parse {|
+    var x = 2
+    assert (x == 2)
+  |} in
+  let assert_false = parse {|
+    var x = 2
+    assert (x == 3)
+  |} in
+  run assert_true no_input postcondition ();
+  assert_raises
+    (Eval.User_assert_failure {func="main";version="anon";pos=1})
+    (run assert_false no_input postcondition)
+
 let suite =
   "suite">:::
   ["var">:: run test_var no_input
@@ -1315,6 +1330,7 @@ let suite =
      (has_var "x" (Value.int 2));
    "print">:: run test_print no_input
      (trace_is Value.[int 1; int 2]);
+   "assert">:: do_test_assert;
    "jump">:: run test_jump no_input
      (has_var "x" (Value.bool true));
    "jump (oo)" >:: run test_overloading no_input

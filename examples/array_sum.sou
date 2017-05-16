@@ -9,4 +9,5 @@ loop:
   drop val
   branch (i == len) done loop
 done:
+  assert (sum == 55)
   print sum

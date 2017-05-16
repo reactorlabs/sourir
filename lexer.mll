@@ -8,6 +8,7 @@ let keyword_table = [
   "branch", BRANCH;
   "goto", GOTO;
   "print", PRINT;
+  "assert", ASSERT;
   "osr", OSR;
   "stop", STOP;
   "read", READ;

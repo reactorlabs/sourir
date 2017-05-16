@@ -39,6 +39,7 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       Array_assign (y, replace i, replace e)
     | Branch (e, l1, l2) -> Branch (replace e, l1, l2)
     | Print e -> Print (replace e)
+    | Assert e -> Assert (replace e)
     | Osr {cond; target; map} ->
       (* Replace all expressions in the osr environment. *)
       let map = List.map (fun (Osr_var (y, e)) -> Osr_var (y, replace e)) map in
@@ -102,7 +103,7 @@ let const_prop ({formals; instrs} : analysis_input) : instructions option =
       | Assign (x, _) ->
         VarMap.add x Unknown cur
       | ( Branch _ | Label _ | Goto _ | Return _
-        | Print _ | Stop _ | Osr _ | Comment _)
+        | Print _ | Assert _ | Stop _ | Osr _ | Comment _)
         as instr ->
         begin
           assert (VarSet.is_empty (changed_vars instr));

@@ -38,7 +38,11 @@ end
 type pc = Pc.t
 type address = Address.t
 
-type unique_pos = {func : label; version : label; label : label;}
+type 'a position = {
+  func : label;
+  version : label;
+  pos : 'a;
+}
 
 type instructions = instruction array
 and instruction =
@@ -54,8 +58,9 @@ and instruction =
   | Label of label
   | Goto of label
   | Print of expression
+  | Assert of expression
   | Stop of expression
-  | Osr of {cond : expression list; target : unique_pos; map : osr_def list; }
+  | Osr of {cond : expression list; target : label position; map : osr_def list; }
   | Comment of string
 and array_def =
   | Length of expression
@@ -171,6 +176,7 @@ let declared_vars = function
     | Label _
     | Goto _
     | Print _
+    | Assert _
     | Osr _
     | Comment _
     | Stop _) -> VarSet.empty
@@ -188,6 +194,7 @@ let defined_vars = function
     | Goto _
     | Comment _
     | Print _
+    | Assert _
     | Osr _
     | Array_assign _ (* The array has to be defined already. *)
     | Stop _
@@ -207,6 +214,7 @@ let dropped_vars = function
   | Goto _
   | Comment _
   | Print _
+  | Assert _
   | Osr _
   | Stop _ -> VarSet.empty
 
@@ -227,7 +235,9 @@ let used_vars = function
     List.map expr_vars es |> List.fold_left VarSet.union VarSet.empty
   (* the assignee is only required to be in scope, but not used! *)
   | Branch (e, _, _)
-  | Print e -> expr_vars e
+  | Print e
+  | Assert e
+    -> expr_vars e
   | Array_assign (x, i, e) ->
     VarSet.singleton x
     |> VarSet.union (expr_vars i)
@@ -259,6 +269,7 @@ let required_vars = function
     | Goto _
     | Comment _
     | Print _
+    | Assert _
     | Osr _
     ) as e -> used_vars e
 
@@ -276,6 +287,7 @@ let changed_vars = function
   | Goto _
   | Comment _
   | Print _
+  | Assert _
   | Osr _
   | Stop _ -> VarSet.empty
 

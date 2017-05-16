@@ -29,7 +29,7 @@ let successors_at (instrs : instructions) pc : pc list =
     | Decl_var _ | Decl_array _
     | Assign _ | Array_assign _
     | Drop _ | Read _ | Call _ | Label _
-    | Comment _ | Osr _ | Print _ ->
+    | Comment _ | Osr _ | Print _ | Assert _ ->
       let is_last = pc' = Array.length instrs in
       if is_last then [] else [pc']
     (* those are the instructions which manipulate controlflow:  *)
