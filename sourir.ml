@@ -31,6 +31,7 @@ let () =
 
   begin try Scope.check_program program with
   | Scope.ScopeExceptionAt _ as exn ->
+    Printf.eprintf "Scope error in the source program:\n";
     Scope.report_error program exn
   end;
 
@@ -85,6 +86,8 @@ let () =
 
   begin try Scope.check_program program with
   | Scope.ScopeExceptionAt _ as exn ->
+    Printf.eprintf "Scope error in the optimized program (%s):\n"
+      (String.concat ", " !opts);
     Scope.report_error program exn
   end;
 

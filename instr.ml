@@ -129,6 +129,7 @@ type analysis_input = {
   formals : VarSet.t;
   instrs : instructions;
 }
+type analysis = analysis_input -> instructions option
 
 type heap_value =
   | Undefined

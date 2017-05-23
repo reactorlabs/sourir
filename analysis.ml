@@ -292,10 +292,7 @@ let required ({instrs} as inp : analysis_input) : pc -> PcSet.t =
  * Note: they might not be! *)
 let required_vars ({instrs} as inp : analysis_input) : pc -> variable list =
   let res = lifetime_analysis inp in
-  fun pc ->
-    let collect_key (key, value) = key in
-    let live_vars = List.map collect_key (VariableMap.bindings (res pc)) in
-    live_vars
+  fun pc -> List.map fst (VariableMap.bindings (res pc))
 
 (* The same as required_vars_at but extends the required interval to
  * merge points to conform to our scoping rules *)

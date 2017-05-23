@@ -656,12 +656,16 @@ let do_test_minimize_lifetime = function () ->
   let expected = parse "
        var a = 12
        var b = false
-       branch b o1 o2
+       branch b o1 o2_1
       o1:
        a <- 1
        print a
-      o2:
        drop a
+       goto o2
+      o2_1:
+       drop a
+       goto o2
+      o2:
        print b
        drop b
        goto x
