@@ -294,25 +294,27 @@ let infer_broken_scope program exn = function() ->
   let test () = Scope.check_program program in
   assert_raises exn test
 
+let assert_equal_string s1 s2 = assert_equal ~printer:(fun x -> x) s1 s2
+
 let test_parse_disasm_file file = function() ->
   let prog1 = Parse.program_of_file file in
   let disasm1 = Disasm.disassemble_s prog1 in
   let prog2 = Parse.program_of_string disasm1 in
   let disasm2 = Disasm.disassemble_s prog2 in
-  assert_equal disasm1 disasm2
+  assert_equal_string disasm1 disasm2
 
 let test_parse_disasm str = function() ->
   let prog1 = Parse.program_of_string str in
   let disasm1 = Disasm.disassemble_s prog1 in
   let prog2 = Parse.program_of_string disasm1 in
   let disasm2 = Disasm.disassemble_s prog2 in
-  assert_equal disasm1 disasm2
+  assert_equal_string disasm1 disasm2
 
 let test_disasm_parse prog = function() ->
   let disasm1 = Disasm.disassemble_s prog in
   let prog2 = Parse.program_of_string disasm1 in
   let disasm2 = Disasm.disassemble_s prog2 in
-  assert_equal disasm1 disasm2
+  assert_equal_string disasm1 disasm2
 
 let test_branch = parse
 "var x = 9
@@ -405,7 +407,8 @@ let test_branch_pruning_exp prog expected =
                           (as_opt_function Transform_assumption.remove_empty_osr);
                           Transform_assumption.remove_checkpoint_labels]) in
   let prog2 = { prog with main = prune prog.main } in
-  assert_equal (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) expected
+  assert_equal_string expected
+    (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) 
 
 let test_branch_pruning prog deopt =
   let open Eval in
@@ -580,7 +583,7 @@ let do_test_codemotion = function () ->
        goto loop
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
-  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
+  assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
   let t = parse "
        var x = 1
        var y = 2
@@ -600,7 +603,7 @@ let do_test_codemotion = function () ->
       end:
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
-  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
+  assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
   let t = parse "
        var x = 1
        var y = 2
@@ -612,7 +615,7 @@ let do_test_codemotion = function () ->
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   (* cannot hoist because depends on previous loop iteration *)
-  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
+  assert_equal_string (Disasm.disassemble_s t) (Disasm.disassemble_s res);
   let t = parse "
        var x = 1
        var y = 2
@@ -627,7 +630,7 @@ let do_test_codemotion = function () ->
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   (* cannot hoist because if (x==5) then y is modified *)
-  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s t);
+  assert_equal_string (Disasm.disassemble_s t) (Disasm.disassemble_s res);
   ()
 
 let do_test_minimize_lifetime = function () ->
@@ -669,7 +672,7 @@ let do_test_minimize_lifetime = function () ->
        stop 0
   " in
   let res = { t with main = try_opt minimize_liverange t.main } in
-  assert_equal (Disasm.disassemble_s res) (Disasm.disassemble_s expected);
+  assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
   ()
 
 let do_test_const_fold_driver () =
