@@ -1,0 +1,689 @@
+# Object layout of a vector:
+#
+# +---------+
+# | type id |   1110 for vectors
+# +---------+
+# | map ref |   Reference to map (linked list) for fields/methods
+# +---------+
+#
+# A map is implemented as a linked list.
+# Each entry is a 3-array [key, value, next]:
+#   - `key` is an integer identifier
+#   - `value` is a function ref or field value
+#   - `next` is a reference to the next entry
+#
+# The map has the following entries:
+#   key    name     comment
+#   ----   ----     -------
+#   1111   size     physical size of allocated array
+#   1113   length   length of array being used
+#   1115   array    reference to storage array
+#   1112   set      function reference to set(v, i, e)
+#   1114   get      function reference to get(v, i)
+#
+# Later, we will extend a vector with a `map` method:
+#   1116   map      function reference to map(v, f)
+#
+# NOTE: Object methods will check for nil, but nothing more.
+# Vector methods will check for nil and also the type id.
+#
+# Methods **do not** check for the correct "shape," i.e. that
+# a variable or a field is an int, an array, etc.
+
+    # Run the boring tests.
+    call _ = 'tests ()
+    drop _
+
+    # Initialize a vector, i.e. v = new Vector
+    call v = 'vec_init ()
+
+    # Try to get non-existent elements (including out-of-bounds elements).
+    # v.get(0) returns 0
+    array args_x1 = [0]
+    call x1 = 'obj_send (v, 1114, args_x1)
+    assert (x1 == 0)
+
+    # v.get(1) returns 0
+    array args_x2 = [1]
+    call x2 = 'obj_send (v, 1114, args_x2)
+    assert (x2 == 0)
+
+    # v.get(-1) returns 0
+    array args_x3 = [-1]
+    call x3 = 'obj_send (v, 1114, args_x3)
+    assert (x3 == 0)
+
+    # Set some elements and force the array to grow. Check new size and length.
+    # v.set(0, 10)
+    array args_y1 = [0, 10]
+    call y1 = 'obj_send (v, 1112, args_y1)
+    call size_y1 = 'obj_find (v, 1111)
+    call len_y1 = 'obj_find (v, 1113)
+    assert (y1 == v)
+    assert (size_y1 == 1)
+    assert (len_y1 == 1)
+
+    # v.set(1, 11)
+    array args_y2 = [1, 11]
+    call y2 = 'obj_send (v, 1112, args_y2)
+    call size_y2 = 'obj_find (v, 1111)
+    call len_y2 = 'obj_find (v, 1113)
+    assert (y2 == v)
+    assert (size_y2 == 2)
+    assert (len_y2 == 2)
+
+    # v.set(2, 12)
+    array args_y3 = [2, 12]
+    call y3 = 'obj_send (v, 1112, args_y3)
+    call size_y3 = 'obj_find (v, 1111)
+    call len_y3 = 'obj_find (v, 1113)
+    assert (y3 == v)
+    assert (size_y3 == 4)
+    assert (len_y3 == 3)
+
+    # Now read those elements back out.
+    # v.get(0) returns 10
+    array args_z1 = [0]
+    call z1 = 'obj_send (v, 1114, args_z1)
+    assert (z1 == 10)
+
+    # v.get(1) returns 11
+    array args_z2 = [1]
+    call z2 = 'obj_send (v, 1114, args_z2)
+    assert (z2 == 11)
+
+    # v.get(2) returns 12
+    array args_z3 = [2]
+    call z3 = 'obj_send (v, 1114, args_z3)
+    assert (z3 == 12)
+
+    # Set an element beyond the size of the array.
+    # v.set(5, 15)
+    array args_w1 = [5, 15]
+    call w1 = 'obj_send (v, 1112, args_w1)
+    call size_w1 = 'obj_find (v, 1111)
+    call len_w1 = 'obj_find (v, 1113)
+    assert (w1 == v)
+    assert (size_w1 == 8)
+    assert (len_w1 == 6)
+
+    # Check that other elements were zeroed.
+    # v.get(3) returns 0
+    array args_w2 = [3]
+    call w2 = 'obj_send (v, 1114, args_w2)
+    assert (w2 == 0)
+
+    # v.get(4)
+    array args_w3 = [4]
+    call w3 = 'obj_send (v, 1114, args_w3)
+    assert (w3 == 0)
+
+    # Set one of the middle elements and ensure size/length don't change.
+    # v.set(3, 13)
+    # v.get(3)
+    array args_w4a = [3, 13]
+    array args_w4b = [3]
+    call w4a = 'obj_send (v, 1112, args_w4a)
+    call w4b = 'obj_send (v, 1114, args_w4b)
+    call size_w4 = 'obj_find (v, 1111)
+    call len_w4 = 'obj_find (v, 1113)
+    assert (w4a == v)
+    assert (w4b == 13)
+    assert (size_w4 == 8)
+    assert (len_w4 == 6)
+
+    # Extend the vector with a map function.
+    call w5 = 'obj_add  (v, 1116, 'vec_map)
+    call w5_map = 'obj_find (v, 1116)
+    assert (w5_map == 'vec_map)
+
+    # Check that a brand new vector does not have the map function.
+    call w6 = 'vec_init ()
+    call w6_map = 'obj_find (w6, 1116)
+    assert (w6_map == nil)
+
+    # Try mapping functions over the vector.
+    array args_w7a = ['print_elt]
+
+    # Prints all elements of the vector.
+    call w7a = 'obj_send (v, 1116, args_w7a)
+
+    array args_w7b = ['id]
+    call w7b = 'obj_send (v, 1116, args_w7b)
+    # Manually check array elements.
+    call arr_w7b = 'obj_find (v, 1115)
+    var arr_w7b_0 = arr_w7b[0]
+    assert (arr_w7b_0 == 10)
+    var arr_w7b_1 = arr_w7b[1]
+    assert (arr_w7b_1 == 11)
+    var arr_w7b_2 = arr_w7b[2]
+    assert (arr_w7b_2 == 12)
+    var arr_w7b_3 = arr_w7b[3]
+    assert (arr_w7b_3 == 13)
+    var arr_w7b_4 = arr_w7b[4]
+    assert (arr_w7b_4 == 0)
+    var arr_w7b_5 = arr_w7b[5]
+    assert (arr_w7b_5 == 15)
+
+    # Prints all elements of the vector.
+    call w7b_print = 'obj_send (v, 1116, args_w7a)
+
+    array args_w7c = ['sq]
+    call w7c = 'obj_send (v, 1116, args_w7c)
+    # Manually check array elements.
+    call arr_w7c = 'obj_find (v, 1115)
+    var arr_w7c_0 = arr_w7c[0]
+    assert (arr_w7c_0 == 100)
+    var arr_w7c_1 = arr_w7c[1]
+    assert (arr_w7c_1 == 121)
+    var arr_w7c_2 = arr_w7c[2]
+    assert (arr_w7c_2 == 144)
+    var arr_w7c_3 = arr_w7c[3]
+    assert (arr_w7c_3 == 169)
+    var arr_w7c_4 = arr_w7c[4]
+    assert (arr_w7c_4 == 0)
+    var arr_w7c_5 = arr_w7c[5]
+    assert (arr_w7c_5 == 225)
+
+    # Prints all elements of the vector.
+    call w7c_print = 'obj_send (v, 1116, args_w7a)
+
+    stop 0
+
+function tests ()
+# This function tests all the helpers and most of the error conditions.
+# Many of these tests are boring.
+# They are placed in a function so the tests can be easily disabled.
+
+    # Tests for _args_check
+    var a1 = nil
+    call _1 = '_args_check (a1, 1)
+    assert (_1 == false)
+
+    array a2[0]
+    call _2 = '_args_check (a2, 0)
+    assert (_2 == true)
+
+    array a3[1]
+    call _3 = '_args_check (a3, 0)
+    assert (_3 == true)
+    call _4 = '_args_check (a3, 1)
+    assert (_4 == false)
+    call _5 = '_args_check (a3, 2)
+    assert (_5 == false)
+
+    array a4 = []
+    call _6 = '_args_check (a4, 0)
+    assert (_6 == true)
+    call _7 = '_args_check (a4, 1)
+    assert (_7 == false)
+    call _8 = '_args_check (a4, 2)
+    assert (_8 == false)
+
+    array a5 = [nil]
+    call _9 = '_args_check (a5, 1)
+    assert (_9 == false)
+
+    array a6 = [1, 2, 3]
+    call _10 = '_args_check (a6, 1)
+    assert (_10 == true)
+    call _11 = '_args_check (a6, 3)
+    assert (_11 == true)
+    call _12 = '_args_check (a6, 4)
+    assert (_12 == false)
+
+    array a7 = [1, nil, 3]
+    call _13 = '_args_check (a7, 1)
+    assert (_13 == true)
+    call _14 = '_args_check (a7, 3)
+    assert (_14 == false)
+    call _15 = '_args_check (a7, 4)
+    assert (_15 == false)
+
+    array a8 = [1, 2, 3, nil, nil]
+    call _16 = '_args_check (a8, 1)
+    assert (_16 == true)
+    call _17 = '_args_check (a8, 3)
+    assert (_17 == true)
+    call _18 = '_args_check (a8, 4)
+    assert (_18 == false)
+
+    # Tests for vec_init (includes obj_add) and obj_check
+    call v = 'vec_init ()
+    call _19 = 'obj_check (v, 1110)
+    assert (_19 == true)
+    call _20 = 'obj_check (v, 1111)
+    assert (_20 == false)
+
+    # Tests for obj_find
+    call _21 = 'obj_find (v, 1110)
+    assert (_21 == nil)
+    call _22 = 'obj_find (v, 1111)
+    assert (_22 == 1)
+    call _23 = 'obj_find (v, 1112)
+    assert (_23 == 'vec_set)
+    call _24 = 'obj_find (v, 1113)
+    assert (_24 == 0)
+    call _25 = 'obj_find (v, 1114)
+    assert (_25 == 'vec_get)
+    call _26 = 'obj_find (v, 1115)
+    var _26len = length (_26)
+    assert (_26len == 1)
+    call _27 = 'obj_find (v, 1116)
+    assert (_27 == nil)
+
+    # Tests for obj_send (includes obj_find)
+    var nil_obj = nil
+    var nil_args = nil
+    array args_empty = []
+    array args_nil[5]
+    array args_extra = [1, 2, 3, 4, 5]
+
+    call _28 = 'obj_send (nil_obj, 1112, nil_args)
+    assert (_28 == nil)
+    call _29 = 'obj_send (nil_obj, 1114, nil_args)
+    assert (_29 == nil)
+
+    call _30 = 'obj_send (v, 1112, nil_args)
+    assert (_30 == nil)
+    call _31 = 'obj_send (v, 1114, nil_args)
+    assert (_31 == nil)
+
+    call _32 = 'obj_send (v, 1112, args_empty)
+    assert (_32 == nil)
+    call _33 = 'obj_send (v, 1114, args_empty)
+    assert (_33 == nil)
+
+    call _34 = 'obj_send (v, 1112, args_nil)
+    assert (_34 == nil)
+    call _35 = 'obj_send (v, 1114, args_nil)
+    assert (_35 == nil)
+
+    call _36 = 'obj_send (v, 1112, args_extra)
+    assert (_36 == v)
+    call _37 = 'obj_send (v, 1114, args_extra)
+    assert (_37 == 2)
+
+    return 0
+
+function id (var x)
+    return x
+
+function print_elt (var x)
+    print x
+    return x
+
+function sq (var x)
+    var r = (x * x)
+    return r
+
+function obj_check (var obj, var tpe)
+# Takes an object and a type id.
+# Checks that the object is not nil and has the expected type.
+
+    # Declare variables.
+    var candidate
+    # Check if `obj` is nil.
+    branch (obj == nil) $error_1 $l1
+  $l1:
+    # Check that `obj` has the right type id.
+    candidate <- obj[0]
+    branch (candidate != tpe) $error_2 $done
+  $done:
+    return true
+  $error_1:
+    goto error
+  $error_2:
+    goto error
+  error:
+    return false
+
+function obj_add (var obj, var key, var val)
+# Takes an object, key, and value.
+# Adds the entry [`key`, `value`] to the object's map.
+# Existing entries are overwritten.
+# Returns nil if the object is nil.
+
+    # Check if `obj` is nil.
+    branch (obj == nil) $error $l1
+  $l1:
+    # Look up the entry in the object map.
+    call entry = '_obj_find_helper (obj, key)
+    branch (entry == nil) $notfound $done
+  $notfound:
+    # `key` not found, so prepend a new entry to the linked list.
+    var next = obj[1]
+    array new_entry = [key, val, next]
+    obj[1] <- new_entry
+    return obj
+  $done:
+    # `key` already exists in map, so overwrite its `val`.
+    entry[1] <- val
+    return obj
+  $error:
+    return nil
+
+function obj_find (var obj, var key)
+# Takes an object and a key.
+# Looks up the key in the object map and returns the associated value.
+# Returns nil if the object is nil or if the key is not found.
+
+    # Check if `obj` is nil.
+    branch (obj == nil) $error_1 $l1
+  $l1:
+    # Look up the entry in the object map.
+    call entry = '_obj_find_helper (obj, key)
+    branch (entry == nil) $error_2 $done
+  $done:
+    # `key` was found in the map, so return its entry value.
+    return entry[1]
+  $error_1:
+    goto error
+  $error_2:
+    drop entry
+    goto error
+  error:
+    return nil
+
+function _obj_find_helper (var obj, var key)
+# Takes an object and a key.
+# Looks up the key in the object map and returns the key's entry.
+# Returns nil if the object is nil or if the key is not found.
+#
+# This is an internal helper, only used by `obj_add` and `obj_find`.
+
+    # Declare variables.
+    var map
+    # Check if `obj` is nil.
+    branch (obj == nil) $error_1 $l1
+  $l1:
+    map <- obj[1]
+    goto begin
+  begin:
+    # If the map entry is empty, we're done.
+    branch (map == nil) $error_2 $loop
+  $loop:
+    # Check if the current entry is the right one.
+    var candidate = map[0]
+    branch (candidate == key) $done $next
+  $next:
+    # We did not find the right entry, so try the next one.
+    # Get the next entry
+    drop candidate
+    map <- map[2]
+    goto begin
+  $done:
+    # We found the right entry, so return its value.
+    return map
+  $error_1:
+    goto error
+  $error_2:
+    goto error
+  error:
+    return nil
+
+function obj_send (var obj, var key, var args)
+# Takes an object, key, and arguments array.
+# Looks up the key in the obejct map to get a method.
+# Invokes the method with the arguments array and return the result.
+# Returns nil if the object is nil or if the method is not found.
+
+    # Check if `obj` is nil.
+    branch (obj == nil) $error_1 $l1
+  $l1:
+    # Look up the method in the object map.
+    # Check if the method is nil.
+    call m = 'obj_find (obj, key)
+    branch (m == nil) $error_2 $done
+  $done:
+    # Method is not nil, so call it with `args`.
+    # Return the result.
+    call r = m (obj, args)
+    return r
+  $error_1:
+    goto error
+  $error_2:
+    drop m
+    goto error
+  error:
+    return nil
+
+function _args_check (var args, var len)
+# Takes an arguments array and a length.
+# Checks that `args` is not nil, has correct length, and has non-nil elements.
+# `args` can be longer than we need; we just ignore the extra elements.
+
+    # Declare variables.
+    var x
+    var arrlen
+    var i = 0
+    # Check if `args` is nil.
+    branch (args == nil) $error_1 $checklen
+  $checklen:
+    # Check that `args` is long enough.
+    arrlen <- length (args)
+    branch (arrlen < len) $error_2 $loop_1a
+  $loop_1a:
+    goto loop_1
+  $loop_1b:
+    goto loop_1
+  loop_1:
+    # Now iterate over every element in `args`.
+    branch (i < len) $next $done
+  $next:
+    # Check that each element is not nil.
+    x <- args[i]
+    i <- (i + 1)
+    branch (x == nil) $error_3 $loop_1b
+  $done:
+    return true
+  $error_1:
+    goto error
+  $error_2:
+    goto error
+  $error_3:
+    goto error
+  error:
+    return false
+
+function vec_init ()
+# Vector constructor/initializer.
+# Creates an object with vector id (1110), adding the fields and methods.
+
+    # Initialize a vector (type id = 1110).
+    array vec_obj = [1110, nil]
+
+    # size (id = 1111) initialized to 1.
+    call _1111 = 'obj_add (vec_obj, 1111, 1)
+    # length (id = 1113) initialized to 0.
+    call _1113 = 'obj_add (vec_obj, 1113, 0)
+    # arr (id = 1115) is the internal storage array.
+    array arr[1]
+    call _1115 = 'obj_add (vec_obj, 1115, arr)
+
+    # Add the `vec_set` and `vec_get` methods.
+    call _1112 = 'obj_add (vec_obj, 1112, 'vec_set)
+    call _1114 = 'obj_add (vec_obj, 1114, 'vec_get)
+
+    # Return the vector object.
+    return vec_obj
+
+function vec_set(var obj, var args)
+# Set an element of the vector, i.e. obj[index] = value
+# `args` is an array of two elements:
+#   1. index into the array
+#   2. value to set
+# The internal array will grow as required.
+# Returns the (updated) vector object.
+# Returns nil if there are any errors.
+
+    # Check that `obj` is a valid vector.
+    call vec_ok = 'obj_check (obj, 1110)
+    branch vec_ok $l1 $error_1
+  $l1:
+    # Check that `args` is valid.
+    call args_ok = '_args_check (args, 2)
+    branch args_ok $l2 $error_2
+  $l2:
+    # Extract the arguments.
+    var idx = args[0]
+    var val = args[1]
+    # Check that the index is non-negative.
+    branch (idx < 0) $error_3 $l3
+  $l3:
+    # Check that the internal array large enough.
+    call size = 'obj_find (obj, 1111)
+    call len = 'obj_find (obj, 1113)
+    call arr = 'obj_find (obj, 1115)
+    branch (idx >= size) $loop_4a $loop_8a
+  $loop_4a:
+    goto loop_4
+  $loop_4b:
+    goto loop_4
+  loop_4:
+    # Internal array is too small, so double its size until it's large enough.
+    size <- (size * 2)
+    branch (idx >= size) $loop_4b $l5
+  $l5:
+    # Update the vector's size.
+    call _size = 'obj_add (obj, 1111, size)
+    drop _size
+    # Allocate a new array of the updated size.
+    array newarr[size]
+    var i = 0
+    goto loop_6
+  $loop_6a:
+    goto loop_6
+  loop_6:
+    # Loop over the old array, copying elements over.
+    newarr[i] <- arr[i]
+    i <- (i + 1)
+    branch (i < len) $loop_6a $l7
+  $l7:
+    # Update the vector with the new array.
+    call _arr = 'obj_add (obj, 1115, newarr)
+    drop _arr
+    arr <- newarr
+    drop newarr
+    drop i
+    goto loop_8
+  $loop_8a:
+    goto loop_8
+  loop_8:
+    branch (idx >= len) $next_8 $l9
+  $next_8:
+    # Zero out unused elements in the array, up to the element we're setting.
+    # Meanwhile, update the length of the array.
+    arr[len] <- 0
+    len <- (len + 1)
+    goto loop_8
+  $l9:
+    # Update the vector with the new length.
+    call _len = 'obj_add (obj, 1113, len)
+    # Set the element.
+    arr[idx] <- val
+    return obj
+  $error_1:
+    goto error
+  $error_2:
+    drop args_ok
+    goto error
+  $error_3:
+    drop args_ok
+    drop val
+    drop idx
+    goto error
+  error:
+    return nil
+
+function vec_get(var obj, var args)
+# Get an element from the vector, i.e. obj[index]
+# `args` is an array of one element:
+#   1. index
+# Returns the vector element.
+# Returns 0 if the index is out of bounds.
+# Returns nil if there are any other errors.
+
+    # Check that `obj` is a valid vector.
+    call vec_ok = 'obj_check (obj, 1110)
+    branch vec_ok $l1 $error_1
+  $l1:
+    # Check that `args` is valid.
+    call args_ok = '_args_check (args, 1)
+    branch args_ok $l2 $error_2
+  $l2:
+    # Extract the argument.
+    var idx = args[0]
+    # Check that the index is non-negative.
+    branch (idx < 0) $outbounds_1 $l3
+  $l3:
+    # Check that the index is within the array length.
+    call len = 'obj_find (obj, 1113)
+    branch (idx >= len) $outbounds_2 $l4
+  $l4:
+    # Get the internal array and index into it.
+    call arr = 'obj_find (obj, 1115)
+    var res = arr[idx]
+    return res
+  $outbounds_1:
+    goto outbounds
+  $outbounds_2:
+    drop len
+    goto outbounds
+  outbounds:
+    return 0
+  $error_1:
+    goto error
+  $error_2:
+    drop args_ok
+    goto error
+  error:
+    return nil
+
+function vec_map(var obj, var args)
+# Maps over the vector `obj`, applying function `f` to every element.
+# The vector is updated in place.
+# `args` is an array of one element:
+#   1. f
+# Returns the updated vector.
+# Returns nil if there are any errors.
+
+    # Check that `obj` is a valid vector.
+    call vec_ok = 'obj_check (obj, 1110)
+    branch vec_ok $l1 $error_1
+  $l1:
+    # Check that `args` is valid.
+    call args_ok = '_args_check (args, 1)
+    branch args_ok $l2 $error_2
+  $l2:
+    # Extract the argument.
+    var f = args[0]
+    # Get the internal array and its length.
+    call len = 'obj_find (obj, 1113)
+    call arr = 'obj_find (obj, 1115)
+    var i = 0
+    var x
+    goto loop
+  loop:
+    # Loop condition.
+    branch (i < len) $next $done
+  $next:
+    # Extract the element from the array.
+    x <- arr[i]
+    # Apply the function to it.
+    call res = f (x)
+    # Update the array with the result.
+    arr[i] <- res
+    # Prepare for the next iteration.
+    i <- (i + 1)
+    drop res
+    goto loop
+  $done:
+    return obj
+  $error_1:
+    goto error
+  $error_2:
+    drop args_ok
+    goto error
+  error:
+    return nil
