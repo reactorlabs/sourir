@@ -1,4 +1,5 @@
 open Instr
+open Types
 open Transform_utils
 
 (* Inserts checkpoints at all program points
@@ -47,13 +48,13 @@ let insert_checkpoints (func:afunction) =
              instrs = (|?) baseline instrs;
              annotations = None } ] }
 
-let remove_empty_osr ({instrs} as inp) : instructions option =
+let remove_empty_osr : transform_instructions = fun input ->
   let transform pc =
-    match[@warning "-4"] instrs.(pc) with
+    match[@warning "-4"] input.instrs.(pc) with
     | Osr {cond} when cond = [] -> Remove 1
     | _ -> Unchanged
   in
-  change_instrs transform inp
+  change_instrs transform input
 
 (* TODO: replace this by a pass which does a global program transformation
  * and checks if the labels are really unused. *)
@@ -179,7 +180,7 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
  * 2. On the other predecessor (ie. the branch instruction) the assumption
  *    is available because `print x` is independent of x==1.
  *)
-let hoist_assumption ({instrs} as inp) : instructions option =
+let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
   let instrs = Array.copy instrs in
   let available = Analysis.valid_assumptions inp in
   let preds = Analysis.predecessors instrs in

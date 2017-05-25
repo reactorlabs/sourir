@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 let remove_fallthroughs_to_label instrs =
   let rec loop pc acc =
@@ -30,7 +31,7 @@ type conditions = {
 
 let push_instr cond instrs pc : push_status =
   let { is_eliminating; is_annihilating; is_blocking } = cond in
-  assert (pc >0);
+  assert (pc > 0);
   let pc_above = pc - 1 in
   let to_move = instrs.(pc) in
   let instr = instrs.(pc_above) in
@@ -122,7 +123,8 @@ let pull_instr cond instrs pc =
   let rec work_push instrs progress to_push to_pull =
     match to_push with
     | pc :: to_push ->
-      begin match push_instr cond instrs pc with
+      if pc = 0 then work_push instrs progress to_push to_pull
+      else begin match push_instr cond instrs pc with
         | Blocked ->
           work_push instrs progress to_push to_pull
         | Stop (instrs, pc_map) ->
@@ -222,7 +224,7 @@ module Drop = struct
     in
     pull is_target (conditions_var var) instrs
 
-  let apply ({formals; instrs} : analysis_input) : instructions option =
+  let apply : transform_instructions = fun {formals; instrs} ->
     let instrs = remove_fallthroughs_to_label instrs in
     let collect vars instr =
       match[@warning "-4"] instr with

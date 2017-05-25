@@ -1,10 +1,5 @@
 open Instr
-
-(* types of transformations *)
-type transform_instructions = analysis_input -> instructions option
-type create_optimistic_version = afunction -> version option
-type opt_function = afunction -> afunction option
-type opt_prog = program -> program option
+open Types
 
 (* combining transformations *)
 let combine_transform_instructions ts ({formals; instrs} as inp : analysis_input) : instructions option =

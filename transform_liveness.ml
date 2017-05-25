@@ -1,34 +1,47 @@
 open Instr
+open Types
 open Transform_utils
 
-let minimize_liverange ({formals; instrs} : analysis_input) : instructions option =
-  let remove_drops instrs =
-    Array.of_list (
-      List.filter (fun x -> match[@warning "-4"] x with
-          | Drop _ -> false | _ -> true)
-        (Array.to_list instrs))
+let (insert_returns : transform_instructions) = fun {formals; instrs} ->
+  let stops = Analysis.stops instrs in
+  let add_return pc =
+    if not (List.mem pc stops) then Unchanged
+    else match[@warning "-4"] instrs.(pc) with
+    | Return _ | Stop _ -> Unchanged
+    | _ -> InsertAfter [Return (Simple (Constant Nil))]
+  in Transform_utils.change_instrs add_return {formals; instrs}
+
+let transform_with_prepass ~prepass transform = fun input ->
+  let input = match prepass input with
+    | None -> input
+    | Some instrs -> {input with instrs} in
+  transform input
+
+let add_drops : transform_instructions =
+  let add_drops ({formals; instrs} as input) =
+    (* assume [insert_returns] has run *)
+    let scope = Scope.infer input in
+    let stops = Analysis.stops instrs in
+    let add_drops pc =
+      if not (List.mem pc stops) then Unchanged
+      else match[@warning "-4"] instrs.(pc) with
+        | (Return _ | Stop _) as instr ->
+          begin match scope.(pc) with
+            | DeadScope -> Unchanged
+            | Scope scope ->
+              let to_keep = required_vars instr in
+              let to_drop = VarSet.diff scope to_keep in
+              let drops =
+                to_drop
+                |> VarSet.elements
+                |> List.map (fun x -> Drop x) in
+              Insert drops
+          end
+        | _ -> assert false
+    in
+    Transform_utils.change_instrs add_drops input
   in
-  let instrs = remove_drops instrs in
-  let inp = {formals; instrs} in
-  let predecessors = Analysis.predecessors instrs in
-  let required = Analysis.required_vars inp in
-  let aliased = Analysis.aliased inp in
-  let keep_alive pc = VarSet.union (VarSet.of_list (required pc)) (aliased pc) in
-  let keep_alive = Analysis.saturate keep_alive inp in
-  let keep_alive_before pc =
-    (* It might seem like we need to take the union over all predecessors. But
-     * since required_merged_vars_at extends lifetimes to mergepoints this is
-     * equivalent to just look at the first predecessor *)
-    match predecessors.(pc) with | [] -> VarSet.empty | p :: _ -> keep_alive p
-  in
-  let transform pc =
-    let keep_alive = keep_alive pc in
-    assert (pc < Array.length instrs);
-    let keep_alive_before = keep_alive_before pc in
-    let to_drop = VarSet.diff keep_alive_before keep_alive in
-    let drops = List.map (fun x -> Drop x) (VarSet.elements to_drop) in
-    if drops = []
-    then Unchanged
-    else Insert drops
-  in
-  change_instrs transform inp
+  transform_with_prepass ~prepass:insert_returns add_drops
+
+let minimize_liverange : transform_instructions =
+  transform_with_prepass ~prepass:add_drops Transform_hoist.Drop.apply

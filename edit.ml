@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 (* TODO unify those 3 functions *)
 let fresh_var instrs var =

@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 (* Hoisting assignments "x <- exp" as far up the callgraph as possible.
  *
@@ -13,7 +14,7 @@ open Instr
  * We only look at our own use-def chain. Thus the transformation renames the
  * variable to avoid overriding unrelated uses of the same name.
  *)
-let hoist_assignment ({formals; instrs} as inp : analysis_input) : instructions option =
+let hoist_assignment : transform_instructions = fun ({formals; instrs} as inp) ->
   let open Analysis in
   let reaching = reaching inp in
   let uses = uses inp in

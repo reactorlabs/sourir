@@ -1,7 +1,8 @@
 open Instr
+open Types
 open Transform_utils
 
-let remove_jmp ({instrs} as inp : analysis_input) : instructions option =
+let remove_jmp : transform_instructions = fun ({instrs; _} as inp) ->
   let pred = Analysis.predecessors instrs in
   let succ = Analysis.successors instrs in
   let transform pc =
@@ -24,7 +25,7 @@ let remove_jmp ({instrs} as inp : analysis_input) : instructions option =
   in
   change_instrs transform inp
 
-let remove_unreachable_code ({instrs} as inp : analysis_input) : instructions option =
+let remove_unreachable_code : transform_instructions = fun ({instrs} as inp) ->
   let reachable =
     let merge _ _ _ = None in
     let update _ _ = () in
@@ -37,7 +38,7 @@ let remove_unreachable_code ({instrs} as inp : analysis_input) : instructions op
   in
   change_instrs transform inp
 
-let remove_unused_decl ({instrs} as inp : analysis_input) : instructions option =
+let remove_unused_decl : transform_instructions = fun ({instrs} as inp) ->
   let open Analysis in
   let required = Analysis.required inp in
   let uses = Analysis.uses inp in

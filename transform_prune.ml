@@ -1,4 +1,5 @@
 open Instr
+open Types
 open Transform_utils
 
 let insert_branch_pruning_assumption (func : afunction) : version option =
@@ -16,14 +17,14 @@ let insert_branch_pruning_assumption (func : afunction) : version option =
   | Some (pc, branch_cond) ->
     Transform_assumption.insert_assumption func branch_cond pc
 
-let branch_prune ({instrs} as inp) : instructions option =
-  let assumptions = Analysis.valid_assumptions inp in
+let branch_prune : transform_instructions = fun input ->
+  let assumptions = Analysis.valid_assumptions input in
   let transform pc =
-    match[@warning "-4"] instrs.(pc) with
+    match[@warning "-4"] input.instrs.(pc) with
     | Branch (e, l1, l2) ->
       if Analysis.ExpressionSet.mem e (assumptions pc)
       then Replace (Goto l2)
       else Unchanged
     | _ -> Unchanged
   in
-  change_instrs transform inp
+  change_instrs transform input

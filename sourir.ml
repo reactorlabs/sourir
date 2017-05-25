@@ -30,63 +30,9 @@ let () =
   opts := if !opts = ["all"] then Transform.all_opts else !opts;
 
   begin try Scope.check_program program with
-  | Scope.ScopeExceptionAt (f, v, e) as exn ->
-    begin
-      Printf.eprintf "Error in function %s version %s " f v;
-      begin match e with
-      | Scope.UndeclaredVariable (xs, pc) ->
-        let l = pc+1 in
-        begin match VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "line %d: Variable %s is not declared.\n%!"
-                     l x
-          | xs -> Printf.eprintf
-                    "line %d: Variables {%s} are not declared.\n%!"
-                    l (String.concat ", " xs)
-        end;
-      | Scope.ExtraneousVariable (xs, pc) ->
-        let l = pc+1 in
-        let func = lookup_fun program f in
-        let version = get_version func v in
-        let annot = match version.annotations with | Some a -> a | None -> assert(false) in
-        let annot_vars = match annot.(pc) with
-          | None | Some (AtLeastScope _) ->
-            (* we know from the exception-raising code that this cannot happen *)
-            assert (false)
-          | Some (ExactScope vars) ->
-            VarSet.elements vars |>
-            String.concat ", " |> Printf.sprintf " {%s}" in
-        begin match VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "line %d: Variable %s is present in scope but missing \
-                     from the scope annotation%s.\n%!"
-                     l x annot_vars
-          | xs -> Printf.eprintf
-                    "line %d: Variables {%s} are present in scope \
-                     but missing from the scope annotation%s.\n%!"
-                    l (String.concat ", " xs) annot_vars
-        end;
-      | Scope.DuplicateVariable (xs, pc) ->
-        let l = pc+1 in
-        begin match VarSet.elements xs with
-          | [x] -> Printf.eprintf
-                     "line %d: Variable %s is declared more than once.\n%!"
-                     l x
-          | xs -> Printf.eprintf
-                    "line %d: Variables {%s} are declared more than once.\n%!"
-                    l (String.concat ", " xs)
-        end;
-      | Scope.IncompatibleScope (scope1, scope2, pc) ->
-        let func = lookup_fun program f in
-        let version = get_version func v in
-        let instrs = version.instrs in
-        Disasm.pretty_print_version stderr (v, instrs);
-        Scope.explain_incompatible_scope stderr scope1 scope2 pc;
-        flush stderr;
-      | _ -> raise exn
-      end;
-      exit 1
-    end
+  | Scope.ScopeExceptionAt _ as exn ->
+    Printf.eprintf "Scope error in the source program:\n";
+    Scope.report_error program exn
   end;
 
   begin try Check.well_formed program with
@@ -138,7 +84,12 @@ let () =
     Disasm.disassemble_o stdout program
   end;
 
-  Scope.check_program program;
+  begin try Scope.check_program program with
+  | Scope.ScopeExceptionAt _ as exn ->
+    Printf.eprintf "Scope error in the optimized program (%s):\n"
+      (String.concat ", " !opts);
+    Scope.report_error program exn
+  end;
 
   let conf = Eval.run_interactive IO.stdin_input program in
   let open Eval in
