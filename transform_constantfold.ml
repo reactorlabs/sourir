@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 (*
  * Constant folding.
@@ -14,7 +15,7 @@ open Instr
  * is replaced by its constant value. Afterwards, the variable `x` is no longer
  * used, and the declaration can be removed by running `minimize_lifetimes`.
  *)
-let const_fold ({formals; instrs} : analysis_input) : instructions option =
+let const_fold : transform_instructions = fun {formals; instrs} ->
   let module VarMap = Map.Make(Variable) in
   let module Approx = struct
     type t = Unknown | Value of value

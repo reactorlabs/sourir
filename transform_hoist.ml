@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 let remove_fallthroughs_to_label instrs =
   let rec loop pc acc =
@@ -223,7 +224,7 @@ module Drop = struct
     in
     pull is_target (conditions_var var) instrs
 
-  let apply ({formals; instrs} : analysis_input) : instructions option =
+  let apply : transform_instructions = fun {formals; instrs} ->
     let instrs = remove_fallthroughs_to_label instrs in
     let collect vars instr =
       match[@warning "-4"] instr with

@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 let pcs (instrs : instructions) : pc array =
   Array.mapi (fun pc _ -> pc) instrs

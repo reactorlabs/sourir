@@ -1,7 +1,8 @@
 open Instr
+open Types
 open Transform_utils
 
-let (insert_returns : analysis) = fun {formals; instrs} ->
+let (insert_returns : transform_instructions) = fun {formals; instrs} ->
   let stops = Analysis.stops instrs in
   let add_return pc =
     if not (List.mem pc stops) then Unchanged
@@ -16,7 +17,7 @@ let transform_with_prepass ~prepass transform = fun input ->
     | Some instrs -> {input with instrs} in
   transform input
 
-let add_drops : analysis =
+let add_drops : transform_instructions =
   let add_drops ({formals; instrs} as input) =
     (* assume [insert_returns] has run *)
     let scope = Scope.infer input in
@@ -42,5 +43,5 @@ let add_drops : analysis =
   in
   transform_with_prepass ~prepass:insert_returns add_drops
 
-let minimize_liverange : analysis =
+let minimize_liverange : transform_instructions =
   transform_with_prepass ~prepass:add_drops Transform_hoist.Drop.apply

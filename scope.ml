@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 (* TODO:
     - keep track of const/mut status

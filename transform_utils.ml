@@ -1,4 +1,5 @@
 open Instr
+open Types
 
 type instruction_change =
   | Remove of int
