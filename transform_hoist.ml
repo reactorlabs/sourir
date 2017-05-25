@@ -30,7 +30,7 @@ type conditions = {
 
 let push_instr cond instrs pc : push_status =
   let { is_eliminating; is_annihilating; is_blocking } = cond in
-  assert (pc >0);
+  assert (pc > 0);
   let pc_above = pc - 1 in
   let to_move = instrs.(pc) in
   let instr = instrs.(pc_above) in
@@ -122,7 +122,8 @@ let pull_instr cond instrs pc =
   let rec work_push instrs progress to_push to_pull =
     match to_push with
     | pc :: to_push ->
-      begin match push_instr cond instrs pc with
+      if pc = 0 then work_push instrs progress to_push to_pull
+      else begin match push_instr cond instrs pc with
         | Blocked ->
           work_push instrs progress to_push to_pull
         | Stop (instrs, pc_map) ->
