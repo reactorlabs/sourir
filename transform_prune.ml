@@ -23,7 +23,7 @@ let branch_prune : transform_instructions = fun input ->
     match[@warning "-4"] input.instrs.(pc) with
     | Branch (e, l1, l2) ->
       if Analysis.ExpressionSet.mem e (assumptions pc)
-      then Replace (Goto l2)
+      then Replace [Goto l2]
       else Unchanged
     | _ -> Unchanged
   in
