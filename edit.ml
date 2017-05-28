@@ -128,8 +128,6 @@ let freshen_assign ({instrs} as inp : analysis_input) (def : pc) =
     List.iter fix_use uses;
   | _ ->
     assert(false)
-open Instr
-
 
 let replace_var var simple_exp = object (self)
   inherit Instr.map as super

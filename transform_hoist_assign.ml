@@ -1,6 +1,41 @@
 open Instr
 open Types
 
+let freshen_assign ({instrs} as inp : analysis_input) (def : pc) future_pos =
+  let uses = Analysis.PcSet.elements (Analysis.uses inp def) in
+  let instr = instrs.(def) in
+  match[@warning "-4"] instr with
+  | Assign (x, exp) ->
+    let fresh = Edit.fresh_var instrs x in
+    let all_changed = ref true in
+    let open Transform_utils in
+    let change_use pc =
+      let open Analysis in
+      (* Is there another reaching definition that defines the same
+         variable? In that case we cannot replace this use by a read
+         to the hoisted constant. *)
+      let reaching_defs = reaching inp pc in
+      let remaining_defs = PosSet.remove (Instr def) reaching_defs in
+      let blocking = function
+        | Arg -> false
+        | Instr pc -> VarSet.mem x (defined_vars instrs.(pc)) in
+      if PosSet.exists blocking remaining_defs
+      then (all_changed := false; (pc, Unchanged))
+      else (pc, Replace [(Edit.replace_uses x fresh)#instruction instrs.(pc)])
+    in
+    let changed_uses = List.map change_use uses in
+    let fresh_decl = [Decl_var (fresh, exp)] in
+    let fresh_assign =
+      if !all_changed then [] else [Assign (x, Simple (Var fresh))] in
+    let transform pc =
+      if pc = def && pc = future_pos then Replace (fresh_decl @ fresh_assign)
+      else if pc = def then Replace fresh_assign
+      else if pc = future_pos then Insert fresh_decl
+      else try List.assoc pc changed_uses with Not_found -> Unchanged
+    in
+    Transform_utils.change_instrs transform inp
+  | _ -> invalid_arg "freshen_assign"
+
 (* Hoisting assignments "x <- exp" as far up the callgraph as possible.
  *
  * Since we are not in SSA moving assignments is only possible (without further
@@ -29,8 +64,9 @@ let hoist_assignment : transform_instructions = fun ({formals; instrs} as inp) -
       let pc' = pc + 1 in
       match[@warning "-4"] instrs.(pc) with
       | Assign (x, exp) ->
-        if (not (dominates_all_uses pc)) || (aliased x pc) then find_possible_move pc'
-        else
+        if (not (dominates_all_uses pc)) || (aliased x pc)
+        then find_possible_move pc'
+        else begin
           let reaching_defs = reaching pc in
           let valid_move candidate =
             let dominate_me = PosSet.for_all (fun pos -> match pos with
@@ -42,15 +78,11 @@ let hoist_assignment : transform_instructions = fun ({formals; instrs} as inp) -
           | exception Not_found -> find_possible_move pc'
           | pc' -> Some (pc, pc')
           end
-
+        end
       (* TODO: others? *)
       | i -> find_possible_move pc'
   in
-
   match find_possible_move 0 with
   | None -> None
   | Some (from_pc, to_pc) ->
-    let copy = Array.copy instrs in
-    Edit.freshen_assign {formals; instrs=copy} from_pc;
-    Edit.move copy from_pc to_pc;
-    Some copy
+    freshen_assign inp from_pc to_pc
