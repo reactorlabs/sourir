@@ -81,34 +81,38 @@ let subst_many instrs substs =
 
 (** [split_edge instrs pc label pc']
     splits the edge from a branch instruction in [pc]
-    to a [Label label] instruction in [pc'],
-    assuming there is no fallthrough to [pc'] -- all
-    other predecessors are gotos or branches.
-
-    Before applying it to arbitrary program, we use
-    [Transform.remove_fallthroughs_to_label] to make the
-    assumption hold.
+    to a [Label label] instruction in [pc'].
 *)
-let split_edge instrs pc label pc' =
+let split_edge instrs preds pc label pc' =
   assert (not (is_checkpoint_label label));
   assert (instrs.(pc') = Label label);
   let split_label = fresh_label instrs label in
-  let split_edge = [|
-    Label split_label;
-    Goto label;
-  |] in
-  (* insert the split edge *)
-  let new_instrs, pc_map = subst instrs pc' 0 split_edge in
-  let new_branch = match[@warning "-4"] instrs.(pc) with
-    | Branch (v, l1, l2) ->
-      if l1 = label
-      then Branch (v, split_label, l2)
-      else if l2 = label
-      then Branch (v, l1, split_label)
-      else invalid_arg "split_edge"
-    | _ -> invalid_arg "split_edge" in
-  new_instrs.(pc_map pc) <- new_branch;
-  new_instrs, pc_map
+  let add_split_edge =
+    (pc', 0, [|
+        Label split_label;
+        Goto label;
+      |]) in
+  let fix_pred pred_pc =
+    if pred_pc <> pc then begin
+      (* this is not the pc to update with the split label;
+         it may either be an explicit jump to the label,
+         which needs no change, or an instruction right before
+         the label without an explicit jump, which now needs an
+         explicit jump as the instruction after it will change. *)
+      match[@warning "-4"] instrs.(pred_pc) with
+      | Goto _ | Branch _ -> []
+      | instr -> [(pred_pc, 1, [| instr; Goto label |])]
+    end else begin
+      match[@warning "-4"] instrs.(pc) with
+      | Branch (v, l1, l2) ->
+        let fix l = if l = label then split_label else l in
+        if not (l1 = label || l2 = label) then invalid_arg "split_edge";
+        [(pc, 1, [| Branch (v, fix l1, fix l2) |])]
+      | _ -> invalid_arg "split_edge"
+    end
+  in
+  let substs = add_split_edge :: List.flatten (List.map fix_pred preds.(pc')) in
+  subst_many instrs substs
 
 let replace_uses old_name new_name = object (self)
   inherit Instr.map as super
