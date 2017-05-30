@@ -318,3 +318,81 @@ let checkpoint_label pc =
 
 let independent instr exp =
   VarSet.is_empty (VarSet.inter (changed_vars instr) (expr_vars exp))
+
+class map = object (m)
+  method variable_use x = x
+  method variable_assign x = x
+  method binder x = x
+
+  method value v = v
+
+  method primop op = op
+
+  method simple_expression = function
+    | Constant v ->
+      Constant (m#value v)
+    | Var x ->
+      Var (m#variable_use x)
+  method expression = function
+    | Simple e ->
+      Simple (m#simple_expression e)
+    | Op (op, es) ->
+      Op (m#primop op, List.map m#simple_expression es)
+
+  method label l = l
+
+  method func l = m#label l
+  method version l = m#label l
+
+  method unique_pos {func; version; pos} = {
+    func = m#func func;
+    version = m#version version;
+    pos = m#label pos;
+  }
+  method instruction = function
+    | Decl_var (x, e) ->
+      Decl_var (m#binder x, m#expression e)
+    | Decl_array (x, def) ->
+      Decl_array (m#binder x, m#array_def def)
+    | Call (x, e, args) ->
+      Call (m#binder x, m#expression e, List.map m#argument args)
+    | Return e ->
+      Return (m#expression e)
+    | Drop x ->
+      Drop (m#variable_assign x)
+    | Assign (x, e) ->
+      Assign (m#variable_assign x, m#expression e)
+    | Array_assign (x, e, idx) ->
+      Array_assign (m#variable_assign x, m#expression e, m#expression idx)
+    | Read x ->
+      Read (m#variable_assign x)
+    | Branch (e, l1, l2) ->
+      Branch (m#expression e, m#label l1, m#label l2)
+    | Label l ->
+      Label (m#label l)
+    | Goto l ->
+      Goto (m#label l)
+    | Print e ->
+      Print (m#expression e)
+    | Assert e ->
+      Assert (m#expression e)
+    | Stop e ->
+      Stop (m#expression e)
+    | Osr {cond; target; map} ->
+      Osr {
+        cond = List.map m#expression cond;
+        target = m#unique_pos target;
+        map = List.map m#osr_map map;
+      }
+    | Comment s ->
+      Comment s
+  method argument e = m#expression e
+  method array_def = function
+    | Length e ->
+      Length (m#expression e)
+    | List es ->
+      List (List.map m#expression es)
+  method osr_map = function
+    | Osr_var (x, e) ->
+      Osr_var (m#binder x, m#expression e)
+end
