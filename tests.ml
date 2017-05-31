@@ -227,15 +227,16 @@ z <- (x == y)
 
 let test_scope_1 test_var1 test_var2 = parse (
 " var t = false
+  var c
   branch t a b
 a:
   var a = 0
-  var c = 0
+  c <- 0
   drop a
   goto cont
 b:
   var b = 0
-  var c = 0
+  c <- 0
   drop b
 cont:
   var res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
@@ -1516,9 +1517,9 @@ let suite =
    "scope1ok">:: run (test_scope_1 "c" "c") no_input
      (has_var "c" (Value.int 0));
    "scope1broken">:: infer_broken_scope
-     (test_scope_1 "a" "c") (undeclared ["a"] 12);
+     (test_scope_1 "a" "c") (undeclared ["a"] 13);
    "scope1broken2">:: infer_broken_scope
-     (test_scope_1 "a" "b") (undeclared ["b"; "a"] 12);
+     (test_scope_1 "a" "b") (undeclared ["b"; "a"] 13);
    "parser">:: test_parse_disasm   ("stop 0\n");
    "parser1">:: test_parse_disasm  ("var x = 3\nprint x\nstop 0\n");
    "parser2">:: test_parse_disasm  ("goto l\nx <- 3\nl:\n");
