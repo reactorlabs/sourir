@@ -97,7 +97,8 @@ let disassemble_s (prog : Instr.program) =
 let disassemble_o outchan (prog : Instr.program) =
   let b = Buffer.create 1024 in
   disassemble b prog;
-  Buffer.output_buffer outchan b
+  Buffer.output_buffer outchan b;
+  flush outchan
 
 let disassemble_instrs_s (prog : instructions) =
   let b = Buffer.create 1024 in

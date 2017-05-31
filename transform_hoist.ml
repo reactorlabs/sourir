@@ -1,22 +1,6 @@
 open Instr
 open Types
 
-let remove_fallthroughs_to_label instrs =
-  let rec loop pc acc =
-    if pc = Array.length instrs then acc
-    else match[@warning "-4"] instrs.(pc-1), instrs.(pc) with
-    | Goto _, Label _
-    | Branch _, Label _ ->
-      loop (pc+1) acc
-    | _, Label l ->
-      let edit = (pc, 0, [| Goto l |]) in
-      loop (pc+1) (edit :: acc)
-    | _, _ ->
-      loop (pc+1) acc
-  in
-  let edits = loop 1 [] in
-  fst (Edit.subst_many instrs edits)
-
 type push_status =
   | Stop of Edit.result
   | Blocked
@@ -59,34 +43,41 @@ let push_instr cond instrs pc : push_status =
       | _ -> false in
     begin match List.find is_branch preds.(pc_above) with
     | branch_pc ->
-     if preds.(pc_above) = [branch_pc] then Need_pull branch_pc
-     else
-       (* multi-predecessor case, one of which is a branch:
-          we just split the branch edge -- doing anything more
-          would be fragile as we changed the instructions.
+      if preds.(pc_above) = [branch_pc] then Need_pull branch_pc
+      else begin
+        (* multi-predecessor case, one of which is a branch:
+           we just split the branch edge -- doing anything more
+           would be fragile as we changed the instructions.
 
-          Iterating this transform will eventually remove all
-          branch edges from our (multi)predecessors, so that the
-          Not_found case below will do the final push. *)
-       let (_instrs, pc_map) as edit = Edit.split_edge instrs branch_pc label pc_above in
-       Work (edit, [pc_map pc])
+           Iterating this transform will eventually remove all
+           branch edges from our (multi)predecessors, so that the
+           Not_found case below will do the final push. *)
+        let (_instrs, pc_map) as edit =
+          Edit.split_edge instrs preds branch_pc label pc_above in
+        Work (edit, [pc_map pc])
+      end
    | exception Not_found ->
      (* multi-predecessor case, with no multi-successor predecessor (no branch);
-        we can move the drop above all predecessors. For a predecessor in (pc),
-        we move the drop to ((pc_map pc) - 1), that is above a (Goto label)
-        instruction at (pc_map pc). This assumes that there is no fallthrough
-        to our label, that [remove_fallthroughs_to_label] has been
-        applied to the input program. *)
-     let not_a_fallthrough pc = match[@warning "-4"] instrs.(pc) with
-       | Goto _ | Branch _ -> true
-       | _ -> false in
-     List.iter (fun pc -> assert (not_a_fallthrough pc)) preds.(pc_above);
+        we can move the drop above all predecessors. A predecessor in (pc)
+        may be a Goto to this label, in which case we move the drop above it,
+        or a normal instruction (control flow falls to this label without a jump)
+        in which case we move the drop below it. *)
+     let move_and_work pred_pc =
+       match[@warning "-4"] instrs.(pred_pc) with
+       | Goto label_ ->
+         assert (label = label_);
+         (pred_pc, 0, [| to_move |]), (fun pc_map -> pc_map pred_pc - 1)
+       | _ ->
+         (pred_pc+1, 0, [| to_move |]), (fun pc_map -> pc_map pred_pc + 1)
+     in
+     let moves, next = List.split (List.map move_and_work preds.(pc_above)) in
      let delete = (pc, 1, [||]) in
-     let insert pred_pc = (pred_pc, 0, [| to_move |]) in
-     let substs = delete :: List.map insert preds.(pc_above) in
-     let (_instrs, pc_map) as edit = Edit.subst_many instrs substs in
-     let list = List.map (fun pc -> pc_map pc - 1) preds.(pc_above) in
-     Work (edit, List.sort Pervasives.compare list)
+     let (_instrs, pc_map) as edit = Edit.subst_many instrs (delete :: moves) in
+     let worklist =
+       next
+       |> List.map (fun next -> next pc_map)
+       |> List.sort Pervasives.compare in
+     Work (edit, worklist)
    end
   | _ as instr ->
     if is_eliminating instr then Work (edit [|to_move|], [pc_above])
@@ -225,7 +216,6 @@ module Drop = struct
     pull is_target (conditions_var var) instrs
 
   let apply : transform_instructions = fun {formals; instrs} ->
-    let instrs = remove_fallthroughs_to_label instrs in
     let collect vars instr =
       match[@warning "-4"] instr with
       | Drop x -> VarSet.add x vars

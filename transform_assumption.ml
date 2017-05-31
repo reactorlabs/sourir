@@ -94,7 +94,7 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
       match[@warning "-4"] cur_version.instrs.(pc) with
       | Osr {cond; target; map} ->
         let target = {target with version = cur_version.label} in
-        Replace (Osr {cond; target; map})
+        Replace [Osr {cond; target; map}]
       | _ -> Unchanged
     in
     let inp = Analysis.as_analysis_input func cur_version in
