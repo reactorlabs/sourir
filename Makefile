@@ -35,6 +35,9 @@ run: sourir
 test_examples: sourir
 	bash test_examples.sh
 
+test_examples_long: sourir
+	bash test_examples.sh --long
+
 clean:
 	ocamlbuild -clean
 
