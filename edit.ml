@@ -32,18 +32,6 @@ let fresh_version_label (func : afunction) label =
     then cand_lab else find (i+1) in
   find 1
 
-let move instrs from_pc to_pc =
-  let (dir, to_pc) = if from_pc > to_pc then (-1, to_pc) else (1, to_pc-1) in
-  let from = instrs.(from_pc) in
-  let rec move pc =
-    if pc <> to_pc then begin
-      instrs.(pc) <- instrs.(pc+dir);
-      move (pc+dir)
-    end
-  in
-  move from_pc;
-  instrs.(to_pc) <- from
-
 type pc_map = int -> int
 
 type result = Instr.instructions * pc_map
@@ -119,19 +107,6 @@ let replace_uses old_name new_name = object (self)
   method! variable_use x =
     if x = old_name then new_name else x
 end
-
-let freshen_assign ({instrs} as inp : analysis_input) (def : pc) =
-  let uses = Analysis.PcSet.elements (Analysis.uses inp def) in
-  let instr = instrs.(def) in
-  match[@warning "-4"] instr with
-  | Assign (x, exp) ->
-    let fresh = fresh_var instrs x in
-    instrs.(def) <- Decl_var (fresh, exp);
-    let fix_use pc =
-      instrs.(pc) <- (replace_uses x fresh)#instruction instrs.(pc) in
-    List.iter fix_use uses;
-  | _ ->
-    assert(false)
 
 let replace_var var simple_exp = object (self)
   inherit Instr.map as super

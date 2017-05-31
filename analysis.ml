@@ -295,16 +295,6 @@ let required_vars ({instrs} as inp : analysis_input) : pc -> variable list =
   let res = lifetime_analysis inp in
   fun pc -> List.map fst (VariableMap.bindings (res pc))
 
-(* The same as required_vars_at but extends the required interval to
- * merge points to conform to our scoping rules *)
-let saturate analysis {instrs} =
-  let merge pc cur_lifetime in_lifetime =
-    let merged = VarSet.union cur_lifetime in_lifetime in
-    if VarSet.equal cur_lifetime merged then None else Some merged
-  in
-  let update pc cur_lifetime = analysis pc in
-  forward_analysis VarSet.empty instrs merge update
-
 let aliased ({formals; instrs} : analysis_input) : pc -> VarSet.t =
   let ref_param params x = x :: params in
   let mut_formals = List.fold_left ref_param [] (VarSet.elements formals) in
