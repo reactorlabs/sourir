@@ -597,6 +597,9 @@ let do_test_codemotion = function () ->
        x <- (x + y)
        branch (x==10) $end $loop
       $end:
+       drop x
+       drop y
+       drop z
        stop 0
       bla:
        var z = 1
@@ -612,6 +615,10 @@ let do_test_codemotion = function () ->
        x <- (x + y_1)
        branch (x == 10) $end $loop
       $end:
+       drop x
+       drop y
+       drop z
+       drop y_1
        stop 0
       bla:
        var z = 1
@@ -633,6 +640,8 @@ let do_test_codemotion = function () ->
        x <- (x + y)
        branch (x==10) $end $loop
       $end:
+       drop x
+       drop y
   " in
   let expected = parse "
        var y_1 = 1
@@ -645,9 +654,133 @@ let do_test_codemotion = function () ->
        x <- (x + y_1)
        branch (x == 10) $end $loop
       $end:
+       drop x
+       drop y
+       drop y_1
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
+  let t = parse "
+       var a = 1
+       var b = 2
+       branch (a==b) $ba $bb_1
+      $ba:
+       var d = 1
+       branch (d==d) $ig $bb_2
+      $ig:
+       print d
+       # move over this comment
+       d <- d
+       print d
+       drop d
+       goto bb
+      $bb_1:
+       goto bb
+      $bb_2:
+       goto bb
+      bb:
+       drop a
+       drop b
+  " in
+  let expected = parse "
+       var a = 1
+       var b = 2
+       branch (a == b) $ba $bb_1
+      $ba:
+       var d = 1
+       var d_1 = d
+       branch (d == d) $ig $bb_2
+      $ig:
+       print d
+       # move over this comment
+       print d_1
+       drop d
+       drop d_1
+       goto bb
+      $bb_1:
+       goto bb
+      $bb_2:
+       drop d
+       drop d_1
+       goto bb
+      bb:
+       drop a
+       drop b
+  " in
+  let res = { t with main = try_opt hoist_assignment t.main } in
+  assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
+  let t = parse "
+       var a = 1
+       var b = 2
+       branch (a==b) $ba $bb_1
+      $ba:
+       var d = 1
+       branch (d==d) $ig $bb_2
+      $ig:
+       print d
+       # move over this comment
+       d <- d
+       print d
+       drop d
+       branch (d==d) $bb_3 $bb_4
+      $bb_1:
+       goto bb
+      $bb_2:
+       goto bb
+      $bb_3:
+       goto bb
+      $bb_4:
+       goto bb
+      bb:
+       drop a
+       drop b
+  " in
+  let expected = parse "
+       var a = 1
+       var b = 2
+       branch (a == b) $ba $bb_1
+      $ba:
+       var d = 1
+       var d_1 = d
+       branch (d == d) $ig $bb_2
+      $ig:
+       print d
+       # move over this comment
+       print d_1
+       drop d
+       branch (d_1 == d_1) $bb_3 $bb_4
+      $bb_1:
+       goto bb
+      $bb_2:
+       drop d
+       drop d_1
+       goto bb
+      $bb_3:
+       drop d_1
+       goto bb
+      $bb_4:
+       drop d_1
+       goto bb
+      bb:
+       drop a
+       drop b
+  " in
+  let res = { t with main = try_opt hoist_assignment t.main } in
+  assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
+  let t = parse "
+         var a = true
+         var b = (a==1)
+         branch b $isint $cont
+        $isint:
+         a <- (a+2)
+         goto cont_
+        $cont:
+         goto cont_
+        cont_:
+  " in
+  let res = { t with main = try_opt hoist_assignment t.main } in
+  (* unchanged since (a+2) is only valid to execute if (a==1) *)
+  assert_equal_string (Disasm.disassemble_s t) (Disasm.disassemble_s res);
   let t = parse "
        var x = 1
        var y = 2

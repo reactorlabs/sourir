@@ -1,0 +1,15 @@
+var a = false
+var b = false
+
+branch (a == 1) $num $cont
+
+$num:
+# This assignment cannot be hoisted since it depends on the branch
+b <- (a+1)
+print b
+goto cont_
+
+$cont:
+goto cont_
+
+cont_:
