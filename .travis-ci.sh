@@ -1,4 +1,4 @@
 eval `opam config env`
 make install-deps
 make sourir
-make tests && make test_examples
+make tests && make test_examples_long
