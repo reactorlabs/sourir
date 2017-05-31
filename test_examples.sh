@@ -58,7 +58,7 @@ function runtest {
   if [ ! -f $BASELINE_OUT ]; then
     yes "$INPUT" | $SOURIR "$TEST" --quiet &> "$BASELINE_OUT"
     if [ $? -ne 0 ]; then
-      echo "Baseline run failed on $TEST with input $INP"
+      echo -e "\n\nBaseline run failed on $TEST with input $INPUT\n"
       echo " ----- LOG ----------------------------------------"
       cat $BASELINE_OUT
       echo " --------------------------------------------------"
@@ -68,7 +68,7 @@ function runtest {
 
   yes "$INPUT" | $SOURIR "$TEST" --opt $OPT --quiet &> "$OPT_OUT"
   if [ $? -ne 0 ]; then
-    echo "Opt run failed on $TEST with input $INP and opts $OPT"
+    echo -e "\n\nOpt run failed on $TEST with input $INPUT and opts $OPT\n"
     echo " ----- LOG ----------------------------------------"
     cat $OPT_OUT
     echo " --------------------------------------------------"
@@ -78,7 +78,7 @@ function runtest {
   diff $BASELINE_OUT $OPT_OUT > /dev/null
 
   if [ $? -ne 0 ]; then
-    echo "Output differs on $NAME with input $INP and opts $OPT"
+    echo -e "\n\nOutput differs on $NAME with input $INPUT and opts $OPT\n"
     echo " ----- DIFF ---------------------------------------"
     diff $BASELINE_OUT $OPT_OUT
     echo " --------------------------------------------------"
