@@ -16,7 +16,6 @@ depends: [
   "menhir" {build & >= "20161115"}
   "bisect_ppx" {build}
   "ounit" {>= "2.0.0"}
-  "utop"
 ]
 available: [
   ocaml-version >= "4.03.0"
