@@ -42,7 +42,10 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
       let exp = VarSet.fold propagate (expr_vars exp) exp in
       if not !all_propagated
       then exp
-      else Simple (Constant (eval_closed exp))
+      else
+        (* A closed expression might still fail to evaluate (eg. 1+true) *)
+        try Simple (Constant (eval_closed exp)) with
+        | _ -> exp
   end in
 
   (* for each instruction, what is the set of variables that are constant? *)
