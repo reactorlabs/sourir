@@ -43,15 +43,15 @@ let infer ({formals; instrs} : analysis_input) : inferred_scope array =
     in
     let update pc cur =
       let instr = instructions.(pc) in
-      let declared = Instr.declared_vars instr in
-      let declared' = VarSet.elements declared in
-      let declared' = List.map (fun v -> (v, pc)) declared' in
-      let declared' = DeclSet.of_list declared' in
+      let declared_vars = Instr.declared_vars instr in
+      let decls = VarSet.elements declared_vars
+                |> List.map (fun v -> (v, pc))
+                |> DeclSet.of_list in
       let info = cur.info in
-      let shadowed = VarSet.inter (decl_as_var_set info) declared in
+      let shadowed = VarSet.inter (decl_as_var_set info) declared_vars in
       if not (VarSet.is_empty shadowed) then
         raise (DuplicateVariable (shadowed, pc));
-      let updated = DeclSet.union info declared' in
+      let updated = DeclSet.union info decls in
       let dropped = VarSet.elements (Instr.dropped_vars instr) in
       let remove set el = DeclSet.filter (fun (v, _) -> v <> el) set in
       let final_info = List.fold_left remove updated dropped in
