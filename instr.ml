@@ -60,7 +60,7 @@ and instruction =
   | Print of expression
   | Assert of expression
   | Stop of expression
-  | Osr of {cond : expression list; target : label position; map : osr_def list; }
+  | Osr of {label : label; cond : expression list; target : label position; map : osr_def list; }
   | Comment of string
 and array_def =
   | Length of expression
@@ -142,6 +142,14 @@ let resolve (code : instructions) (label : string) =
     if i >= Array.length code then raise (Unbound_label label)
     else if code.(i) = Label label then i
     else loop (i + 1)
+  in loop 0
+
+let resolve_osr (code : instructions) (l : string) =
+  let rec loop i =
+    if i >= Array.length code then raise (Unbound_label l)
+    else match[@warning "-4"] code.(i) with
+         | Osr {label} when label = l -> i
+         | _ -> loop (i + 1)
   in loop 0
 
 let simple_expr_vars = function
@@ -309,10 +317,7 @@ module Value = struct
   let bool b : value = Bool b
 end
 
-let checkpoint_prefix = "checkpoint_"
-let is_checkpoint_label l =
-  let len = String.length checkpoint_prefix in
-  String.length l > len && (String.sub l 0 len) = checkpoint_prefix
+let checkpoint_prefix = "cp_"
 let checkpoint_label pc =
   checkpoint_prefix ^ (string_of_int pc)
 
@@ -378,8 +383,9 @@ class map = object (m)
       Assert (m#expression e)
     | Stop e ->
       Stop (m#expression e)
-    | Osr {cond; target; map} ->
+    | Osr {label; cond; target; map} ->
       Osr {
+        label;
         cond = List.map m#expression cond;
         target = m#unique_pos target;
         map = List.map m#osr_map map;

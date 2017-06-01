@@ -72,7 +72,6 @@ let subst_many instrs substs =
     to a [Label label] instruction in [pc'].
 *)
 let split_edge instrs preds pc label pc' =
-  assert (not (is_checkpoint_label label));
   assert (instrs.(pc') = Label label);
   let split_label = fresh_label instrs label in
   let add_split_edge =

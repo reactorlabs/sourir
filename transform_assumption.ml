@@ -32,7 +32,7 @@ let insert_checkpoints (func:afunction) =
           version=version.label;
           pos=checkpoint_label pc;
         } in
-        Insert [Label (checkpoint_label pc); Osr {cond=[]; target; map=osr};]
+        Insert [Osr {label=checkpoint_label pc; cond=[]; target; map=osr};]
     in
     if pc = 0 then Unchanged else
     match[@warning "-4"] instrs.(pc) with
@@ -48,6 +48,9 @@ let insert_checkpoints (func:afunction) =
              instrs = (|?) baseline instrs;
              annotations = None } ] }
 
+(* Removes all empty checkpoints. Can be applied as a final cleanup
+ * when there are no osr-in points (because the osr instruction also
+ * serves as a label for osr-entry). *)
 let remove_empty_osr : transform_instructions = fun input ->
   let transform pc =
     match[@warning "-4"] input.instrs.(pc) with
@@ -55,26 +58,6 @@ let remove_empty_osr : transform_instructions = fun input ->
     | _ -> Unchanged
   in
   change_instrs transform input
-
-(* TODO: replace this by a pass which does a global program transformation
- * and checks if the labels are really unused. *)
-(* Removes all checkpoint labels. Can be applied as a final cleanup
- * when there are no osr-in points. *)
-let remove_checkpoint_labels (func : afunction) : afunction option =
-  (* only apply to active version -- see comment above *)
-  let vrs = List.hd func.body in
-  let transform pc =
-    match[@warning "-4"] vrs.instrs.(pc) with
-    | Label l when is_checkpoint_label l -> Remove 1
-    | _ -> Unchanged
-  in
-  let inp = Analysis.as_analysis_input func vrs in
-  match change_instrs transform inp with
-  | None -> None
-  | Some res ->
-    Some {
-      func with
-      body = { vrs with instrs = res } :: List.tl func.body }
 
 (* Inserts the assumption that osr_condition is false at position pc.
  * The approach is to
@@ -92,9 +75,9 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
     let cur_version = Instr.active_version func in
     let transform pc =
       match[@warning "-4"] cur_version.instrs.(pc) with
-      | Osr {cond; target; map} ->
+      | Osr {label; cond; target; map} ->
         let target = {target with version = cur_version.label} in
-        Replace [Osr {cond; target; map}]
+        Replace [Osr {label; cond; target; map}]
       | _ -> Unchanged
     in
     let inp = Analysis.as_analysis_input func cur_version in
@@ -128,8 +111,8 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
   | None -> None
   | Some pc ->
     begin match[@warning "-4"] instrs.(pc) with
-    | Osr {cond; target; map} ->
-      instrs.(pc) <- Osr {cond=osr_cond::cond; target; map};
+    | Osr {label; cond; target; map} ->
+      instrs.(pc) <- Osr {label; cond=osr_cond::cond; target; map};
       Some { version with instrs }
     | _ -> assert (false)
     end
@@ -225,7 +208,7 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
   let changed = ref false in
   let push_osr pc =
     match[@warning "-4"] instrs.(pc) with
-    | Osr {cond; target; map} ->
+    | Osr {label; cond; target; map} ->
       let try_push c =
         let cond_vars = expr_vars c in
         begin match find_candidate_osr c cond_vars (pc-1) None with
@@ -233,15 +216,15 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
         | Some pc' ->
           changed := true;
           begin match[@warning "-4"] instrs.(pc') with
-          | Osr {cond; target; map} ->
-            instrs.(pc') <- Osr {cond = c::cond; target; map}
+          | Osr {label; cond; target; map} ->
+            instrs.(pc') <- Osr {label; cond = c::cond; target; map}
           | _ -> assert (false)
           end;
           false
         end
       in
       let remaining = List.filter try_push cond in
-      instrs.(pc) <- Osr {cond=remaining; target; map}
+      instrs.(pc) <- Osr {label; cond=remaining; target; map}
     | _ -> assert (false)
   in
   List.iter push_osr osrs;

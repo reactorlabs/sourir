@@ -125,7 +125,7 @@ let well_formed prog =
          * are compatible with the formals *)
         let func = lookup_fun func in
         let vers = lookup_version func version in
-        let _ = Instr.resolve vers.instrs label in
+        let _ = Instr.resolve_osr vers.instrs label in
         check_fun_ref instr
       | _ -> check_fun_ref instr
     in
