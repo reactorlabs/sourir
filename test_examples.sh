@@ -6,9 +6,9 @@ export SOURIR="../sourir"
 
 function ncores {
   if [[ "$OSTYPE" == "darwin"* ]]; then
-    echo `sysctl -n hw.ncpu || echo 8`
+    echo `sysctl -n hw.ncpu || echo 2`
   else
-    echo `nproc || echo 8`
+    echo `nproc || echo 2`
   fi
 }
 
@@ -35,9 +35,12 @@ function cleanup {
 trap cleanup EXIT
 
 export ALL_OPTS=$TEMPDIR/all_opts
+PROCS=1
 if [[ "$LONG" == "--long" ]]; then
+  # Long test: generate all subsets of optimization passes
   p() { [ $# -eq 0 ] && echo || (shift; p "$@") | while read r ; do echo -e "$1,$r\n$r"; done }
   echo -e $OPTS | p `cat` | sort | uniq | sed 's/,$//' | tail -n +2 > $ALL_OPTS
+  PROCS=`ncores`
 else
   echo "all" > $ALL_OPTS
 fi
@@ -89,7 +92,7 @@ function runtest {
 function status {
   name=$1
   done=`wc -l < $STATUS`
-  echo -ne "\e[0K\r[${done}/${NUM_TESTS}] ${name} "
+  echo -ne "\e[0K\r[${done}/${NUM_TESTS}] ${name}                    "
 }
 
 function runtests {
@@ -103,6 +106,7 @@ function runtests {
     done
   done < $ALL_OPTS
   echo $TEST >> $STATUS
+  status "$TEST"
 }
 
 export -f runtests runtest status
@@ -111,7 +115,7 @@ export NUM_TESTS=`find . -name '*.sou' | wc -l`
 export STATUS="$TEMPDIR/status"
 touch $STATUS
 
-find . -name '*.sou' | xargs -n 1 -P `ncores` bash -c 'runtests $@'
+find . -name '*.sou' | xargs -n 1 -P $PROCS bash -c 'runtests $@'
 RET=$?
 
 echo
