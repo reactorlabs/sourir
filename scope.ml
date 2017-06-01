@@ -9,7 +9,19 @@ exception UndeclaredVariable of VarSet.t * pc
 exception ExtraneousVariable of VarSet.t * pc
 exception DuplicateVariable of VarSet.t * pc
 
-type scope_info = VarSet.t
+module Declaration = struct
+  type t = string * pc
+  let compare a b =
+    if fst a = fst b then
+      Pervasives.compare (snd a) (snd b)
+    else
+      String.compare (fst a) (fst b)
+end
+module DeclSet = Set.Make(Declaration)
+let decl_as_var_set set =
+  VarSet.of_list (fst (List.split (DeclSet.elements set)))
+
+type scope_info = DeclSet.t
 
 module PcSet = Set.Make(Pc)
 type inference_state = {
@@ -24,24 +36,29 @@ let infer ({formals; instrs} : analysis_input) : inferred_scope array =
 
   let infer_scope instructions =
     let merge pc cur incom =
-      if not (VarSet.equal cur.info incom.info)
+      if not (DeclSet.equal cur.info incom.info)
       then raise (IncompatibleScope (cur, incom, pc))
       else if PcSet.equal cur.sources incom.sources then None
       else Some { info = cur.info; sources = PcSet.union cur.sources incom.sources }
     in
     let update pc cur =
       let instr = instructions.(pc) in
-      let added = Instr.declared_vars instr in
+      let declared_vars = Instr.declared_vars instr in
+      let decls = VarSet.elements declared_vars
+                |> List.map (fun v -> (v, pc))
+                |> DeclSet.of_list in
       let info = cur.info in
-      let shadowed = VarSet.inter info added in
+      let shadowed = VarSet.inter (decl_as_var_set info) declared_vars in
       if not (VarSet.is_empty shadowed) then
         raise (DuplicateVariable (shadowed, pc));
-      let updated = VarSet.union info added in
-      let dropped = Instr.dropped_vars instr in
-      let final_info = VarSet.diff updated dropped in
+      let updated = DeclSet.union info decls in
+      let dropped = VarSet.elements (Instr.dropped_vars instr) in
+      let remove set el = DeclSet.filter (fun (v, _) -> v <> el) set in
+      let final_info = List.fold_left remove updated dropped in
       { sources = PcSet.singleton pc; info = final_info; }
     in
-    let initial_state = { sources = PcSet.empty; info = formals; } in
+    let initial = List.map (fun var -> (var, -1)) (VarSet.elements formals) in
+    let initial_state = { sources = PcSet.empty; info = DeclSet.of_list initial; } in
     let res = Analysis.forward_analysis initial_state instrs merge update in
     fun pc -> (res pc).info in
 
@@ -51,6 +68,7 @@ let infer ({formals; instrs} : analysis_input) : inferred_scope array =
     match inferred pc with
     | exception Analysis.UnreachableCode _ -> DeadScope
     | declared ->
+      let declared = decl_as_var_set declared in
       let required = Instr.required_vars instr in
       if not (VarSet.subset required declared)
       then raise (UndeclaredVariable (VarSet.diff required declared, pc));
@@ -124,15 +142,15 @@ let explain_incompatible_scope outchan s1 s2 pc =
   in
   let print_vars buf vars =
     let print_var buf var =
-      Printf.bprintf buf "var %s" var in
-    let vars = VarSet.elements vars |> Array.of_list in
+      Printf.bprintf buf "var %s(%d)" (fst var) (snd var) in
+    let vars = DeclSet.elements vars |> Array.of_list in
     Printf.bprintf buf "{";
     print_sep buf print_var vars ", " ", ";
     Printf.bprintf buf "}";
   in
   let print_only buf name1 diff name2 =
     let print_diff diff =
-      if not (VarSet.is_empty diff) then
+      if not (DeclSet.is_empty diff) then
         Printf.bprintf buf
           "  - the %s declares %a and the %s does not\n"
           name1 print_vars diff name2 in
@@ -146,8 +164,8 @@ let explain_incompatible_scope outchan s1 s2 pc =
     pc
     print_sources s1.sources
     print_sources s2.sources;
-  print_only buf "former" (VarSet.diff s1.info s2.info) "latter";
-  print_only buf "latter" (VarSet.diff s2.info s1.info) "former";
+  print_only buf "former" (DeclSet.diff s1.info s2.info) "latter";
+  print_only buf "latter" (DeclSet.diff s2.info s1.info) "former";
   Buffer.output_buffer outchan buf
 
 let report_error program = function
