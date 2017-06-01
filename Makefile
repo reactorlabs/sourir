@@ -1,4 +1,4 @@
-OCAMLBUILD=ocamlbuild
+OCAMLBUILD=ocamlbuild -cflag -g
 
 # use the ocamlfind library manager
 OCAMLBUILD+= -use-ocamlfind

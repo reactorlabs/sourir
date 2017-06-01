@@ -35,8 +35,9 @@ let successors_at (instrs : instructions) pc : pc list =
       if is_last then [] else [pc']
     (* those are the instructions which manipulate controlflow:  *)
     | Stop _ | Return _ -> []
-    | Goto l -> [resolve l]
-    | Branch (_e, l1, l2) -> [resolve l1; resolve l2]
+    | Goto l -> [resolve (MergeLabel l)]
+    | Branch (_e, l1, l2) ->
+        [resolve (BranchLabel l1); resolve (BranchLabel l2)]
   in
   PcSet.elements (PcSet.of_list all_succ)
 

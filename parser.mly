@@ -5,7 +5,7 @@
 %token SINGLE_QUOTE
 %token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD DOUBLE_AMP DOUBLE_PIPE BANG
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
-%token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA
+%token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA DOLLAR
 %token VAR BRANCH GOTO PRINT ASSERT OSR STOP READ DROP RETURN CALL VERSION FUNCTION
 %token ARRAY LENGTH
 %token<string> COMMENT
@@ -125,10 +125,12 @@ instruction:
   { Assign (x, e) }
 | x=variable LBRACKET i=expression RBRACKET LEFTARROW e=expression
   { Array_assign (x, i, e) }
-| BRANCH e=expression l1=label l2=label
+| BRANCH e=expression DOLLAR l1=label DOLLAR l2=label
   { Branch (e, l1, l2) }
 | l=label COLON
-  { Label l }
+  { Label (MergeLabel l) }
+| DOLLAR l=label COLON
+  { Label (BranchLabel l) }
 | GOTO l=label
   { Goto l }
 | READ x=variable

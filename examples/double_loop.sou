@@ -2,23 +2,25 @@
  i <- 0
  var sum = 0
  var limit = 4
+ goto loop1
 loop1:
-  branch (i != limit) loop_body1 continue
-loop_body1:
+  branch (i != limit) $loop_body1 $continue
+$loop_body1:
    var i2 = 0
    var sum2 = 0
+   goto loop2
 loop2:
-    branch (i2 != limit) loop_body2 continue2
-loop_body2:
+    branch (i2 != limit) $loop_body2 $continue2
+$loop_body2:
      print i2
      sum2 <- (sum + i2)
      i2 <- (i2 + 1)
     goto loop2
-continue2:
+$continue2:
    sum <- (sum + sum2)
    drop i2
    drop sum2
    i <- (i + 1)
  goto loop1
-continue:
+$continue:
  print sum

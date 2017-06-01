@@ -3,9 +3,12 @@ array x = [1, 2, 3, 4, five, 6, 7, 8, 9, 10]
 var len = length(x)
 array y[len]
 var i = 0
-loop:
+goto loop_body
+$loop:
+goto loop_body
+loop_body:
   print x[i]
   y[i] <- x[i]
   i <- (i + 1)
-  branch (i == len) done loop
-done:
+  branch (i == len) $done $loop
+$done:

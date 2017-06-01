@@ -1,15 +1,19 @@
-  branch (1 == 1) la lb
-la:
-  branch (1 == 1) l1 l2
-lb:
-  branch (2 == 2) l2 l3
-l1:
+  branch (1 == 1) $la $lb
+$la:
+  branch (1 == 1) $l1 $l2_a
+$lb:
+  branch (2 == 2) $l2_b $l3
+$l1:
   print 1
   goto die_ende
+$l2_a:
+  goto l2
+$l2_b:
+  goto l2
 l2:
   print 2
   goto die_ende
-l3:
+$l3:
   print 3
   goto die_ende
 die_ende:

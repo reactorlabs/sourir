@@ -29,12 +29,6 @@ let () =
 
   opts := if !opts = ["all"] then Transform.all_opts else !opts;
 
-  begin try Scope.check_program program with
-  | Scope.ScopeExceptionAt _ as exn ->
-    Printf.eprintf "Scope error in the source program:\n";
-    Scope.report_error program exn
-  end;
-
   begin try Check.well_formed program with
   | Check.MissingMain ->
     Printf.eprintf "Program is missing an explicit or implicit main function\n";
@@ -67,9 +61,29 @@ let () =
       Printf.eprintf "at line %d: invalid number of arguments\n" (pc+1);
     | Check.InvalidArgument (pc, expression) ->
       Printf.eprintf "at line %d: invalid argument\n" (pc+1);
+    | Instr.Unbound_label (MergeLabel l) ->
+      Printf.eprintf "label %s does not exist\n" l;
+    | Instr.Unbound_label (BranchLabel l) ->
+      Printf.eprintf "label $%s does not exist\n" l;
+    | Instr.Unbound_osr_label l ->
+      Printf.eprintf "osr target %s does not exist\n" l;
+    | Check.BranchLabelReused pc ->
+      Printf.eprintf "label at line %d is used more than once\n" (pc+1);
+    | Check.FallthroughLabel pc ->
+      Printf.eprintf "fallthrough label at line %d is not allowed\n" (pc+1);
+    | Check.EntryPointIsLabel ->
+      Printf.eprintf "the first instruction cannot be a label\n";
+    | Check.DuplicateLabel l ->
+      Printf.eprintf "label %s used multiple times\n" l;
     | _ -> assert(false)
     end;
     exit 1
+  end;
+
+  begin try Scope.check_program program with
+  | Scope.ScopeExceptionAt _ as exn ->
+    Printf.eprintf "Scope error in the source program:\n";
+    Scope.report_error program exn
   end;
 
   let program = try Transform.(try_opt (optimize !opts) program) with

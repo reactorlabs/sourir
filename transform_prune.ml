@@ -19,12 +19,23 @@ let insert_branch_pruning_assumption (func : afunction) : version option =
 
 let branch_prune : transform_instructions = fun input ->
   let assumptions = Analysis.valid_assumptions input in
-  let transform pc =
+  let rec find_candidates pc branches =
+    if pc = Array.length input.instrs then branches else
     match[@warning "-4"] input.instrs.(pc) with
-    | Branch (e, l1, l2) ->
-      if Analysis.ExpressionSet.mem e (assumptions pc)
-      then Replace [Goto l2]
-      else Unchanged
-    | _ -> Unchanged
+    | Branch (e, l1, l2) when Analysis.ExpressionSet.mem e (assumptions pc) ->
+      (* This branch has to go to l2! *)
+      find_candidates (pc+1) ((pc,l2)::branches)
+    | _ ->
+      find_candidates (pc+1) branches
   in
-  change_instrs transform input
+  let candidates = find_candidates 0 [] in
+  let resolve = Instr.resolve input.instrs in
+  let changes = List.map (fun (b_pc, l) ->
+    [(b_pc, 1, [| Goto l |]);
+     (* We also need to fix the label, since it's not a branch label anymore *)
+     (resolve (BranchLabel l), 1, [| Label (MergeLabel l) |])]) candidates in
+  if changes = []
+  then None
+  else
+    let instrs, _ = Edit.subst_many input.instrs (List.flatten changes) in
+    Some instrs

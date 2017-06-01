@@ -58,8 +58,9 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Drop var                        -> pr buf " drop %s" var
     | Assign (var, exp)               -> pr buf " %s <- %a" var dump_expr exp
     | Array_assign (var, index, exp)  -> pr buf " %s[%a] <- %a" var dump_expr index dump_expr exp
-    | Branch (exp, l1, l2)            -> pr buf " branch %a %s %s" dump_expr exp l1 l2
-    | Label label                     -> pr buf "%s:" label
+    | Branch (exp, l1, l2)            -> pr buf " branch %a $%s $%s" dump_expr exp l1 l2
+    | Label (MergeLabel label)        -> pr buf "%s:" label
+    | Label (BranchLabel label)        -> pr buf "$%s:" label
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print %a" dump_expr exp
     | Assert exp                      -> pr buf " assert %a" dump_expr exp

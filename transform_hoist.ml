@@ -26,49 +26,23 @@ let push_instr cond instrs pc : push_status =
   | Stop _ | Return _ ->
     (* we are coming from the predecessors, cannot reach a Stop! *)
     assert false
-  | Label label
-    when List.exists (fun pc -> is_blocking instrs.(pc)) preds.(pc_above)
-    -> Blocked
-  | Label label ->
+  | Label (BranchLabel label) ->
     (*
        We don't want to push over branches; they are barriers
        that will pull in another phase.
-
-       But, if we have several predecessors, some of which are
-       branches, we need to split those branch edges to push
-       independently to all predecessor edges.
     *)
-    let is_branch pred_pc = match[@warning "-4"] instrs.(pred_pc) with
-      | Branch _ -> true
-      | _ -> false in
-    begin match List.find is_branch preds.(pc_above) with
-    | branch_pc ->
-      if preds.(pc_above) = [branch_pc] then Need_pull branch_pc
-      else begin
-        (* multi-predecessor case, one of which is a branch:
-           we just split the branch edge -- doing anything more
-           would be fragile as we changed the instructions.
-
-           Iterating this transform will eventually remove all
-           branch edges from our (multi)predecessors, so that the
-           Not_found case below will do the final push. *)
-        let (_instrs, pc_map) as edit =
-          Edit.split_edge instrs preds branch_pc label pc_above in
-        Work (edit, [pc_map pc])
-      end
-   | exception Not_found ->
-     (* multi-predecessor case, with no multi-successor predecessor (no branch);
-        we can move the drop above all predecessors. A predecessor in (pc)
-        may be a Goto to this label, in which case we move the drop above it,
-        or a normal instruction (control flow falls to this label without a jump)
-        in which case we move the drop below it. *)
+    begin match preds.(pc_above) with
+    | [branch_pc] ->
+      if is_blocking instrs.(branch_pc) then Blocked else Need_pull branch_pc
+    | _ -> assert (false) (* not possible on a well-formed graph *)
+    end
+  | Label (MergeLabel label) ->
      let move_and_work pred_pc =
        match[@warning "-4"] instrs.(pred_pc) with
        | Goto label_ ->
          assert (label = label_);
          (pred_pc, 0, [| to_move |]), (fun pc_map -> pc_map pred_pc - 1)
-       | _ ->
-         (pred_pc+1, 0, [| to_move |]), (fun pc_map -> pc_map pred_pc + 1)
+       | _ -> assert (false) (* not possible on a well-formed graph *)
      in
      let moves, next = List.split (List.map move_and_work preds.(pc_above)) in
      let delete = (pc, 1, [||]) in
@@ -78,7 +52,6 @@ let push_instr cond instrs pc : push_status =
        |> List.map (fun next -> next pc_map)
        |> List.sort Pervasives.compare in
      Work (edit, worklist)
-   end
   | _ as instr ->
     if is_eliminating instr then Work (edit [|to_move|], [pc_above])
     else if is_annihilating instr then Stop (edit [||])

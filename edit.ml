@@ -15,7 +15,8 @@ let fresh_var instrs var =
 let fresh_label instrs label =
   let cand i = label ^ "_" ^ (string_of_int i) in
   let is_fresh cand_lab instr = match[@warning "-4"] instr with
-    | Label l -> l <> cand_lab
+    | Label (BranchLabel l) -> l <> cand_lab
+    | Label (MergeLabel l) -> l <> cand_lab
     | _ -> true in
   let rec find i =
     let cand_lab = cand i in
@@ -66,40 +67,6 @@ let subst_many instrs substs =
     Pervasives.compare (pc1 : int) pc2 in
   let instrs, pc_map = chunks 0 (List.sort compare substs) in
   Array.concat instrs, pc_map
-
-(** [split_edge instrs pc label pc']
-    splits the edge from a branch instruction in [pc]
-    to a [Label label] instruction in [pc'].
-*)
-let split_edge instrs preds pc label pc' =
-  assert (instrs.(pc') = Label label);
-  let split_label = fresh_label instrs label in
-  let add_split_edge =
-    (pc', 0, [|
-        Label split_label;
-        Goto label;
-      |]) in
-  let fix_pred pred_pc =
-    if pred_pc <> pc then begin
-      (* this is not the pc to update with the split label;
-         it may either be an explicit jump to the label,
-         which needs no change, or an instruction right before
-         the label without an explicit jump, which now needs an
-         explicit jump as the instruction after it will change. *)
-      match[@warning "-4"] instrs.(pred_pc) with
-      | Goto _ | Branch _ -> []
-      | instr -> [(pred_pc, 1, [| instr; Goto label |])]
-    end else begin
-      match[@warning "-4"] instrs.(pc) with
-      | Branch (v, l1, l2) ->
-        let fix l = if l = label then split_label else l in
-        if not (l1 = label || l2 = label) then invalid_arg "split_edge";
-        [(pc, 1, [| Branch (v, fix l1, fix l2) |])]
-      | _ -> invalid_arg "split_edge"
-    end
-  in
-  let substs = add_split_edge :: List.flatten (List.map fix_pred preds.(pc')) in
-  subst_many instrs substs
 
 let replace_uses old_name new_name = object (self)
   inherit Instr.map as super

@@ -9,13 +9,14 @@
   var limit = 10
   read limit
   print z
+  goto loop
 loop:
-  branch (i == limit) continue loop_body
-loop_body:
+  branch (i == limit) $continue $loop_body
+$loop_body:
   # This assignment can be moved
   z <- (x + y)
   acc <- (acc + z)
   i <- (i + one)
   goto loop
-continue:
+$continue:
 print acc

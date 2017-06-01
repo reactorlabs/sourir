@@ -8,7 +8,7 @@ let remove_jmp : transform_instructions = fun ({instrs; _} as inp) ->
   let transform pc =
     if (pc+1) = Array.length instrs then Unchanged else
     match[@warning "-4"] instrs.(pc), instrs.(pc+1) with
-    | Goto l1, Label l2 when l1 = l2 && pred.(pc+1) = [pc] ->
+    | Goto l1, Label (MergeLabel l2) when l1 = l2 && pred.(pc+1) = [pc] ->
       Remove 2
     | Label l, _ when
         pred.(pc) = [pc-1] && succ.(pc-1) = [pc] ->

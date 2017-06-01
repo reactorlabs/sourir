@@ -1,37 +1,37 @@
-program: BRANCH NIL IDENTIFIER TRIPLE_DOT 
+program: BRANCH NIL DOLLAR IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 126.
+## Ends in an error in state: 130.
 ##
-## instruction -> BRANCH expression label . label [ NEWLINE ]
+## instruction -> BRANCH expression DOLLAR label . DOLLAR label [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## BRANCH expression label 
+## BRANCH expression DOLLAR label 
 ##
 
-Parsing an instruction, we parsed "branch <expr> <label>" so far;
-a label, for example "foo", is now expected to construct a branch
+Parsing an instruction, we parsed "branch <expr> $<label>" so far;
+a label, for example "$foo", is now expected to construct a branch
 instruction
-"branch <expr> <label> <label>".
+"branch <expr> $<label> $<label>".
 
 program: BRANCH NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 125.
+## Ends in an error in state: 128.
 ##
-## instruction -> BRANCH expression . label label [ NEWLINE ]
+## instruction -> BRANCH expression . DOLLAR label DOLLAR label [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
 ## BRANCH expression 
 ##
 
 Parsing an instruction, we parsed "branch <expr>" so far; a label, for
-example "foo", is now expected to construct a branch instruction
-"branch <expr> <label> <label>".
+example "$foo", is now expected to construct a branch instruction
+"branch <expr> $<label> $<label>".
 
 program: BRANCH TRIPLE_DOT 
 ##
-## Ends in an error in state: 124.
+## Ends in an error in state: 127.
 ##
-## instruction -> BRANCH . expression label label [ NEWLINE ]
+## instruction -> BRANCH . expression DOLLAR label DOLLAR label [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
 ## BRANCH 
@@ -39,7 +39,7 @@ program: BRANCH TRIPLE_DOT
 
 Parsing an instruction, we parsed "branch" so far; an expression, for
 example "(x == 2)", is now expected to construct a branch instruction
-"branch <expr> <label> <label>".
+"branch <expr> $<label> $<label>".
 
 program: VAR IDENTIFIER EQUAL TRIPLE_DOT 
 ##
@@ -101,7 +101,7 @@ Parsing an instruction, we parsed "goto" so far; a label, for example
 
 program: IDENTIFIER LEFTARROW TRIPLE_DOT 
 ##
-## Ends in an error in state: 140.
+## Ends in an error in state: 145.
 ##
 ## instruction -> variable LEFTARROW . expression [ NEWLINE ]
 ##
@@ -265,7 +265,7 @@ program: LBRACE STOP
 ##
 ## Ends in an error in state: 5.
 ##
-## scope_annotation -> LBRACE . scope RBRACE optional_newlines [ VAR STOP RETURN READ PRINT OSR IDENTIFIER GOTO DROP COMMENT CALL BRANCH ASSERT ARRAY ]
+## scope_annotation -> LBRACE . scope RBRACE optional_newlines [ VAR STOP RETURN READ PRINT OSR IDENTIFIER GOTO DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE 
@@ -282,7 +282,7 @@ program: LBRACE TRIPLE_DOT RBRACE BOOL
 ##
 ## Ends in an error in state: 12.
 ##
-## scope_annotation -> LBRACE scope RBRACE . optional_newlines [ VAR STOP RETURN READ PRINT OSR IDENTIFIER GOTO DROP COMMENT CALL BRANCH ASSERT ARRAY ]
+## scope_annotation -> LBRACE scope RBRACE . optional_newlines [ VAR STOP RETURN READ PRINT OSR IDENTIFIER GOTO DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE scope RBRACE 
@@ -295,7 +295,7 @@ program: LBRACE TRIPLE_DOT TRIPLE_DOT
 ##
 ## Ends in an error in state: 11.
 ##
-## scope_annotation -> LBRACE scope . RBRACE optional_newlines [ VAR STOP RETURN READ PRINT OSR IDENTIFIER GOTO DROP COMMENT CALL BRANCH ASSERT ARRAY ]
+## scope_annotation -> LBRACE scope . RBRACE optional_newlines [ VAR STOP RETURN READ PRINT OSR IDENTIFIER GOTO DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE scope 
@@ -308,7 +308,7 @@ program: PRINT LPAREN IDENTIFIER PLUS IDENTIFIER TRIPLE_DOT
 ##
 ## Ends in an error in state: 57.
 ##
-## expression -> LPAREN simple_expression infixop simple_expression . RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
+## expression -> LPAREN simple_expression infixop simple_expression . RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAREN simple_expression infixop simple_expression 
@@ -321,7 +321,7 @@ program: PRINT LPAREN IDENTIFIER PLUS TRIPLE_DOT
 ##
 ## Ends in an error in state: 56.
 ##
-## expression -> LPAREN simple_expression infixop . simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
+## expression -> LPAREN simple_expression infixop . simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAREN simple_expression infixop 
@@ -335,7 +335,7 @@ program: PRINT LPAREN IDENTIFIER TRIPLE_DOT
 ##
 ## Ends in an error in state: 42.
 ##
-## expression -> LPAREN simple_expression . infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
+## expression -> LPAREN simple_expression . infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAREN simple_expression 
@@ -349,8 +349,8 @@ program: PRINT LPAREN TRIPLE_DOT
 ##
 ## Ends in an error in state: 36.
 ##
-## expression -> LPAREN . simple_expression infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
-## expression -> LPAREN . prefixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN IDENTIFIER COMMA ]
+## expression -> LPAREN . simple_expression infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
+## expression -> LPAREN . prefixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ##
 ## The known suffix of the stack is as follows:
 ## LPAREN 
@@ -393,9 +393,9 @@ Note that the variable needs to have been declared as mutable first.
 
 program: STOP NIL NEWLINE TRIPLE_DOT 
 ##
-## Ends in an error in state: 151.
+## Ends in an error in state: 156.
 ##
-## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ VERSION VAR STOP RETURN READ PRINT OSR LBRACE IDENTIFIER GOTO FUNCTION EOF DROP COMMENT CALL BRANCH ASSERT ARRAY ]
+## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ VERSION VAR STOP RETURN READ PRINT OSR LBRACE IDENTIFIER GOTO FUNCTION EOF DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction NEWLINE 
@@ -406,9 +406,9 @@ instruction on the next line, or the end of the file.
 
 program: STOP NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 150.
+## Ends in an error in state: 155.
 ##
-## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ VERSION VAR STOP RETURN READ PRINT OSR LBRACE IDENTIFIER GOTO FUNCTION EOF DROP COMMENT CALL BRANCH ASSERT ARRAY ]
+## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ VERSION VAR STOP RETURN READ PRINT OSR LBRACE IDENTIFIER GOTO FUNCTION EOF DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction 

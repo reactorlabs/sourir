@@ -2,7 +2,7 @@
   var x
   # pulled from below the branch
   drop x
-  branch e l1 l2
-l1:
+  branch e $l1 $l2
+$l1:
   stop 0
-l2:
+$l2:

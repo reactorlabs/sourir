@@ -2,11 +2,17 @@
  var y = 1
  read x
  var i = 0
-loop:
-  branch (x==1) c1 c2
- c1:
+ goto loop_
+$loop:
+ goto loop_
+loop_:
+  branch (x==1) $c1 $c2
+ $c1:
   y <- 2
- c2:
+  goto l2
+ $c2:
+  goto l2
+ l2:
   i <- (i+y)
- branch (i==10) end loop
-end:
+ branch (i==10) $end $loop
+$end:
