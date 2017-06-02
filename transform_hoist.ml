@@ -199,6 +199,7 @@ module Drop = struct
   let is_annihilating var instr =
     match[@warning "-4"] instr with
     | Decl_var (x, _) -> x = var
+    | Decl_array (x, _) -> x = var
     | _ -> false
 
   let conditions_var var = {
