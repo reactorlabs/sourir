@@ -23,7 +23,7 @@ let insert_checkpoints (func:afunction) =
   let transform pc =
     let create_checkpoint pc =
       match scope.(pc) with
-      | DeadScope -> assert(false)
+      | DeadScope -> Unchanged
       | Scope scope ->
         let vars = VarSet.elements scope in
         let osr = List.map (fun x -> Osr_var (x, (Simple (Var x)))) vars in
@@ -32,7 +32,7 @@ let insert_checkpoints (func:afunction) =
           version=version.label;
           pos=checkpoint_label pc;
         } in
-        Insert [Osr {label=checkpoint_label pc; cond=[]; target; map=osr};]
+        InsertBefore [Osr {label=checkpoint_label pc; cond=[]; target; map=osr};]
     in
     if pc = 0 then Unchanged else
     match[@warning "-4"] instrs.(pc) with
