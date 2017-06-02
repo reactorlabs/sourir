@@ -236,6 +236,7 @@ let rec eval heap env = function
 
 exception InvalidArgument
 exception InvalidNumArgs
+exception LabelFallthrough of label_type
 
 let instruction conf =
   let default_exit = (Simple (Constant (Int 0))) in
@@ -346,9 +347,9 @@ let reduce conf =
     }
   | Branch (e, l1, l2) ->
      let b = get_bool (eval conf e) in
-     { conf with pc = resolve conf.instrs (if b then l1 else l2) }
-  | Label _ -> { conf with pc = pc' }
-  | Goto label -> { conf with pc = resolve conf.instrs label }
+     { conf with pc = 1 + (resolve conf.instrs (if b then (BranchLabel l1) else (BranchLabel l2))) }
+  | Label l -> raise (LabelFallthrough l)
+  | Goto label -> { conf with pc = 1 + (resolve conf.instrs (MergeLabel label)) }
   | Read x ->
     let (IO.Next (v, input')) = conf.input () in
     let heap, env = update conf.heap conf.env x v in

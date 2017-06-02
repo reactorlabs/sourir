@@ -2,12 +2,15 @@ array x = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 var len = length(x)
 var sum = 0
 var i = 0
-loop:
+goto loop_body
+$loop:
+  goto loop_body
+loop_body:
   var val = x[i]
   sum <- (sum + val)
   i <- (i + 1)
   drop val
-  branch (i == len) done loop
-done:
+  branch (i == len) $done $loop
+$done:
   assert (sum == 55)
   print sum

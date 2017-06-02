@@ -17,7 +17,12 @@ exception FunctionDoesNotExist of identifier
 exception VersionDoesNotExist of identifier * label
 exception InvalidNumArgs of pc
 exception InvalidArgument of pc * argument
+exception BranchLabelReused of pc
+exception DuplicateLabel of label
 exception MissingReturn
+
+exception FallthroughLabel of pc
+exception EntryPointIsLabel
 
 module IdentifierSet = Set.Make(Identifier)
 
@@ -66,6 +71,7 @@ let well_formed prog =
       then raise (InvalidNumArgs pc)
     in
 
+    let preds = Analysis.predecessors instrs in
     let check_fun_ref instr =
       let rec check_value = function
         | Nil | Bool _ | Int _ | Array _ -> ()
@@ -90,15 +96,15 @@ let well_formed prog =
       | Decl_var (_, e)
       | Decl_array (_, Length e)
       | Assign (_, e)
-      | Branch (e, _, _)
       | Print e
       | Assert e
       | Stop e
       | Return e
+      | Branch (e, _, _)
         -> check_expr e
       | Decl_array (_, List es) -> List.iter check_expr es
       | Drop _ | Read _
-      | Label _ | Goto _ | Comment _ -> ()
+      | Goto _ | Label _ | Comment _ -> ()
       | Array_assign (_, i, e) ->
         check_expr i;
         check_expr e;
@@ -106,6 +112,8 @@ let well_formed prog =
         List.iter check_expr cond;
         List.iter check_osr map
     in
+
+    let seen = ref [] in
 
     (* Check correctness of calls and osrs *)
     let check_instr pc instr =
@@ -126,6 +134,30 @@ let well_formed prog =
         let func = lookup_fun func in
         let vers = lookup_version func version in
         let _ = Instr.resolve_osr vers.instrs label in
+        check_fun_ref instr
+      | Goto l ->
+        let _ = Instr.resolve instrs (MergeLabel l) in
+        check_fun_ref instr
+      | Branch (e, l1, l2) ->
+        let t1 = Instr.resolve instrs (BranchLabel l1) in
+        if (preds.(t1) <> [pc]) then raise (BranchLabelReused t1);
+        let t2 = Instr.resolve instrs (BranchLabel l2) in
+        if (preds.(t2) <> [pc]) then raise (BranchLabelReused t2);
+        if (t1 = t2) then raise (BranchLabelReused t1);
+        check_fun_ref instr
+      | Label (MergeLabel l| BranchLabel l) ->
+        if List.mem l !seen then raise (DuplicateLabel l);
+        seen := l :: !seen;
+        (* Entry point cannot be a label because if it where a branch
+         * target it would have two incomming control flows. *)
+        if (pc = 0) then raise EntryPointIsLabel;
+        (* Fallthrough is forbidden. Because again for branch targets
+         * it would add a second source. To simplify resoning we forbid
+         * it in general. *)
+        begin match[@warning "-4"] instrs.(pc-1) with
+        | Goto _ | Branch _ | Stop _ | Return _ -> ()
+        | _ -> raise (FallthroughLabel pc)
+        end;
         check_fun_ref instr
       | _ -> check_fun_ref instr
     in

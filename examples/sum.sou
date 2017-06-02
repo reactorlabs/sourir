@@ -2,15 +2,16 @@
   var sum = 0
   var limit = 0
   read limit
+  goto loop
 loop:
-  branch (i == limit) continue loop_body
-loop_body:
+  branch (i == limit) $continue $loop_body
+$loop_body:
   print i
   sum <- (sum + i)
   i <- (i + 1)
   goto loop
 
-continue:
+$continue:
   drop i
   drop limit
 {sum}

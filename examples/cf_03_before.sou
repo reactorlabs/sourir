@@ -3,18 +3,22 @@
   var a = (10 + 0)
   var b = 20
   var c = 30
-  branch t la lb
-la:
-  branch t l1 l2
-lb:
-  branch t l2 l3
-l1:
+  branch t $la $lb
+$la:
+  branch t $l1 $l2_a
+$lb:
+  branch t $l2_b $l3
+$l1:
   print (a + 0)
   goto fin
+$l2_a:
+  goto l2
+$l2_b:
+  goto l2
 l2:
   print b
   goto fin
-l3:
+$l3:
   print c
   goto fin
 fin:

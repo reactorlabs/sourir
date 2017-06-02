@@ -8,16 +8,20 @@
   var w = 0
   read w
   var limit = 10
+  goto loop
 loop:
-  branch (i == limit) continue loop_body
-loop_body:
-  branch (w == i) l1 l2
-l1:
+  branch (i == limit) $continue $loop_body
+$loop_body:
+  branch (w == i) $l1 $l2
+$l1:
   # This statement cannot be moved (but the entire if-branch can)
   z <- (x + y)
-l2:
+  goto ft
+$l2:
+  goto ft
+ ft:
   acc <- (acc + z)
   i <- (i + one)
   goto loop
-continue:
+$continue:
 print acc

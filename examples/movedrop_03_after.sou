@@ -1,10 +1,10 @@
   var x = 1
-  branch (1==1) e1 e2
-e1:
+  branch (1==1) $e1 $e2
+$e1:
   # drop was hoisted
   drop x
   goto l
-e2:
+$e2:
   # drop was hoisted
   drop x
   goto l

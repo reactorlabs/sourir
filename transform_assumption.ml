@@ -137,6 +137,7 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
  * out of a loop:
  *
  *    osr [] ...
+ *    goto loop
  *   loop:
  *    print (x+1)
  *    osr [x==1] ...
@@ -145,6 +146,7 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
  *   cont:
  *   ===================>
  *    osr [x==1] ...
+ *    goto loop
  *   loop:
  *    print (x+1)
  *    osr [] ...
@@ -159,7 +161,7 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
  * In the above example:
  * 0. We can move the assumption to `loop:` because `print (x+1)` is
  *    independent of x==1.
- * 1. There is an unique dominator (ie. the fallthrough one)
+ * 1. There is an unique dominator (ie. the loop entry)
  * 2. On the other predecessor (ie. the branch instruction) the assumption
  *    is available because `print x` is independent of x==1.
  *)

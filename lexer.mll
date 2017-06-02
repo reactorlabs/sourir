@@ -77,6 +77,7 @@ rule token = parse
   | "," { COMMA }
   | "..." { TRIPLE_DOT }
   | ":" { COLON }
+  | "$" { DOLLAR }
   | "=" { EQUAL }
   | "<-" { LEFTARROW }
   | "'" { SINGLE_QUOTE }

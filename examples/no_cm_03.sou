@@ -6,14 +6,15 @@
   var i = 0
   var acc = 0
   var limit = 10
+  goto loop
 loop:
-  branch (i == limit) continue loop_body
-loop_body:
+  branch (i == limit) $continue $loop_body
+$loop_body:
   print z
   # This statement cannot be moved
   z <- (x + y)
   acc <- (acc + z)
   i <- (i + one)
   goto loop
-continue:
+$continue:
 print acc

@@ -8,12 +8,13 @@
   var x = 30
   var z = 0
   read z
-  branch (z == zero) l1 l2
-l1:
+  branch (z == zero) $l1 $l2
+$l1:
   x <- (x + one)
   goto end
-l2:
+$l2:
   x <- (x + two)
+  goto end
 end:
   # This assignment can be moved
   w1 <- (w1 + one)

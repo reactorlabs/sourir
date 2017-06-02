@@ -1,11 +1,13 @@
   goto bla
-loop:
+$loop:
+  goto loop_entry
+loop_entry:
   x <- (x + 1)
-  branch (x==10) end loop
-end:
+  branch (x==10) $end $loop
+$end:
   print 1
   stop 0
 bla:
   var x = 1
-  goto loop
+  goto loop_entry
 

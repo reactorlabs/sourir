@@ -1,12 +1,15 @@
   var a = 12
   var b = false
   var c
-  branch b o1 o2
-o1:
+  branch b $o1 $o2
+$o1:
   a <- 22
   a <- 1
   print a
-o2:
+  goto o2m
+$o2:
+  goto o2m
+o2m:
   print b
   drop b
   goto x

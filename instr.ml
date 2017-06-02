@@ -55,13 +55,16 @@ and instruction =
   | Array_assign of variable * expression * expression
   | Read of variable
   | Branch of expression * label * label
-  | Label of label
+  | Label of label_type
   | Goto of label
   | Print of expression
   | Assert of expression
   | Stop of expression
   | Osr of {label : label; cond : expression list; target : label position; map : osr_def list; }
   | Comment of string
+and label_type =
+  | MergeLabel of label
+  | BranchLabel of label
 and array_def =
   | Length of expression
   | List of expression list
@@ -135,9 +138,10 @@ type binding =
   | Val of value
   | Ref of address
 
-exception Unbound_label of label
+exception Unbound_label of label_type
+exception Unbound_osr_label of label
 
-let resolve (code : instructions) (label : string) =
+let resolve (code : instructions) (label : label_type) =
   let rec loop i =
     if i >= Array.length code then raise (Unbound_label label)
     else if code.(i) = Label label then i
@@ -146,7 +150,7 @@ let resolve (code : instructions) (label : string) =
 
 let resolve_osr (code : instructions) (l : string) =
   let rec loop i =
-    if i >= Array.length code then raise (Unbound_label l)
+    if i >= Array.length code then raise (Unbound_osr_label l)
     else match[@warning "-4"] code.(i) with
          | Osr {label} when label = l -> i
          | _ -> loop (i + 1)
@@ -344,15 +348,17 @@ class map = object (m)
     | Op (op, es) ->
       Op (m#primop op, List.map m#simple_expression es)
 
-  method label l = l
+  method goto_label l = l
+  method branch_label l = l
 
-  method func l = m#label l
-  method version l = m#label l
+  method func l = l
+  method version l = l
+  method pos l = l
 
   method unique_pos {func; version; pos} = {
     func = m#func func;
     version = m#version version;
-    pos = m#label pos;
+    pos = m#pos pos;
   }
   method instruction = function
     | Decl_var (x, e) ->
@@ -372,11 +378,13 @@ class map = object (m)
     | Read x ->
       Read (m#variable_assign x)
     | Branch (e, l1, l2) ->
-      Branch (m#expression e, m#label l1, m#label l2)
-    | Label l ->
-      Label (m#label l)
+      Branch (m#expression e, m#branch_label l1, m#branch_label l2)
+    | Label (MergeLabel l) ->
+      Label (MergeLabel (m#goto_label l))
+    | Label (BranchLabel l) ->
+      Label (BranchLabel (m#branch_label l))
     | Goto l ->
-      Goto (m#label l)
+      Goto (m#goto_label l)
     | Print e ->
       Print (m#expression e)
     | Assert e ->

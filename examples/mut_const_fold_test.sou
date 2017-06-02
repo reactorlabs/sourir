@@ -3,15 +3,15 @@
   var x = 1
   var y
   var w = 1
-  branch (z==1) l1 l2
-l1:
+  branch (z==1) $l1 $l2
+$l1:
   print x
   # prints 1
   x <- 2
   y <- 2
   read w
   goto merge
-l2:
+$l2:
   x <- 3
   y <- 2
   print x

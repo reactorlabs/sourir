@@ -7,16 +7,17 @@
   var x = 10
   var z = 0
   read z
-  branch (z == zero) l1 l2
-l1:
+  branch (z == zero) $l1 $l2
+$l1:
   x <- (x + one)
   # This statement will be moved
   x <- (x + three)
   goto end
-l2:
+$l2:
   x <- (x + two)
   # This statement will be moved
   x <- (x + three)
+  goto end
 end:
   print x
   stop 0

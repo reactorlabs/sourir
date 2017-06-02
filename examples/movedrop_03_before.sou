@@ -1,8 +1,8 @@
   var x = 1
-  branch (1==1) e1 e2
-e1:
+  branch (1==1) $e1 $e2
+$e1:
   goto l
-e2:
+$e2:
   goto l
 l:
   # drop can be hoisted

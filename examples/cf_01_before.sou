@@ -5,12 +5,12 @@
   var c = (cc + 0)
   c <- (a + b)
   var d = true
-  branch d l1 l2
-l1:
+  branch d $l1 $l2
+$l1:
   c <- (c + a)
   print a
   goto fin
-l2:
+$l2:
   c <- (c + b)
   print b
   goto fin

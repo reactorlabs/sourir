@@ -64,6 +64,7 @@ let test_jump = parse
 " var x = true
   goto jmp
   x <- false
+  goto jmp
  jmp:
 "
 
@@ -73,6 +74,7 @@ let test_overloading = parse
   var y = x
   goto jump
   b <- false
+  goto jump
  jump:
   x <- 2
   stop 0
@@ -170,15 +172,16 @@ let test_sum limit_ = parse (
 " var i = 0
   var sum = 0
   var limit = "^string_of_int limit_^"
+  goto loop
 loop:
   var ax = (i==limit)
-  branch ax continue loop_body
-loop_body:
+  branch ax $continue $loop_body
+$loop_body:
   drop ax
   sum <- (sum+i)
   i <- (i+1)
   goto loop
-continue:
+$continue:
   drop ax
   stop 0
 ")
@@ -196,11 +199,14 @@ let test_broken_scope_2 = parse
 
 let test_broken_scope_3 = parse
 " var y = false
-  branch y cont next
- next:
+  branch y $cont $next
+ $next:
   var x = 0
   drop x
- cont:
+  goto ft
+ $cont:
+  goto ft
+ ft:
   print x
 "
 
@@ -228,16 +234,17 @@ z <- (x == y)
 let test_scope_1 test_var1 test_var2 = parse (
 " var t = false
   var c
-  branch t a b
-a:
+  branch t $a $b
+$a:
   var a = 0
   c <- 0
   drop a
   goto cont
-b:
+$b:
   var b = 0
   c <- 0
   drop b
+  goto cont
 cont:
   var res = (" ^ test_var1 ^ " + " ^ test_var2 ^ ")
 ")
@@ -321,11 +328,11 @@ let test_branch = parse
 "var x = 9
  var y = 10
  var r = 1
- branch (x == y) l1 l2
-l1:
+ branch (x == y) $l1 $l2
+$l1:
  r <- 2
  goto c
-l2:
+$l2:
  r <- 3
  goto c
 c:
@@ -345,18 +352,21 @@ let test_loop_branch = parse
 "var x = 9
  var y = 10
  var r = 1
+ goto loop
+$loop_b:
+ goto loop
 loop:
- branch (x == y) l1 l2
-l1:
+ branch (x == y) $l1 $l2
+$l1:
  r <- 2
  goto c
-l2:
+$l2:
  r <- 3
  goto c
 c:
  print r
- branch (r == 0) loop end
-end:
+ branch (r == 0) $loop_b $end
+$end:
 "
 
 let test_loop_branch_pruned =
@@ -364,11 +374,14 @@ let test_loop_branch_pruned =
  var y = 10
  osr cp_2 [(x == y)] (main, anon, cp_2) [var x = x, var y = y]
  var r = 1
+ goto loop
+$loop_b:
+ goto loop
 loop:
  r <- 3
  print r
- branch (r == 0) loop end
-end:
+ branch (r == 0) $loop_b $end
+$end:
 "
 
 let test_double_loop = parse
@@ -376,25 +389,27 @@ let test_double_loop = parse
  i <- 0
  var sum = 0
  var limit = 4
+ goto loop1
 loop1:
-  branch (i != limit) loop_body1 continue
-loop_body1:
+  branch (i != limit) $loop_body1 $continue
+$loop_body1:
    var i2 = 0
    var sum2 = 0
+   goto loop2
 loop2:
-    branch (i2 != limit) loop_body2 continue2
-loop_body2:
+    branch (i2 != limit) $loop_body2 $continue2
+$loop_body2:
      print i2
      sum2 <- (sum + i2)
      i2 <- (i2 + 1)
     goto loop2
-continue2:
+$continue2:
    sum <- (sum + sum2)
    drop i2
    drop sum2
    i <- (i + 1)
  goto loop1
-continue:
+$continue:
  print sum
 "
 
@@ -427,9 +442,17 @@ let test_pred = parse
 "l1:
   goto l2
  l3:
-  branch x l1 l2
+  branch x $l1_a $l2_a
+ $l1_a:
+  goto l1
+ $l2_a:
+  goto l2
  l2:
-  branch x l1 l3
+  branch x $l1_b $l3_b
+ $l1_b:
+  goto l1
+ $l3_b:
+  goto l3
   stop 0
   goto l1
 "
@@ -438,14 +461,15 @@ let do_test_pred = function () ->
   let v = Instr.active_version test_pred.main in
   let pred = Analysis.predecessors v.instrs in
   let pred pc = pred.(pc) in
-  assert_equal_sorted (pred 0) [3; 5; 7];
+  assert_equal_sorted (pred 0) [5; 11; 15];
   assert_equal_sorted (pred 1) [0];
-  assert_equal_sorted (pred 2) [5];
-  assert_equal_sorted (pred 3) [2];
-  assert_equal_sorted (pred 4) [1; 3];
-  assert_equal_sorted (pred 5) [4];
-  assert_equal_sorted (pred 6) [];
-  assert_equal_sorted (pred 7) []
+  assert_equal_sorted (pred 2) [13];
+  assert_equal_sorted (pred 4) [3];
+  assert_equal_sorted (pred 8) [1; 7];
+  assert_equal_sorted (pred 9) [8];
+  assert_equal_sorted (pred 14) [];
+  assert_equal_sorted (pred 15) []
+;;
 
 let test_df = parse
 "var a = 1
@@ -454,15 +478,20 @@ let test_df = parse
  # space
  b <- 3
  var z = (a+b)
-l:
+ goto l_
+$l1:
+ goto l_
+$l:
+ goto l_
+l_:
  var y = (a+b)
  b <- 4
- branch b l l2
+ branch b $l $l2
  # gap
-l2:
+$l2:
  var y = (y+b)
- branch b l l3
-l3:
+ branch b $l1 $l3
+$l3:
 "
 
 let do_test_liveness = function () ->
@@ -476,31 +505,34 @@ let do_test_liveness = function () ->
   assert_equal_sorted (live 4) ["a";"b"];
   assert_equal_sorted (live 5) ["a";"b"];
   assert_equal_sorted (live 6) ["a";"b"];
-  assert_equal_sorted (live 7)  ["a";"y"];
-  assert_equal_sorted (live 8)  ["a";"b";"y"];
-  assert_equal_sorted (live 9)  ["a";"b";"y"];
-  assert_equal_sorted (live 11) ["a";"b";"y"];
-  assert_equal_sorted (live 12) ["a";"b"];
-  assert_equal_sorted (live 13) ["a";"b"];
+  assert_equal_sorted (live 12)  ["a";"y"];
+  assert_equal_sorted (live 13)  ["a";"b";"y"];
+  assert_equal_sorted (live 14)  ["a";"b";"y"];
+  assert_equal_sorted (live 15) ["a";"b";"y"];
+  assert_equal_sorted (live 16) ["a";"b";"y"];
+  assert_equal_sorted (live 17) ["a";"b"];
+  assert_equal_sorted (live 18) ["a";"b"];
   assert_equal_sorted (live 0) ["a"]
+;;
 
 
 let do_test_used = function () ->
   let open Analysis in
   let v = (as_analysis_input test_df.main (Instr.active_version test_df.main)) in
   let uses = uses v in
-  assert_equal_sorted (PcSet.elements (uses 0)) [2;5;7];
+  assert_equal_sorted (PcSet.elements (uses 0)) [2;5;12];
   assert_equal_sorted (PcSet.elements (uses 1)) [2];
   assert_equal_sorted (PcSet.elements (uses 2)) [];
-  assert_equal_sorted (PcSet.elements (uses 4)) [5;7];
+  assert_equal_sorted (PcSet.elements (uses 4)) [5;12];
   assert_equal_sorted (PcSet.elements (uses 5)) [];
-  assert_equal_sorted (PcSet.elements (uses 7)) [12];
-  assert_equal_sorted (PcSet.elements (uses 8)) [7;9;12;13];
-  assert_equal_sorted (PcSet.elements (uses 9)) [];
-  assert_equal_sorted (PcSet.elements (uses 11)) [];
-  assert_equal_sorted (PcSet.elements (uses 12)) [];
-  assert_equal_sorted (PcSet.elements (uses 13)) [];
+  assert_equal_sorted (PcSet.elements (uses 12)) [17];
+  assert_equal_sorted (PcSet.elements (uses 13)) [12;14;17;18];
+  assert_equal_sorted (PcSet.elements (uses 14)) [];
+  assert_equal_sorted (PcSet.elements (uses 16)) [];
+  assert_equal_sorted (PcSet.elements (uses 17)) [];
+  assert_equal_sorted (PcSet.elements (uses 18)) [];
   assert_equal_sorted (PcSet.elements (uses 6)) []
+;;
 
 
 let do_test_reaching = function () ->
@@ -511,30 +543,32 @@ let do_test_reaching = function () ->
   assert_equal_sorted (PosSet.elements (reaching 1))  [];
   assert_equal_sorted (PosSet.elements (reaching 2))  [Analysis.Instr 0; Analysis.Instr 1];
   assert_equal_sorted (PosSet.elements (reaching 5))  [Analysis.Instr 0; Analysis.Instr 4];
-  assert_equal_sorted (PosSet.elements (reaching 7))  [Analysis.Instr 8; Analysis.Instr 0; Analysis.Instr 4];
-  assert_equal_sorted (PosSet.elements (reaching 12)) [Analysis.Instr 8; Analysis.Instr 7];
+  assert_equal_sorted (PosSet.elements (reaching 12))  [Analysis.Instr 13; Analysis.Instr 0; Analysis.Instr 4];
+  assert_equal_sorted (PosSet.elements (reaching 17)) [Analysis.Instr 13; Analysis.Instr 12];
   assert_equal_sorted (PosSet.elements (reaching 0))  []
+
+;;
 
 let test_df2 = parse
 " goto jmp
-start:
+$start:
   var i = 1
   var c = 0
   var v = 123
   var x = 0
   loop:
-    branch (i==10) loop_end loop_begin
-  loop_begin:
+    branch (i==10) $loop_end $loop_begin
+  $loop_begin:
     var w = 3
-    branch (c==2) tr fs
-    tr:
+    branch (c==2) $tr $fs
+    $tr:
       w <- 3
       goto ct
-    fs:
-      branch (c==4) tr2 fs2
-      tr2:
+    $fs:
+      branch (c==4) $tr2 $fs2
+      $tr2:
         stop 0
-    fs2:
+    $fs2:
       w <- 4
       goto ct
   ct:
@@ -542,76 +576,89 @@ start:
     v <- (c+1)
     i <- (i+v)
     goto loop
-loop_end:
+$loop_end:
   print i
   print x
   # bla
   goto end
 jmp:
-  branch true start end
-end:
+  branch true $start $end
+$end:
 "
 
 let do_test_codemotion = function () ->
   let open Transform in
   let t = parse "
        goto bla
-      loop:
+      $loop:
+       goto loop_
+      loop_:
        y <- z
        x <- (x + y)
-       branch (x==10) end loop
-      end:
+       branch (x==10) $end $loop
+      $end:
        stop 0
       bla:
        var z = 1
        var x = 1
        var y = z
-       goto loop
+       goto loop_
   " in
   let expected = parse "
        goto bla
-      loop:
+      $loop:
+       goto loop_
+      loop_:
        x <- (x + y_1)
-       branch (x == 10) end loop
-      end:
+       branch (x == 10) $end $loop
+      $end:
        stop 0
       bla:
        var z = 1
        var y_1 = z
        var x = 1
        var y = z
-       goto loop
+       goto loop_
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
   let t = parse "
        var x = 1
        var y = 2
-      loop:
+       goto loop_
+      $loop:
+       goto loop_
+      loop_:
        y <- 1
        x <- (x + y)
-       branch (x==10) end loop
-      end:
+       branch (x==10) $end $loop
+      $end:
   " in
   let expected = parse "
        var y_1 = 1
        var x = 1
        var y = 2
-      loop:
+       goto loop_
+      $loop:
+       goto loop_
+      loop_:
        x <- (x + y_1)
-       branch (x == 10) end loop
-      end:
+       branch (x == 10) $end $loop
+      $end:
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
   let t = parse "
        var x = 1
        var y = 2
-      loop:
+       goto loop_
+      $loop:
+       goto loop_
+      loop_:
        y <- x
        x <- (x + y)
-       branch (x==10) end loop
-      end:
+       branch (x==10) $end $loop
+      $end:
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   (* cannot hoist because depends on previous loop iteration *)
@@ -619,14 +666,20 @@ let do_test_codemotion = function () ->
   let t = parse "
        var x = 1
        var y = 2
-      loop:
-       branch (x==5) la lb
-      la:
+       goto loop_
+      $loop:
+       goto loop_
+      loop_:
+       branch (x==5) $la $lb
+      $la:
        y <- 1
-      lb:
+       goto ft
+      $lb:
+       goto ft
+      ft:
        x <- (x + y)
-       branch (x==10) end loop
-      end:
+       branch (x==10) $end $loop
+      $end:
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   (* cannot hoist because if (x==5) then y is modified *)
@@ -639,12 +692,15 @@ let do_test_minimize_lifetime = function () ->
        var a = 12
        var b = false
        var c
-       branch b o1 o2
-      o1:
+       branch b $o1 $o2
+      $o1:
        a <- 22
        a <- 1
        print a
-      o2:
+       goto ft
+      $o2:
+       goto ft
+      ft:
        print b
        drop b
        goto x
@@ -656,12 +712,16 @@ let do_test_minimize_lifetime = function () ->
   let expected = parse "
        var a = 12
        var b = false
-       branch b o1 o2
-      o1:
+       branch b $o1 $o2
+      $o1:
        a <- 1
        print a
-      o2:
        drop a
+       goto ft
+      $o2:
+       drop a
+       goto ft
+      ft:
        print b
        drop b
        goto x
@@ -719,42 +779,42 @@ let do_test_const_fold_driver () =
   (* Test with branching *)
   test {input|
     var x = (1 + 0)
-    branch (1==1) l1 l2
-   l1:
+    branch (1==1) $l1 $l2
+   $l1:
     drop x
     goto next
-   l2:
+   $l2:
     print x
     drop x
     goto next
    next:
     var y = 1
-    branch (1!=0) l3 l4
-   l3:
+    branch (1!=0) $l3 $l4
+   $l3:
     print y
     drop y
     stop 0
-   l4:
+   $l4:
     drop y
     stop 0
   |input} {expect|
     var x = 1
-    branch true l1 l2
-   l1:
+    branch true $l1 $l2
+   $l1:
     drop x
     goto next
-   l2:
+   $l2:
     print 1
     drop x
     goto next
    next:
     var y = 1
-    branch true l3 l4
-   l3:
+    branch true $l3 $l4
+   $l3:
     print 1
     drop y
     stop 0
-   l4:
+   $l4:
     drop y
     stop 0
   |expect};
@@ -767,12 +827,12 @@ let do_test_const_fold_driver () =
     var c = (cc + 0)
     c <- (a + b)
     var d = true
-    branch d l1 l2
-   l1:
+    branch d $l1 $l2
+   $l1:
     c <- (c + a)
     print a
     goto fin
-   l2:
+   $l2:
     c <- (c + b)
     print b
     goto fin
@@ -781,12 +841,12 @@ let do_test_const_fold_driver () =
     stop 0
   |input} {expect|
     var c = 5
-    branch true l1 l2
-   l1:
+    branch true $l1 $l2
+   $l1:
     c <- 4
     print 1
     goto fin
-   l2:
+   $l2:
     c <- 5
     print 2
     goto fin
@@ -798,11 +858,13 @@ let do_test_const_fold_driver () =
   test {input|
     var n = 10
     goto bla
-   loop:
+   $loop:
+    goto loop_
+   loop_:
     y <- z
     x <- (x + z)
-    branch (x==n) end loop
-   end:
+    branch (x==n) $end $loop
+   $end:
     print z
     stop 0
    bla:
@@ -810,19 +872,21 @@ let do_test_const_fold_driver () =
     var zz = z
     var x = 1
     var y = (zz + 0)
-    goto loop
+    goto loop_
   |input} {expect|
     goto bla
-   loop:
+   $loop:
+    goto loop_
+   loop_:
     x <- (x + 1)
-    branch (x==10) end loop
-   end:
+    branch (x==10) $end $loop
+   $end:
     print 1
     stop 0
    bla:
     var x = 1
     var y = 1
-    goto loop
+    goto loop_
   |expect};
   (* More complicated control flow *)
   test {input|
@@ -831,18 +895,22 @@ let do_test_const_fold_driver () =
     var a = (10 + 0)
     var b = 20
     var c = 30
-    branch t la lb
-   la:
-    branch t l1 l2
-   lb:
-    branch t l2 l3
-   l1:
+    branch t $la $lb
+   $la:
+    branch t $l1 $l2_a
+   $lb:
+    branch t $l2_b $l3
+   $l1:
     print (a + 0)
     goto fin
+   $l2_a:
+    goto l2
+   $l2_b:
+    goto l2
    l2:
     print b
     goto fin
-   l3:
+   $l3:
     print c
     goto fin
    fin:
@@ -850,18 +918,22 @@ let do_test_const_fold_driver () =
     print y
     stop 0
   |input} {expect|
-    branch true la lb
-   la:
-    branch true l1 l2
-   lb:
-    branch true l2 l3
-   l1:
+    branch true $la $lb
+   $la:
+    branch true $l1 $l2_a
+   $lb:
+    branch true $l2_b $l3
+   $l1:
     print 10
     goto fin
+   $l2_a:
+    goto l2
+   $l2_b:
+    goto l2
    l2:
     print 20
     goto fin
-   l3:
+   $l3:
     print 30
     goto fin
    fin:
@@ -932,30 +1004,30 @@ let do_test_pull_drop () =
   let t = parse "
       var e = true
       var x
-      branch e l1 l2
-     l1:
+      branch e $l1 $l2
+     $l1:
       drop x
       stop 0
-     l2:
+     $l2:
       drop x
     " in
   let e = parse "
       var e = true
       var x
       drop x
-      branch e l1 l2
-     l1:
+      branch e $l1 $l2
+     $l1:
       stop 0
-     l2:
+     $l2:
   " in
   test t 2 "x" e;
   let t = parse "
       var e = true
       var x
-      branch e l1 l2
-     l1:
+      branch e $l1 $l2
+     $l1:
       stop 0
-     l2:
+     $l2:
       drop x
     " in
   test t 2 "x" t;
@@ -1029,58 +1101,61 @@ let do_test_push_drop () =
   test t 2 e;
   let t = parse "
     var x = 1
-    branch (1==1) l1 l2
-   l1:
+    branch (1==1) $l1 $l2
+   $l1:
     stop 0
-   l2:
+   $l2:
     drop x
     " in
   test t 5 t;
   let t = parse "
     var x = 1
-    branch (x==1) l1 l2
-   l1:
+    branch (x==1) $l1 $l2
+   $l1:
     stop 0
-   l2:
+   $l2:
     drop x
     " in
   test t 5 t;
   let t = parse "
     var x = 1
-    branch (1==1) l1 l2
-   l1:
-    goto l2
-   l2:
+    branch (1==1) $l1 $l2
+   $l1:
+    goto ft
+   $l2:
+    goto ft
+   ft:
     drop x
     " in
   let e = parse "
     var x = 1
-    branch (1 == 1) l1 l2_1
-   l1:
-    goto l2
-   l2_1:
-    goto l2
-   l2:
+    branch (1 == 1) $l1 $l2
+   $l1:
     drop x
+    goto ft
+   $l2:
+    drop x
+    goto ft
+   ft:
    " in
-  test t 5 e;
+  test t 7 e;
   let t = parse "
     var x = 1
-    branch (1==1) e1 e2
-   e1:
+    branch (1==1) $e1 $e2
+   $e1:
     goto l
-   e2:
+   $e2:
     goto l
    l:
     drop x
    " in
   let e = parse "
     var x = 1
-    branch (1==1) e1 e2
-   e1:
+    branch (1==1) $e1 $e2
+   $e1:
     drop x
     goto l
-   e2:
+   $e2:
     drop x
     goto l
    l:
@@ -1141,63 +1216,67 @@ let do_test_drop_driver () =
   |expect};
   test "x" {given|
     var x = 1
-    branch (x == 1) la lb
-   la:
+    branch (x == 1) $la $lb
+   $la:
     print 1
     drop x
     stop 0
-   lb:
+   $lb:
     print 2
     drop x
     stop 0
   |given} {expect|
     var x = 1
-    branch (x == 1) la lb
-   la:
+    branch (x == 1) $la $lb
+   $la:
     drop x
     print 1
     stop 0
-   lb:
+   $lb:
     drop x
     print 2
     stop 0
   |expect};
   test "x" {given|
     var x = 1
-    branch (1 == 1) la lb
-   la:
-    branch (1 == 1) l1 l2
-   lb:
-    branch (2 == 2) l2 l3
-   l1:
+    branch (1 == 1) $la $lb
+   $la:
+    branch (1 == 1) $l1 $l2_a
+   $lb:
+    branch (2 == 2) $l2_b $l3
+   $l1:
     print 1
     goto die_ende
+   $l2_a:
+    goto l2
+   $l2_b:
+    goto l2
    l2:
     print 2
     goto die_ende
-   l3:
+   $l3:
     print 3
     goto die_ende
   die_ende:
     drop x
     stop 0
   |given} {expect|
-     branch (1 == 1) la lb
-    la:
-     branch (1 == 1) l1 l2_2
-    lb:
-     branch (2 == 2) l2_1 l3
-    l1:
+     branch (1 == 1) $la $lb
+    $la:
+     branch (1 == 1) $l1 $l2_a
+    $lb:
+     branch (2 == 2) $l2_b $l3
+    $l1:
      print 1
      goto die_ende
-    l2_1:
+    $l2_a:
      goto l2
-    l2_2:
+    $l2_b:
      goto l2
     l2:
      print 2
      goto die_ende
-    l3:
+    $l3:
      print 3
      goto die_ende
     die_ende:
@@ -1509,16 +1588,16 @@ let suite =
        (fun() -> Scope.check_function test_read_print_err_3.main));
    "scope1">:: infer_broken_scope test_broken_scope_1 (undeclared ["x"] 0);
    "scope2">:: infer_broken_scope test_broken_scope_2 (undeclared ["x"] 3);
-   "scope3">:: infer_broken_scope test_broken_scope_3 (undeclared ["x"] 6);
+   "scope3">:: infer_broken_scope test_broken_scope_3 (undeclared ["x"] 9);
    "scope4">:: infer_broken_scope test_broken_scope_4 (extraneous ["y"] 2);
    "scope4fixed">:: run test_broken_scope_4_fixed no_input ok;
    "scope5">:: infer_broken_scope test_broken_scope_5 (undeclared ["w"] 2);
    "scope1ok">:: run (test_scope_1 "c" "c") no_input
      (has_var "c" (Value.int 0));
    "scope1broken">:: infer_broken_scope
-     (test_scope_1 "a" "c") (undeclared ["a"] 13);
+     (test_scope_1 "a" "c") (undeclared ["a"] 14);
    "scope1broken2">:: infer_broken_scope
-     (test_scope_1 "a" "b") (undeclared ["b"; "a"] 13);
+     (test_scope_1 "a" "b") (undeclared ["b"; "a"] 14);
    "parser">:: test_parse_disasm   ("stop 0\n");
    "parser1">:: test_parse_disasm  ("var x = 3\nprint x\nstop 0\n");
    "parser2">:: test_parse_disasm  ("goto l\nx <- 3\nl:\n");
@@ -1526,8 +1605,8 @@ let suite =
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
    "parser5b">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\nl:\n");
-   "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
-   "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
+   "parser6">:: test_parse_disasm  ("branch (x == y) $as $fd\n");
+   "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) $as $fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
    "parser_arr1">:: test_parse_disasm ("array x[10]\n");
    "parser_arr2">:: test_parse_disasm ("array x = []\narray x = [1, x, nil]\n");
@@ -1558,8 +1637,8 @@ let suite =
    "branch_pruning2">:: (fun () -> test_branch_pruning_exp test_loop_branch test_loop_branch_pruned);
    "predecessors">:: do_test_pred;
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
-   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "cp_5"));
-   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "cp_5"));
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "cp_6"));
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "cp_6"));
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;

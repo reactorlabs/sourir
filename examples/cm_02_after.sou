@@ -11,11 +11,12 @@
   print z
   # This assignment was moved
   z <- (x + y)
+  goto loop
 loop:
-  branch (i == limit) continue loop_body
-loop_body:
+  branch (i == limit) $continue $loop_body
+$loop_body:
   acc <- (acc + z)
   i <- (i + one)
   goto loop
-continue:
+$continue:
 print acc
