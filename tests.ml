@@ -335,7 +335,7 @@ c:
 let test_branch_pruned =
 " var x = 9
  var y = 10
- osr [(x == y)] (main, anon, checkpoint_2) [var x = x, var y = y]
+ osr cp_2 [(x == y)] (main, anon, cp_2) [var x = x, var y = y]
  var r = 1
  r <- 3
  print r
@@ -362,7 +362,7 @@ end:
 let test_loop_branch_pruned =
 " var x = 9
  var y = 10
- osr [(x == y)] (main, anon, checkpoint_2) [var x = x, var y = y]
+ osr cp_2 [(x == y)] (main, anon, cp_2) [var x = x, var y = y]
  var r = 1
 loop:
  r <- 3
@@ -405,8 +405,7 @@ let test_branch_pruning_exp prog expected =
                          [branch_prune;
                           (as_opt_function Transform_assumption.hoist_assumption);
                           cleanup_all;
-                          (as_opt_function Transform_assumption.remove_empty_osr);
-                          Transform_assumption.remove_checkpoint_labels]) in
+                          (as_opt_function Transform_assumption.remove_empty_osr)]) in
   let prog2 = { prog with main = prune prog.main } in
   assert_equal_string expected
     (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) 
@@ -1355,12 +1354,12 @@ let do_test_deopt () =
     function main ()
     version a
      var x = 1
-     osr [(x==1)] (main, b, l) [var y=42]
+     osr l [(x==1)] (main, b, l) [var y=42]
      return x
 
     version b
      var y = 2
-    l:
+     osr l [] (main, b, l) [var y=y]
      return y
   |pr} 42;
 
@@ -1370,11 +1369,11 @@ let do_test_deopt () =
      return x
     function foo()
     version vers_a
-     osr [(1==1)] (foo,vers_b,st) [var x = (41 + 1)]
+     osr l [(1==1)] (foo,vers_b,l) [var x = (41 + 1)]
      return 0
     version vers_b
      var x = 0
-     st:
+     osr l [] (foo,vers_b,l) [var x = x]
      return x
   |pr} 42;
   ()
@@ -1526,7 +1525,7 @@ let suite =
    "parser3">:: test_parse_disasm  ("var x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\nl:\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) as fd\n");
    "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) as fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
@@ -1559,8 +1558,8 @@ let suite =
    "branch_pruning2">:: (fun () -> test_branch_pruning_exp test_loop_branch test_loop_branch_pruned);
    "predecessors">:: do_test_pred;
    "branch_pruning_eval">:: (fun () -> test_branch_pruning test_branch None);
-   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "checkpoint_5"));
-   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "checkpoint_5"));
+   "branch_pruning_eval2">:: (fun () -> test_branch_pruning (test_sum 10) (Some "cp_5"));
+   "branch_pruning_eval3">:: (fun () -> test_branch_pruning test_double_loop (Some "cp_5"));
    "reaching">:: do_test_reaching;
    "used">:: do_test_used;
    "liveness">:: do_test_liveness;

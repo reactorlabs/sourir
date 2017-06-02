@@ -64,13 +64,14 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Print exp                       -> pr buf " print %a" dump_expr exp
     | Assert exp                      -> pr buf " assert %a" dump_expr exp
     | Read var                        -> pr buf " read %s" var
-    | Osr {cond; target = {func; version; pos=label}; map} ->
+    | Osr {label; cond; target = {func; version; pos}; map} ->
       let dump_var buf = function
         | Osr_var (x, e)     -> pr buf "var %s = %a" x dump_expr e
       in
-      pr buf " osr [%a] (%s, %s, %s) [%a]"
+      pr buf " osr %s [%a] (%s, %s, %s) [%a]"
+        label
         (dump_comma_separated dump_expr) cond
-        func version label
+        func version pos
         (dump_comma_separated dump_var) map
     | Comment str                     -> pr buf " #%s" str
     end;

@@ -140,10 +140,11 @@ instruction:
 | ASSERT e=expression
   { Assert e }
 | OSR
+  label=label
   LBRACKET cond=separated_list(COMMA, expression) RBRACKET
   LPAREN func=label COMMA version=label COMMA pos=label RPAREN
   LBRACKET map=separated_list(COMMA, osr_def) RBRACKET
-  { Osr {cond; target= {func; version; pos}; map} }
+  { Osr {label; cond; target= {func; version; pos}; map} }
 | STOP e=expression
   { Stop e }
 | s=COMMENT

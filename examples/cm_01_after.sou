@@ -11,7 +11,7 @@ version active
  var x = 30
  var z = 0
  read z
- osr [(z == zero)] (main,old,l1) [var one = one, var two = two, var w1 = w1, var w2 = w2, var x = x, var z = z, var zero = zero]
+ osr deopt [(z == zero)] (main,old,deopt) [var one = one, var two = two, var w1 = w1, var w2 = w2, var x = x, var z = z, var zero = zero]
  x <- (x + two)
  # This assignment can be moved
  w1 <- (w1 + one)
@@ -33,6 +33,7 @@ version old
  var x = 30
  var z = 0
  read z
+ osr deopt [] (main,old,deopt) [var one = one, var two = two, var w1 = w1, var w2 = w2, var x = x, var z = z, var zero = zero]
  branch (z == zero) l1 l2
 l1:
  x <- (x + one)
