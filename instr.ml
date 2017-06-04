@@ -1,12 +1,6 @@
-module Variable = struct
-  type t = string
-  let compare = String.compare
-end
+module Variable = String
 
-module Label = struct
-  type t = string
-  let compare = String.compare
-end
+module Label = String
 
 module Address : sig
   type t = private int
@@ -23,6 +17,8 @@ type variable = Variable.t
 type label = Label.t
 
 module VarSet = Set.Make(Variable)
+
+module LabelSet = Set.Make(Label)
 
 module Identifier = struct
   type t = string
@@ -305,6 +301,17 @@ let lookup_fun (prog : program) (f : identifier) : afunction =
   if f = "main" then prog.main else
   try List.find (fun {name} -> name = f) prog.functions with
   | Not_found -> raise (FunctionDoesNotExist f)
+
+let replace_fun ({main; functions} as prog : program) (func : afunction) : program =
+  let rec replace_fun' rest =
+    match rest with
+    | [] -> []
+    | func' :: rest' ->
+      if func'.name = func.name then func :: rest'
+      else func' :: replace_fun' rest'
+  in
+  if (func.name = main.name) then {prog with main = func}
+  else {prog with functions = replace_fun' functions}
 
 let get_version (func : afunction) (v : label) : version =
   List.find (fun {label} -> label = v) func.body

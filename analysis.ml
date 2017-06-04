@@ -180,12 +180,15 @@ end
 
 exception DuplicateFormalParameter
 
-let as_var_set (formals : formal_parameter list) =
+let as_var_list (formals : formal_parameter list) =
   let to_var (Param x) = x in
-  let formals' = VarSet.of_list (List.map to_var formals) in
-  if (List.length formals) <> (List.length (VarSet.elements formals')) then
+  let formals' = List.map to_var formals in
+  if (List.length formals) <> (VarSet.cardinal (VarSet.of_list formals')) then
     raise DuplicateFormalParameter;
   formals'
+
+let as_var_set (formals : formal_parameter list) =
+  VarSet.of_list (as_var_list formals)
 
 let as_var_map formals =
   let formals = VarSet.elements formals in

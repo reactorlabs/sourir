@@ -1,0 +1,20 @@
+function main ()
+  var x = 24
+  call y1 = 'foo (x)
+  assert (y1 == 24)
+
+function foo (var x)
+  var m = x
+  call y1 = 'bar (m)
+  assert (y1 == 24)
+  return y1
+
+function bar (var x)
+   branch (x == 10) $continue $done
+$continue:
+  var x1 = (x - 1)
+  call x2 = 'bar (x1)
+  return x2
+$done:
+  return x
+

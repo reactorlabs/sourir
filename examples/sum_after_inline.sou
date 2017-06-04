@@ -1,0 +1,92 @@
+function main ()
+version inlined_version_3
+ var w = 2
+ var x = 3
+ var y = 7
+ var res_1 = nil
+ var x_1 = w
+ var y_1 = x
+ res_1 <- (x_1 + y_1)
+ drop x_1
+ drop y_1
+ var a = res_1
+ drop res_1
+ assert (a == 5)
+ var res_2 = nil
+ var x_2 = x
+ var y_2 = y
+ res_2 <- (x_2 + y_2)
+ drop x_2
+ drop y_2
+ var b = res_2
+ drop res_2
+ assert (b == 10)
+ var res_3 = nil
+ var x_3 = y
+ var y_3 = w
+ res_3 <- (x_3 + y_3)
+ drop x_3
+ drop y_3
+ var c = res_3
+ drop res_3
+ assert (c == 9)
+version inlined_version_2
+ var w = 2
+ var x = 3
+ var y = 7
+ var res_1 = nil
+ var x_1 = w
+ var y_1 = x
+ res_1 <- (x_1 + y_1)
+ drop x_1
+ drop y_1
+ goto inl_1
+inl_1:
+ var a = res_1
+ drop res_1
+ assert (a == 5)
+ var res_2 = nil
+ var x_2 = x
+ var y_2 = y
+ res_2 <- (x_2 + y_2)
+ drop x_2
+ drop y_2
+ goto inl_2
+inl_2:
+ var b = res_2
+ drop res_2
+ assert (b == 10)
+ call c = 'sum (y, w)
+ assert (c == 9)
+version inlined_version_1
+ var w = 2
+ var x = 3
+ var y = 7
+ var res_1 = nil
+ var x_1 = w
+ var y_1 = x
+ res_1 <- (x_1 + y_1)
+ drop x_1
+ drop y_1
+ goto inl_1
+inl_1:
+ var a = res_1
+ drop res_1
+ assert (a == 5)
+ call b = 'sum (x, y)
+ assert (b == 10)
+ call c = 'sum (y, w)
+ assert (c == 9)
+version anon
+ var w = 2
+ var x = 3
+ var y = 7
+ call a = 'sum (w, x)
+ assert (a == 5)
+ call b = 'sum (x, y)
+ assert (b == 10)
+ call c = 'sum (y, w)
+ assert (c == 9)
+function sum (var x, var y)
+version anon
+ return (x + y)

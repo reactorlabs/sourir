@@ -1,0 +1,13 @@
+function main ()
+ var w = 2
+ var x = 3
+ var y = 7
+ call a = 'sum (w, x)
+ assert (a == 5)
+ call b = 'sum (x, y)
+ assert (b == 10)
+ call c = 'sum (y, w)
+ assert (c == 9)
+
+function sum (var x, var y)
+ return (x + y)
