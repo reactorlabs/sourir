@@ -9,7 +9,16 @@ let fresh (existing : StringSet.t) (name : string) : string =
   let rec find i =
     let cand_var = cand i in
     if is_fresh cand_var then cand_var else find (i+1) in
-  find 1
+  if is_fresh name
+  then name
+  else find 1
+
+let fresh_many existing names =
+  let replace (used, acc) old =
+    let fresh_var = fresh used old in
+    (VarSet.add fresh_var used, (old, fresh_var) :: acc)
+  in
+  snd (List.fold_left replace (existing, []) names)
 
 let fresh_var instrs var =
   let existing = Array.fold_left
