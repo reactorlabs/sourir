@@ -1493,6 +1493,134 @@ let do_test_assert () =
     (Eval.User_assert_failure {func="main";version="anon";pos=1})
     (run assert_false no_input postcondition)
 
+
+let do_test_autofix () =
+  let open Transform in
+  let test t e =
+    let input, expected = (parse t), (parse e) in
+    let output = try_opt Transform.normalize_graph input in
+    if (Disasm.disassemble_s output) <> (Disasm.disassemble_s expected) then begin
+      Printf.printf "\ninput: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
+        (Disasm.disassemble_s input)
+        (Disasm.disassemble_s output)
+        (Disasm.disassemble_s expected);
+      assert false
+    end in
+
+  test {input|
+     # start
+    a:
+     return 1
+  |input} {expect|
+     # start
+     goto a
+    a:
+     return 1
+  |expect};
+
+  test {input|
+     # start
+    $a:
+     return 1
+  |input} {expect|
+     # start
+     goto a_1
+    $a:
+     goto a_1
+    a_1:
+     return 1
+  |expect};
+
+  test {input|
+     branch 1 $a $a
+    $a:
+     return 1
+  |input} {expect|
+     branch 1 $a_0l $a_0r
+    $a_0l:
+     goto a
+    $a_0r:
+     goto a
+    a:
+     return 1
+  |expect};
+
+  test {input|
+     branch 1 $a $b
+    $a:
+     branch 1 $b $c
+    $b:
+     goto end
+    $c:
+    end:
+     return 1
+  |input} {expect|
+     branch 1 $a $b_0
+    $b_0:
+     goto b
+    $a:
+     branch 1 $b_2 $c
+    $b_2:
+     goto b
+    b:
+     goto end
+    $c:
+     goto end
+    end:
+     return 1
+  |expect};
+
+  test {input|
+     branch 1 $a $b
+    $a:
+     branch 1 $b $c
+    $b:
+    $c:
+     return 1
+  |input} {expect|
+     branch 1 $a $b_0
+    $b_0:
+     goto b
+    $a:
+     branch 1 $b_2 $c
+    $b_2:
+     goto b
+    b:
+     goto c_4
+    $c:
+     goto c_4
+    c_4:
+     return 1
+  |expect};
+
+  test {input|
+     # s
+    $a:
+     branch 1 $a $b
+    $b:
+     branch 1 $a $b
+  |input} {expect|
+     # s
+     goto a_1
+    a:
+     goto a_1
+    a_1:
+     branch 1 $a_5l $b_5r
+    $a_5l:
+     goto a
+    $b_5r:
+     goto b
+    b:
+     branch 1 $a_7l $b_7r
+    $a_7l:
+     goto a
+    $b_7r:
+     goto b
+  |expect};
+
+  ()
+
+
 let suite =
   "suite">:::
   ["var">:: run test_var no_input
@@ -1673,6 +1801,7 @@ let suite =
    "deopt">:: do_test_deopt;
    "array">:: do_test_array;
    "inline">:: do_test_inline;
+   "normalize">:: do_test_autofix;
    ]
 ;;
 

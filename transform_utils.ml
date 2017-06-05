@@ -32,6 +32,8 @@ let change_instrs (transform : pc -> instruction_change) ({formals; instrs} : an
         assert(is_label pc);
         acc_instr (pc+1) (List.rev_append is acc) true
       | InsertBeforeLabel is ->
+        (* Insert at the instruction stream position before the label. This is does not correspond
+         * to before in the sense of control flow. *)
         assert(is_label pc);
         acc_instr (pc+1) (instrs.(pc) :: List.rev_append is acc) true
       | InsertAfter is ->
