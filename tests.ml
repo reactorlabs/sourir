@@ -1425,6 +1425,27 @@ let do_test_array () =
   test "examples/array_sum.sou" (trace_is [Int 55]);
   ()
 
+let do_test_inline () =
+  let output_of prog = Eval.read_trace (Eval.run_forever no_input prog) in
+  let test filename =
+    let program = Parse.program_of_file filename in
+    let program' = Transform.try_opt Transform_inline.inline program in
+    assert (output_of program = output_of program')
+  in
+
+  test "examples/inline_basic.sou";
+  test "examples/inline_intermediate.sou";
+  test "examples/inline_advanced.sou";
+  test "examples/fibonacci.sou";
+  test "examples/fun_explicit.sou";
+  test "examples/fun_implicit_main.sou";
+  test "examples/param-call-01.sou";
+  test "examples/param-call-02.sou";
+  test "examples/fun_refs.sou";
+  test "examples/cf_04_after.sou";
+  test "examples/cf_04_before.sou";
+  ()
+
 let do_test_deopt () =
   let test str n =
     run (parse str) no_input (returns (Int n)) () in
@@ -1651,6 +1672,7 @@ let suite =
    "test_functions">:: test_functions;
    "deopt">:: do_test_deopt;
    "array">:: do_test_array;
+   "inline">:: do_test_inline;
    ]
 ;;
 

@@ -1,0 +1,9 @@
+function main ()
+ var x = 24
+ call y = 'foo (x)
+ assert (y == 24)
+
+function foo (var x)
+ var m = x
+ return m
+ 

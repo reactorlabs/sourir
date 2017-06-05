@@ -1,37 +1,36 @@
 open Instr
 open Types
 
-(* TODO unify those 3 functions *)
-let fresh_var instrs var =
-  let cand i = var ^ "_" ^ (string_of_int i) in
-  let is_fresh cand_var instr =
-    let existing = declared_vars instr in
-    not (VarSet.mem cand_var existing) in
+module StringSet = Set.Make(String)
+
+let fresh (existing : StringSet.t) (name : string) : string =
+  let cand i = name ^ "_" ^ (string_of_int i) in
+  let is_fresh cand_var = not (StringSet.mem cand_var existing) in
   let rec find i =
     let cand_var = cand i in
-    if Array.for_all (is_fresh cand_var) instrs then cand_var else find (i+1) in
+    if is_fresh cand_var then cand_var else find (i+1) in
   find 1
 
-let fresh_label instrs label =
-  let cand i = label ^ "_" ^ (string_of_int i) in
-  let is_fresh cand_lab instr = match[@warning "-4"] instr with
-    | Label (BranchLabel l) -> l <> cand_lab
-    | Label (MergeLabel l) -> l <> cand_lab
-    | _ -> true in
-  let rec find i =
-    let cand_lab = cand i in
-    if Array.for_all (is_fresh cand_lab) instrs
-    then cand_lab else find (i+1) in
-  find 1
+let fresh_var instrs var =
+  let existing = Array.fold_left
+      (fun acc instr -> VarSet.union (declared_vars instr) acc)
+      VarSet.empty instrs
+  in
+  fresh existing var
+
+let extract_labels instrs =
+  let add_label acc instr =
+    match[@warning "-4"] instr with
+    | Label (MergeLabel l | BranchLabel l) -> LabelSet.add l acc
+    | _ -> acc
+  in
+  Array.fold_left add_label LabelSet.empty instrs
+
+let fresh_label instrs label = fresh (extract_labels instrs) label
 
 let fresh_version_label (func : afunction) label =
-  let cand i = label ^ "_" ^ (string_of_int i) in
   let existing = List.map (fun {label} -> label) func.body in
-  let rec find i =
-    let cand_lab = cand i in
-    if not (List.mem cand_lab existing)
-    then cand_lab else find (i+1) in
-  find 1
+  fresh (StringSet.of_list existing) label
 
 type pc_map = int -> int
 
@@ -79,4 +78,12 @@ let replace_var var simple_exp = object (self)
   method! simple_expression e = match e with
     | Constant _ -> e
     | Var x -> if x = var then simple_exp else e
+end
+
+let replace_all_vars replacements = object (self)
+  inherit Instr.map as super
+  method replace x = try List.assoc x replacements with Not_found -> x
+  method! binder x = self#replace x
+  method! variable_assign x = self#replace x
+  method! variable_use x = self#replace x
 end

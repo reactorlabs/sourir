@@ -102,7 +102,13 @@ let branch_prune = optimistic_as_opt_function
 (* Main optimizer loop *)
 exception UnknownOptimization of string
 
-let all_opts = ["prune";"const_fold";"hoist_assign";"hoist_drop";"min_live"]
+let all_opts = ["prune";
+                "const_fold";
+                "hoist_assign";
+                "hoist_drop";
+                "min_live";
+                "inline"]
+
 let assumption_opts = ["prune"]
 
 let optimize (opts : string list) (prog : program) : program option =
@@ -117,6 +123,8 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program const_fold
     | "prune" ->
       as_opt_program branch_prune
+    | "inline" ->
+      Transform_inline.inline
     | o ->
       raise (UnknownOptimization o)
   in

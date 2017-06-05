@@ -1,0 +1,15 @@
+function main ()
+  call x = 'fibonacci (20)
+  assert (x == 6765)
+
+function fibonacci(var x)
+  branch (x < 2) $small $large
+$small:
+  return x
+$large:
+  var arg1 = (x - 1)
+  var arg2 = (x - 2)
+  call a = 'fibonacci (arg1)
+  call b = 'fibonacci (arg2)
+  var c = (a + b)
+  return c
