@@ -44,13 +44,7 @@ let as_opt_program (transform : opt_function) : opt_prog =
     | Some instrs -> true, instrs in
   fun prog ->
     let changed, main =
-      try transform' prog.main
-      with exn ->
-        prerr_endline "Optimization Failure on the following program:";
-        let buf = Buffer.create 42 in
-        Disasm.disassemble buf prog;
-        prerr_string (Buffer.contents buf);
-        raise exn
+      transform' prog.main
     in
     let reduce (changed, functions) func =
       let c, f = transform' func in
@@ -73,8 +67,6 @@ let optimistic_as_opt_function (transformation : create_optimistic_version)
       let cleaned =  cleanup inp in
       let version = { version with instrs = cleaned } in
       Some { func with body = version :: func.body }
-
-
 
 (* All available optimizations *)
 let cleanup_all_instrs = combine_transform_instructions [
