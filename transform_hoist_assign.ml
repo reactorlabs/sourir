@@ -30,7 +30,7 @@ let freshen_assign ({instrs} as inp : analysis_input) (def : pc) future_pos =
     let transform pc =
       if pc = def && pc = future_pos then Replace (fresh_decl @ fresh_assign)
       else if pc = def then Replace fresh_assign
-      else if pc = future_pos then Insert fresh_decl
+      else if pc = future_pos then InsertBefore fresh_decl
       else try List.assoc pc changed_uses with Not_found -> Unchanged
     in
     Transform_utils.change_instrs transform inp

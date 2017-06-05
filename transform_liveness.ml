@@ -35,7 +35,7 @@ let add_drops : transform_instructions =
                 to_drop
                 |> VarSet.elements
                 |> List.map (fun x -> Drop x) in
-              Insert drops
+              InsertBefore drops
           end
         | _ -> assert false
     in

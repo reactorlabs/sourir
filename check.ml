@@ -149,7 +149,7 @@ let well_formed prog =
         if List.mem l !seen then raise (DuplicateLabel l);
         seen := l :: !seen;
         (* Entry point cannot be a label because if it where a branch
-         * target it would have two incomming control flows. *)
+         * target it would have two incoming control flows. *)
         if (pc = 0) then raise EntryPointIsLabel;
         (* Fallthrough is forbidden. Because again for branch targets
          * it would add a second source. To simplify resoning we forbid

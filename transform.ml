@@ -79,6 +79,9 @@ let minimize_liverange_instrs = combine_transform_instructions [
 let const_fold_instrs = combine_transform_instructions [
     Transform_constantfold.const_fold;
     Transform_cleanup.remove_unused_decl;]
+let normalize_graph_instrs = combine_transform_instructions [
+    Transform_fix.remove_falltrough;
+    Transform_fix.make_branch_targets_unique;]
 
 let cleanup_all = as_opt_function cleanup_all_instrs
 let const_fold = as_opt_function const_fold_instrs
@@ -90,6 +93,7 @@ let branch_prune = optimistic_as_opt_function
     (combine_transform_instructions [
        Transform_prune.branch_prune;
        Transform_cleanup.remove_unreachable_code;])
+let normalize_graph = as_opt_program (as_opt_function normalize_graph_instrs)
 
 (* Main optimizer loop *)
 exception UnknownOptimization of string

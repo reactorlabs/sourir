@@ -1,12 +1,14 @@
 open Instr
 
 let quiet = ref false
+let autofix = ref false
 let opts = ref []
 let path = ref ""
 
 let () =
   let cmd_args = [
     ("--quiet", Arg.Set quiet, "quiet");
+    ("--autofix", Arg.Set autofix, "automatically normalize graph");
     ("--opt", Arg.String (fun s -> opts := String.split_on_char ',' s), "Enable optimizations");
   ] in
   Arg.parse cmd_args (fun s ->
@@ -26,6 +28,16 @@ let () =
       Parse.report_error error;
       exit 2
   in
+
+  try Check.well_formed program with
+  | Check.MissingMain ->
+    Printf.eprintf "Program is missing an explicit or implicit main function\n";
+  | _ -> ();
+
+  let program =
+    if !autofix
+    then Transform.try_opt Transform.normalize_graph program
+    else program in
 
   opts := if !opts = ["all"] then Transform.all_opts else !opts;
 
