@@ -1,5 +1,6 @@
 open Instr
 open Edit
+open Types
 
 (* Unlike `analysis_input`, this preserves the order of `formals`. This
    facilitates matching the formals to the arguments passed at a callsite.*)
@@ -56,11 +57,8 @@ let inline ({main; functions} as orig_prog : program) : program option =
      accordingly *)
   let replace_vars caller ({formals; instrs} as callee) =
     let caller_vars = function_vars caller in
-    let callee_vars = function_vars callee in
-    let replacements =
-      List.map (fun old -> (old, fresh caller_vars old))
-        (VarSet.elements callee_vars)
-    in
+    let callee_vars = VarSet.elements (function_vars callee) in
+    let replacements = Edit.fresh_many caller_vars callee_vars in
     {formals = List.map (fun var -> List.assoc var replacements) formals;
      instrs = Array.map (replace_all_vars replacements)#instruction instrs;}
   in
@@ -107,8 +105,10 @@ let inline ({main; functions} as orig_prog : program) : program option =
      `caller` labels *)
   let replace_labels caller ({formals; instrs} as callee) =
     let used_labels = extract_labels caller.instrs in
-    let replace l = fresh used_labels l in
+    let callee_labels = LabelSet.elements (extract_labels callee.instrs) in
+    let replacements = Edit.fresh_many used_labels callee_labels in
     let mapper instr =
+      let replace l = List.assoc l replacements in
       match[@warning "-4"] instr with
       | Label (MergeLabel l) -> Label (MergeLabel (replace l))
       | Label (BranchLabel l) -> Label (BranchLabel (replace l))
