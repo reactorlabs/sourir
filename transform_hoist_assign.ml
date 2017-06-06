@@ -46,6 +46,9 @@ let freshen_assign ({instrs} as inp : analysis_input) (def : pc) future_pos =
  * move origin (ie. we are moving upwards) and is dominated by all reaching
  * defs (ie. we are not moving above our dependencies).
  *
+ * Another concern is whether evaluating the rhs is allowed. For now we take
+ * a conservative approach and only allow simple expressions.
+ *
  * We only look at our own use-def chain. Thus the transformation renames the
  * variable to avoid overriding unrelated uses of the same name.
  *)
@@ -64,15 +67,22 @@ let hoist_assignment : transform_instructions = fun ({formals; instrs} as inp) -
       let pc' = pc + 1 in
       match[@warning "-4"] instrs.(pc) with
       | Assign (x, exp) ->
-        if (not (dominates_all_uses pc)) || (aliased x pc)
+        let is_simple = function
+          | Simple _ -> true
+          | Op _ -> false in
+        if (not (dominates_all_uses pc)) || (aliased x pc) || not (is_simple exp)
         then find_possible_move pc'
         else begin
           let reaching_defs = reaching pc in
           let valid_move candidate =
-            let dominate_me = PosSet.for_all (fun pos -> match pos with
-                | Arg -> true
-                | Instr pc -> dominates pc candidate) in
-            dominates candidate pc && dominate_me reaching_defs in
+            match[@warning "-4"] instrs.(candidate) with
+            | Label _ -> false
+            | _ ->
+              let dominate_me = PosSet.for_all (fun pos -> match pos with
+                  | Arg -> true
+                  | Instr pc -> dominates pc candidate) in
+              dominates candidate pc &&
+              dominate_me reaching_defs in
 
           begin match find_first instrs valid_move with
           | exception Not_found -> find_possible_move pc'
@@ -85,4 +95,7 @@ let hoist_assignment : transform_instructions = fun ({formals; instrs} as inp) -
   match find_possible_move 0 with
   | None -> None
   | Some (from_pc, to_pc) ->
-    freshen_assign inp from_pc to_pc
+      match freshen_assign inp from_pc to_pc with
+      | Some instrs ->
+          Transform_utils.fix_scope {formals; instrs}
+      | None -> None

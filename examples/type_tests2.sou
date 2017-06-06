@@ -1,0 +1,21 @@
+var a = false
+var b = false
+
+print a
+
+# This assignment can be hoisted since it does not depend on the branch
+b <- (a==true)
+
+goto bb
+bb:
+
+branch (a == 1) $num $cont
+
+$num:
+print b
+goto cont_
+
+$cont:
+goto cont_
+
+cont_:
