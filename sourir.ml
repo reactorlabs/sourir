@@ -1,5 +1,6 @@
 open Instr
 
+let run = ref true
 let quiet = ref false
 let autofix = ref false
 let opts = ref []
@@ -7,6 +8,8 @@ let path = ref ""
 
 let () =
   let cmd_args = [
+    ("--run", Arg.Set run, "run the program (default)");
+    ("--no-run", Arg.Clear run, "do not run the program, just show the optimized source code");
     ("--quiet", Arg.Set quiet, "quiet");
     ("--autofix", Arg.Set autofix, "automatically normalize graph");
     ("--opt", Arg.String (fun s -> opts := String.split_on_char ',' s), "Enable optimizations");
@@ -112,14 +115,16 @@ let () =
     Scope.report_error program exn
   end;
 
-  let conf = Eval.run_interactive IO.stdin_input program in
-  let open Eval in
-  match conf.status with
-  | Running -> assert(false)
-  | Result (Int n) ->
-    exit n
-  | Result (Bool b) ->
-    exit (if b then 1 else 0)
-  | Result (Fun_ref _ | Array _ | Nil) ->
-    exit 0
-
+  if not !run then ()
+  else begin
+    let conf = Eval.run_interactive IO.stdin_input program in
+    let open Eval in
+    match conf.status with
+    | Running -> assert(false)
+    | Result (Int n) ->
+      exit n
+    | Result (Bool b) ->
+      exit (if b then 1 else 0)
+    | Result (Fun_ref _ | Array _ | Nil) ->
+      exit 0
+  end
