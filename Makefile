@@ -16,12 +16,12 @@ OCAMLBUILD+= -plugin-tag 'package(bisect_ppx.ocamlbuild)'
 all: tests test_examples sourir
 
 tests:
-	$(OCAMLBUILD) tests.byte
-	_build/tests.byte
+	$(OCAMLBUILD) tests.native
+	_build/tests.native
 
 sourir:
-	$(OCAMLBUILD) sourir.byte
-	cp _build/sourir.byte sourir
+	$(OCAMLBUILD) sourir.native
+	cp _build/sourir.native sourir
 
 lib:
 	$(OCAMLBUILD) sourir.cma
