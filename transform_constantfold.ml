@@ -67,7 +67,8 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
     let update pc cur =
       let approx env exp = match (fold env)#expression exp with
         | Simple (Constant l) -> Value l
-        | Simple (Var _) | Op _ -> Unknown
+        | Simple (Var _)
+        | Unop _ | Binop _ | Array_index _ | Array_length _ -> Unknown
       in
       match[@warning "-4"] instrs.(pc) with
       | Decl_var (x, e)

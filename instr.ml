@@ -69,7 +69,10 @@ and osr_def =
 and argument = expression
 and expression =
   | Simple of simple_expression
-  | Op of primop * simple_expression list
+  | Unop of unop * simple_expression
+  | Binop of binop * simple_expression * simple_expression
+  | Array_index of variable * simple_expression
+  | Array_length of simple_expression
 and simple_expression =
   | Constant of value
   | Var of variable
@@ -79,24 +82,23 @@ and value =
   | Int of int
   | Fun_ref of string
   | Array of address
-and primop =
+and unop =
+  | Neg
+  | Not
+and binop =
   | Eq
   | Neq
   | Lt
   | Lte
   | Gt
   | Gte
-  | Neg
   | Plus
   | Sub
   | Mult
   | Div
   | Mod
-  | Not
   | And
   | Or
-  | Array_index
-  | Array_length
 
 type scope_annotation =
   | ExactScope of VarSet.t
@@ -158,9 +160,14 @@ let simple_expr_vars = function
 
 let expr_vars = function
   | Simple e -> simple_expr_vars e
-  | Op (_op, xs) ->
-    List.map simple_expr_vars xs
-    |> List.fold_left VarSet.union VarSet.empty
+  | Unop (_op, o) ->
+    simple_expr_vars o
+  | Binop (_op, l, r) ->
+    VarSet.union (simple_expr_vars l) (simple_expr_vars r)
+  | Array_index (o, i) ->
+    VarSet.union (VarSet.singleton o) (simple_expr_vars i)
+  | Array_length e ->
+    simple_expr_vars e
 
 let arg_vars = expr_vars
 
@@ -342,8 +349,6 @@ class map = object (m)
 
   method value v = v
 
-  method primop op = op
-
   method simple_expression = function
     | Constant v ->
       Constant (m#value v)
@@ -352,8 +357,14 @@ class map = object (m)
   method expression = function
     | Simple e ->
       Simple (m#simple_expression e)
-    | Op (op, es) ->
-      Op (m#primop op, List.map m#simple_expression es)
+    | Unop (op, o) ->
+      Unop (op, m#simple_expression o)
+    | Binop (op, l, r) ->
+      Binop (op, m#simple_expression l, m#simple_expression r)
+    | Array_index (o, i) ->
+      Array_index (m#variable_use o, m#simple_expression i)
+    | Array_length e ->
+      Array_length (m#simple_expression e)
 
   method goto_label l = l
   method branch_label l = l

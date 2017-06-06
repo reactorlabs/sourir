@@ -83,8 +83,15 @@ let well_formed prog =
       in
       let check_expr = function
         | Simple e -> check_simple_expr e
-        | Op (_op, xs) ->
-          List.iter check_simple_expr xs in
+        | Unop (_op, e) ->
+          check_simple_expr e
+        | Binop (_op, e1, e2) ->
+            check_simple_expr e1;
+            check_simple_expr e2
+        | Array_index(_, i) ->
+          check_simple_expr i
+        | Array_length (e) ->
+          check_simple_expr e in
       let check_arg = check_expr in
       let check_osr = function
         | Osr_var (_, e) -> check_expr e

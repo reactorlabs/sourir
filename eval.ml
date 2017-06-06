@@ -37,7 +37,6 @@ let get_tag : value -> type_tag = function
 exception Unbound_variable of variable
 exception Undefined_variable of variable
 exception Invalid_heap
-exception Arity_error of primop
 exception Division_by_zero
 exception User_assert_failure of pc position
 
@@ -205,34 +204,37 @@ let eval_simple heap env = function
 
 let rec eval heap env = function
   | Simple e -> eval_simple heap env e
-  | Op (op, es) ->
-    begin match op, List.map (eval_simple heap env) es with
-    | Eq, [v1; v2] -> Bool (value_eq v1 v2)
-    | Neq, [v1; v2] -> Bool (value_neq v1 v2)
-    | Lt, [v1; v2] -> Bool (value_lt v1 v2)
-    | Lte, [v1; v2] -> Bool (value_lte v1 v2)
-    | Gt, [v1; v2] -> Bool (value_gt v1 v2)
-    | Gte, [v1; v2] -> Bool (value_gte v1 v2)
-    | Neg, [v] -> Int (value_neg v)
-    | Plus, [v1; v2] -> Int (value_plus v1 v2)
-    | Sub, [v1; v2] -> Int (value_sub v1 v2)
-    | Mult, [v1; v2] -> Int (value_mult v1 v2)
-    | Div, [v1; v2] -> Int (value_div v1 v2)
-    | Mod, [v1; v2] -> Int (value_mod v1 v2)
-    | Not, [v] -> Bool (value_not v)
-    | And, [v1; v2] -> Bool (value_and v1 v2)
-    | Or, [v1; v2] -> Bool (value_or v1 v2)
-    | (Eq | Neq | Lt | Lte | Gt | Gte), _vs
-    | (Neg | Plus | Sub | Mult | Div | Mod), _vs
-    | (Not | And | Or), _vs -> raise (Arity_error op)
-    | Array_index, [array; index] ->
-      let array, index = get_array heap array, get_int index in
-      array.(index)
-    | Array_length, [array] ->
-      let array = get_array heap array in
-      Int (Array.length array)
-    | ((Array_index | Array_length), _) -> raise (Arity_error op)
+  | Binop (op, a, b) ->
+    let v1, v2 = eval_simple heap env a, eval_simple heap env b in
+    begin match op with
+    | Eq   -> Bool (value_eq v1 v2)
+    | Neq  -> Bool (value_neq v1 v2)
+    | Lt   -> Bool (value_lt v1 v2)
+    | Lte  -> Bool (value_lte v1 v2)
+    | Gt   -> Bool (value_gt v1 v2)
+    | Gte  -> Bool (value_gte v1 v2)
+    | Plus -> Int (value_plus v1 v2)
+    | Sub  -> Int (value_sub v1 v2)
+    | Mult -> Int (value_mult v1 v2)
+    | Div  -> Int (value_div v1 v2)
+    | Mod  -> Int (value_mod v1 v2)
+    | And  -> Bool (value_and v1 v2)
+    | Or   -> Bool (value_or v1 v2)
     end
+  | Unop (op, e) ->
+    let v = eval_simple heap env e in
+    begin match op with
+    | Not -> Bool (value_not v)
+    | Neg -> Int (value_neg v)
+    end
+  | Array_index (x, e) ->
+    let a, i = lookup heap env x, eval_simple heap env e in
+      let array, index = get_array heap a, get_int i in
+      array.(index)
+  | Array_length e ->
+      let v = eval_simple heap env e in
+      let array = get_array heap v in
+      Int (Array.length array)
 
 exception InvalidArgument
 exception InvalidNumArgs

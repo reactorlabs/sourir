@@ -161,13 +161,13 @@ argument: e=expression { e }
 expression:
   | e = simple_expression { Simple e }
   | LPAREN e1=simple_expression op=infixop e2=simple_expression RPAREN
-    { Op (op, [e1;e2]) }
+    { Binop (op, e1, e2) }
   | LPAREN op=prefixop e=simple_expression RPAREN
-    { Op (op, [e]) }
+    { Unop (op, e) }
   | x=variable LBRACKET index=simple_expression RBRACKET
-    { Op (Array_index, [Var x; index]) }
-  | LENGTH LPAREN x=simple_expression RPAREN
-    { Op (Array_length, [x]) }
+    { Array_index (x, index) }
+  | LENGTH LPAREN e=simple_expression RPAREN
+    { Array_length e }
 
 label: id=IDENTIFIER { (id : Label.t) }
 variable: id=IDENTIFIER { (id : Variable.t) }

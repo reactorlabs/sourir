@@ -67,9 +67,9 @@ let hoist_assignment : transform_instructions = fun ({formals; instrs} as inp) -
       let pc' = pc + 1 in
       match[@warning "-4"] instrs.(pc) with
       | Assign (x, exp) ->
-        let is_simple = function
+        let is_simple = function[@warning "-4"]
           | Simple _ -> true
-          | Op _ -> false in
+          | _ -> false in
         if (not (dominates_all_uses pc)) || (aliased x pc) || not (is_simple exp)
         then find_possible_move pc'
         else begin

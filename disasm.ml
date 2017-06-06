@@ -19,28 +19,24 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     in
     let dump_expr buf exp =
       match exp with
-      | Simple e          -> simple buf e
-      | Op (Neg,  [a])    -> pr buf "(-%a)"      simple a
-      | Op (Plus, [a; b]) -> pr buf "(%a + %a)"  simple a simple b
-      | Op (Sub,  [a; b]) -> pr buf "(%a - %a)"  simple a simple b
-      | Op (Mult, [a; b]) -> pr buf "(%a * %a)"  simple a simple b
-      | Op (Div,  [a; b]) -> pr buf "(%a / %a)"  simple a simple b
-      | Op (Mod,  [a; b]) -> pr buf "(%a %% %a)" simple a simple b
-      | Op (Eq,   [a; b]) -> pr buf "(%a == %a)" simple a simple b
-      | Op (Neq,  [a; b]) -> pr buf "(%a != %a)" simple a simple b
-      | Op (Lt,   [a; b]) -> pr buf "(%a < %a)"  simple a simple b
-      | Op (Lte,  [a; b]) -> pr buf "(%a <= %a)" simple a simple b
-      | Op (Gt,   [a; b]) -> pr buf "(%a > %a)"  simple a simple b
-      | Op (Gte,  [a; b]) -> pr buf "(%a >= %a)" simple a simple b
-      | Op (Not,  [a])    -> pr buf "(!%a)"      simple a
-      | Op (And,  [a; b]) -> pr buf "(%a && %a)" simple a simple b
-      | Op (Or,   [a; b]) -> pr buf "(%a || %a)" simple a simple b
-      | Op ((Neg | Plus | Sub | Mult | Div | Mod), _)
-      | Op ((Eq | Neq | Lt | Lte | Gt | Gte), _)
-      | Op ((Not | And | Or), _) -> assert(false)
-      | Op (Array_index, [array; index]) -> pr buf "%a[%a]" simple array simple index
-      | Op (Array_length, [array]) -> pr buf "length(%a)" simple array
-      | Op ((Array_index | Array_length), _) -> assert(false)
+      | Simple e           -> simple buf e
+      | Unop (Neg, a)      -> pr buf "(-%a)"      simple a
+      | Unop (Not, a)      -> pr buf "(!%a)"      simple a
+      | Binop (Plus, a, b) -> pr buf "(%a + %a)"  simple a simple b
+      | Binop (Sub,  a, b) -> pr buf "(%a - %a)"  simple a simple b
+      | Binop (Mult, a, b) -> pr buf "(%a * %a)"  simple a simple b
+      | Binop (Div,  a, b) -> pr buf "(%a / %a)"  simple a simple b
+      | Binop (Mod,  a, b) -> pr buf "(%a %% %a)" simple a simple b
+      | Binop (Eq,   a, b) -> pr buf "(%a == %a)" simple a simple b
+      | Binop (Neq,  a, b) -> pr buf "(%a != %a)" simple a simple b
+      | Binop (Lt,   a, b) -> pr buf "(%a < %a)"  simple a simple b
+      | Binop (Lte,  a, b) -> pr buf "(%a <= %a)" simple a simple b
+      | Binop (Gt,   a, b) -> pr buf "(%a > %a)"  simple a simple b
+      | Binop (Gte,  a, b) -> pr buf "(%a >= %a)" simple a simple b
+      | Binop (And,  a, b) -> pr buf "(%a && %a)" simple a simple b
+      | Binop (Or,   a, b) -> pr buf "(%a || %a)" simple a simple b
+      | Array_index (a, i) -> pr buf "%s[%a]"     a simple i
+      | Array_length e     -> pr buf "length(%a)" simple e
     in
     let dump_arg buf arg = dump_expr buf arg in
     format_pc buf pc;
