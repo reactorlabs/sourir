@@ -139,20 +139,59 @@ type binding =
 exception Unbound_label of label_type
 exception Unbound_osr_label of label
 
-let resolve (code : instructions) (label : label_type) =
+let resolve_by pred code =
   let rec loop i =
-    if i >= Array.length code then raise (Unbound_label label)
-    else if code.(i) = Label label then i
+    if i >= Array.length code then raise Not_found
+    else if pred code.(i) then i
     else loop (i + 1)
   in loop 0
 
-let resolve_osr (code : instructions) (l : string) =
-  let rec loop i =
-    if i >= Array.length code then raise (Unbound_osr_label l)
-    else match[@warning "-4"] code.(i) with
-         | Osr {label} when label = l -> i
-         | _ -> loop (i + 1)
-  in loop 0
+let resolve code l =
+  let pred = function[@warning "-4"]
+      | Label label -> label = l
+      | _ -> false
+  in
+  try resolve_by pred code
+  with Not_found -> raise (Unbound_label l)
+
+let resolve_osr code l =
+  let pred = function[@warning "-4"]
+    | Osr {label} -> label = l
+    | _ -> false
+  in
+  try resolve_by pred code
+  with Not_found -> raise (Unbound_osr_label l)
+
+let resolver_by indexer code =
+  let tbl = Hashtbl.create 42 in
+  let add pc instr = match indexer instr with
+    | None -> ()
+    | Some idx ->
+      assert (not (Hashtbl.mem tbl idx));
+      Hashtbl.add tbl idx pc
+  in
+  Array.iteri add code;
+  fun index -> Hashtbl.find tbl index
+
+let resolver code =
+  let indexer = function[@warning "-4"]
+    | Label l -> Some l
+    | _ -> None
+  in
+  let resolver = resolver_by indexer code in
+  fun l ->
+    try resolver l
+    with Not_found -> raise (Unbound_label l)
+
+let resolver_osr code =
+  let indexer = function[@warning "-4"]
+    | Osr {label} -> Some label
+    | _ -> None
+  in
+  let resolver = resolver_by indexer code in
+  fun l ->
+    try resolver l
+    with Not_found -> raise (Unbound_osr_label l)
 
 let simple_expr_vars = function
   | Var x -> VarSet.singleton x

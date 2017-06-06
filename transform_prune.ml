@@ -29,7 +29,7 @@ let branch_prune : transform_instructions = fun input ->
       find_candidates (pc+1) branches
   in
   let candidates = find_candidates 0 [] in
-  let resolve = Instr.resolve input.instrs in
+  let resolve = Instr.resolver input.instrs in
   let changes = List.map (fun (b_pc, l) ->
     [(b_pc, 1, [| Goto l |]);
      (* We also need to fix the label, since it's not a branch label anymore *)
