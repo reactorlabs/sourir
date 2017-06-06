@@ -21,10 +21,9 @@ end
 module PcSet = Set.Make(Pc)
 module PosSet = Set.Make(Position)
 
-let successors_at (instrs : instructions) pc : pc list =
+let successors_at (instrs : instructions) resolve pc : pc list =
   let pc' = pc + 1 in
   let instr = instrs.(pc) in
-  let resolve = Instr.resolve instrs in
   let all_succ =
     match instr with
     | Decl_var _ | Decl_array _
@@ -42,15 +41,17 @@ let successors_at (instrs : instructions) pc : pc list =
   PcSet.elements (PcSet.of_list all_succ)
 
 let successors (instrs : instructions) : pc list array =
-  let succs_at pc = successors_at instrs pc in
+  let resolve = Instr.resolver instrs in
+  let succs_at pc = successors_at instrs resolve pc in
   Array.map succs_at (pcs instrs)
 
 let predecessors (instrs : instructions) : pc list array =
+  let resolve = Instr.resolver instrs in
   let preds = Array.map (fun _ -> []) instrs in
   let mark_successor pc pc' =
     preds.(pc') <- pc :: preds.(pc') in
   for pc = 0 to Array.length instrs - 1 do
-    List.iter (mark_successor pc) (successors_at instrs pc)
+    List.iter (mark_successor pc) (successors_at instrs resolve pc)
   done;
   assert (Array.length instrs = Array.length preds);
   preds

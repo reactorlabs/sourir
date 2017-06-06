@@ -250,8 +250,8 @@ let instruction conf =
 
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
-  let resolve instrs label = Instr.resolve instrs label in
-  let resolve_osr instrs label = Instr.resolve_osr instrs label in
+  let resolve instrs label = Instr.resolver instrs label in
+  let resolve_osr instrs label = Instr.resolver_osr instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
 
