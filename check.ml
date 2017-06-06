@@ -86,9 +86,9 @@ let well_formed prog =
         | Unop (_op, e) ->
           check_simple_expr e
         | Binop (_op, e1, e2) ->
-            check_simple_expr e1;
-            check_simple_expr e2
-        | Array_index(_, i) ->
+          check_simple_expr e1;
+          check_simple_expr e2
+        | Array_index (_, i) ->
           check_simple_expr i
         | Array_length (e) ->
           check_simple_expr e in
