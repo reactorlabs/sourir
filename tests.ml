@@ -597,9 +597,6 @@ let do_test_codemotion = function () ->
        x <- (x + y)
        branch (x==10) $end $loop
       $end:
-       drop x
-       drop y
-       drop z
        stop 0
       bla:
        var z = 1
@@ -615,10 +612,6 @@ let do_test_codemotion = function () ->
        x <- (x + y_1)
        branch (x == 10) $end $loop
       $end:
-       drop x
-       drop y
-       drop z
-       drop y_1
        stop 0
       bla:
        var z = 1
@@ -640,8 +633,6 @@ let do_test_codemotion = function () ->
        x <- (x + y)
        branch (x==10) $end $loop
       $end:
-       drop x
-       drop y
   " in
   let expected = parse "
        var y_1 = 1
@@ -654,9 +645,6 @@ let do_test_codemotion = function () ->
        x <- (x + y_1)
        branch (x == 10) $end $loop
       $end:
-       drop x
-       drop y
-       drop y_1
   " in
   let res = { t with main = try_opt hoist_assignment t.main } in
   assert_equal_string (Disasm.disassemble_s expected) (Disasm.disassemble_s res);
