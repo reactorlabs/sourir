@@ -29,11 +29,6 @@ let () =
       exit 2
   in
 
-  try Check.well_formed program with
-  | Check.MissingMain ->
-    Printf.eprintf "Program is missing an explicit or implicit main function\n";
-  | _ -> ();
-
   let program =
     if !autofix
     then Transform.try_opt Transform.normalize_graph program
