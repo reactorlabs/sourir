@@ -32,11 +32,11 @@ let insert_checkpoints (func:afunction) =
           version=version.label;
           pos=checkpoint_label pc;
         } in
-        InsertBefore [Osr {label=checkpoint_label pc; cond=[]; target; map=osr};]
+        InsertBefore [Osr {label=checkpoint_label pc; cond=[]; target; varmap=osr; frame_maps=[]};]
     in
-    if pc = 0 then Unchanged else
     match[@warning "-4"] instrs.(pc) with
-    | Stop _ | Return _ | Label _ | Comment _ -> Unchanged
+    | Label _ | Comment _ ->
+        Unchanged
     | Osr _ -> assert false
     | _ -> create_checkpoint pc
   in
@@ -75,9 +75,9 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
     let cur_version = Instr.active_version func in
     let transform pc =
       match[@warning "-4"] cur_version.instrs.(pc) with
-      | Osr {label; cond; target; map} ->
+      | Osr {label; cond; target; varmap; frame_maps} ->
         let target = {target with version = cur_version.label} in
-        Replace [Osr {label; cond; target; map}]
+        Replace [Osr {label; cond; target; varmap; frame_maps}]
       | _ -> Unchanged
     in
     let inp = Analysis.as_analysis_input func cur_version in
@@ -111,8 +111,8 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
   | None -> None
   | Some pc ->
     begin match[@warning "-4"] instrs.(pc) with
-    | Osr {label; cond; target; map} ->
-      instrs.(pc) <- Osr {label; cond=osr_cond::cond; target; map};
+    | Osr {label; cond; target; varmap; frame_maps} ->
+      instrs.(pc) <- Osr {label; cond=osr_cond::cond; target; varmap; frame_maps};
       Some { version with instrs }
     | _ -> assert (false)
     end
@@ -210,7 +210,7 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
   let changed = ref false in
   let push_osr pc =
     match[@warning "-4"] instrs.(pc) with
-    | Osr {label; cond; target; map} ->
+    | Osr {label; cond; target; varmap; frame_maps} ->
       let try_push c =
         let cond_vars = expr_vars c in
         begin match find_candidate_osr c cond_vars (pc-1) None with
@@ -218,15 +218,15 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
         | Some pc' ->
           changed := true;
           begin match[@warning "-4"] instrs.(pc') with
-          | Osr {label; cond; target; map} ->
-            instrs.(pc') <- Osr {label; cond = c::cond; target; map}
+          | Osr {label; cond; target; varmap; frame_maps} ->
+            instrs.(pc') <- Osr {label; cond = c::cond; target; varmap; frame_maps}
           | _ -> assert (false)
           end;
           false
         end
       in
       let remaining = List.filter try_push cond in
-      instrs.(pc) <- Osr {label; cond=remaining; target; map}
+      instrs.(pc) <- Osr {label; cond=remaining; target; varmap; frame_maps}
     | _ -> assert (false)
   in
   List.iter push_osr osrs;

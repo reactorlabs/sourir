@@ -110,6 +110,10 @@ var_def:
 | VAR x=variable { (x, Simple (Constant Nil)) }
 
 osr_def: d=var_def { let (x, e) = d in Osr_var (x, e) }
+osr_map: LBRACKET map=separated_list(COMMA, osr_def) RBRACKET { map }
+osr_frame:
+  | LPAREN func=label COMMA version=label COMMA pos=label RPAREN LBRACKET VAR cont_res=variable EQUAL DOLLAR varmap=list(preceded(COMMA, osr_def)) RBRACKET
+  { {varmap; cont_pos={func; version; pos}; cont_res} }
 
 instruction:
 | CALL x=variable EQUAL f=expression LPAREN args=separated_list(COMMA, argument) RPAREN
@@ -145,8 +149,9 @@ instruction:
   label=label
   LBRACKET cond=separated_list(COMMA, expression) RBRACKET
   LPAREN func=label COMMA version=label COMMA pos=label RPAREN
-  LBRACKET map=separated_list(COMMA, osr_def) RBRACKET
-  { Osr {label; cond; target= {func; version; pos}; map} }
+  top=osr_map
+  frames=list(preceded(COMMA, osr_frame))
+  { Osr {label; cond; target= {func; version; pos}; varmap=top; frame_maps=frames} }
 | STOP e=expression
   { Stop e }
 | s=COMMENT

@@ -1874,7 +1874,9 @@ let suite =
    "parser3">:: test_parse_disasm  ("var x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\n");
+   "parser5c">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $]\n");
+   "parser5d">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $], (f,v,l) [var y = $, var c = 4]\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) $as $fd\n");
    "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) $as $fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";
