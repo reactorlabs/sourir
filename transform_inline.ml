@@ -193,12 +193,6 @@ let inline ({main; functions} as orig_prog : program) : program option =
     !inlinings
   in
 
-  let needs_osr =
-    let is_osr = function[@warning "-4"]
-      | Osr _ -> true | _ -> false in
-    Array.exists is_osr
-  in
-
   (* Update safepoints of the callee.
    * Given we want to inline the deopt information of the caller has to be
    * appended to the callee.
@@ -243,7 +237,7 @@ let inline ({main; functions} as orig_prog : program) : program option =
                          then Analysis.as_analysis_input target (active_version target)
                          else apply_inlinings target next in
         let callee = apply next in
-        match needs_osr callee.instrs, osr with
+        match has_osr callee.instrs, osr with
         | false, _ ->
           let inlinee, new_used = compose cur callee !used_labels ret args in
           used_labels := new_used;

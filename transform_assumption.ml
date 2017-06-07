@@ -12,11 +12,12 @@ open Transform_utils
  * to create a new version where the checkpoints are in sync.
  * This has to run before any optimistic optimizations. *)
 let insert_checkpoints (func:afunction) =
-  (* Can only insert checkpoints into an unoptimized function *)
-  if List.length func.body <> 1 then None else
-
-  let version = List.hd func.body in
+  let version = active_version func in
   let instrs = version.instrs in
+
+  (* Can only insert checkpoints into an unoptimized function *)
+  if has_osr instrs then None else
+
   let inp = Analysis.as_analysis_input func version in
   let scope = Scope.infer inp in
 
@@ -47,6 +48,7 @@ let insert_checkpoints (func:afunction) =
            { label = version.label;
              instrs = (|?) baseline instrs;
              annotations = None } ] }
+
 module LabelTarget = struct
   type t = label position
   let compare = Pervasives.compare

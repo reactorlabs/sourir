@@ -393,6 +393,11 @@ let checkpoint_prefix = "cp_"
 let checkpoint_label pc =
   checkpoint_prefix ^ (string_of_int pc)
 
+let has_osr =
+  let is_osr = function[@warning "-4"]
+    | Osr _ -> true | _ -> false in
+  Array.exists is_osr
+
 let independent instr exp =
   VarSet.is_empty (VarSet.inter (changed_vars instr) (expr_vars exp))
 
