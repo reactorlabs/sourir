@@ -61,26 +61,22 @@ let fix_scope : transform_instructions = fun {formals; instrs} ->
   let scope = Analysis.forward_analysis initial_state instrs merge update in
   let succs = Analysis.successors instrs in
   let transform pc =
-    let succs = succs.(pc) in
-    assert(List.length succs <= 2);
-    let my_scope = scope pc in
-    let succ_scopes = List.map (fun pc -> scope pc) succs in
-    let min_scope = List.fold_left VarSet.union VarSet.empty succ_scopes in
-    (* Because of split edge all the succs should agree on one scope *)
-    assert (succs = [] || VarSet.equal (List.hd succ_scopes) min_scope);
-
-    let to_drop = VarSet.diff my_scope min_scope in
-    let to_drop = VarSet.diff to_drop (dropped_vars instrs.(pc)) in
-    let to_drop_instrs = List.map (fun var -> Drop var) (VarSet.elements to_drop) in
-
+    (* Thanks to the normalized graph structure only before gotos the scope has to be aligned *)
     match[@warning "-4"] instrs.(pc) with
-    | Stop _
-    | Goto _
-    | Branch _
-    | Return _ ->
-        (* Don't insert drops after the last instruction *)
+    | Goto _ ->
+      let succs = succs.(pc) in
+      assert(List.length succs <= 2);
+      let my_scope = scope pc in
+      let succ_scopes = List.map (fun pc -> scope pc) succs in
+      let min_scope = List.fold_left VarSet.union VarSet.empty succ_scopes in
+      (* Because of split edge all the succs should agree on one scope *)
+      assert (succs = [] || VarSet.equal (List.hd succ_scopes) min_scope);
+
+      let to_drop = VarSet.diff my_scope min_scope in
+      let to_drop = VarSet.diff to_drop (dropped_vars instrs.(pc)) in
+      let to_drop_instrs = List.map (fun var -> Drop var) (VarSet.elements to_drop) in
       InsertBefore to_drop_instrs
     | _ ->
-      InsertAfter to_drop_instrs
+      Unchanged
   in
   change_instrs transform {formals;instrs}

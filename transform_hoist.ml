@@ -95,7 +95,8 @@ let pull_instr cond instrs pc =
           let (!!) = List.map pc_map in
           work_push instrs progress !!to_push !!to_pull
         | Need_pull pc' ->
-          work_push instrs progress to_push (pc' :: to_pull)
+          let to_pull' = if List.mem pc' to_pull then to_pull else pc' :: to_pull in
+          work_push instrs progress to_push to_pull'
         | Work ((instrs, pc_map), pcs) ->
           let (!!) = List.map pc_map in
           work_push instrs Made_progress (List.rev_append pcs !!to_push) !!to_pull
