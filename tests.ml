@@ -1550,7 +1550,7 @@ let do_test_inline () =
   let output_of prog = Eval.read_trace (Eval.run_forever no_input prog) in
   let test filename =
     let program = Parse.program_of_file filename in
-    let program' = Transform.try_opt Transform_inline.inline program in
+    let program' = Transform.try_opt (Transform_inline.inline ()) program in
     assert (output_of program = output_of program')
   in
 

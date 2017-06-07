@@ -103,7 +103,9 @@ let all_opts = ["prune";
                 "hoist_assign";
                 "hoist_drop";
                 "min_live";
-                "inline"]
+                "inline_small"]
+let manual_opts = ["inline_med";
+                   "inline_max"]
 
 let assumption_opts = ["prune"]
 
@@ -119,8 +121,12 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program const_fold
     | "prune" ->
       as_opt_program branch_prune
-    | "inline" ->
-      Transform_inline.inline
+    | "inline_max" ->
+      Transform_inline.inline ()
+    | "inline_med" ->
+      Transform_inline.inline ~max_depth:4 ~max_size:220 ()
+    | "inline_small" ->
+      Transform_inline.inline ~max_depth:2 ~max_size:170 ()
     | o ->
       raise (UnknownOptimization o)
   in

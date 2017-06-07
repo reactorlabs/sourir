@@ -99,7 +99,7 @@ let () =
   let program = try Transform.(try_opt (optimize !opts) program) with
     | Transform.UnknownOptimization opt ->
       Printf.eprintf "Unknown optimization %s.\nValid optimizers are %s\n"
-        opt (String.concat ", " Transform.all_opts);
+        opt (String.concat ", " (Transform.all_opts @ Transform.manual_opts));
       exit 1
   in
 
