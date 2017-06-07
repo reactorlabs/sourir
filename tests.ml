@@ -419,9 +419,9 @@ let test_branch_pruning_exp prog expected =
   let prune = try_opt (combine_opt
                          [branch_prune;
                           (as_opt_function Transform_assumption.hoist_assumption);
-                          cleanup_all;
-                          (as_opt_function Transform_assumption.remove_empty_osr)]) in
+                          cleanup_all;]) in
   let prog2 = { prog with main = prune prog.main } in
+  let prog2 = try_opt Transform_assumption.remove_empty_osr prog2 in
   assert_equal_string expected
     (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) 
 

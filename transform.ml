@@ -137,7 +137,7 @@ let optimize (opts : string list) (prog : program) : program option =
         optimizer;
         (as_opt_program (as_opt_function Transform_assumption.hoist_assumption));
         optimizer;
-        (as_opt_program (as_opt_function Transform_assumption.remove_empty_osr));
+        Transform_assumption.remove_empty_osr;
         optimizer_classic;
       ]
     else optimizer

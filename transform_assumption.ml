@@ -47,17 +47,62 @@ let insert_checkpoints (func:afunction) =
            { label = version.label;
              instrs = (|?) baseline instrs;
              annotations = None } ] }
+module LabelTarget = struct
+  type t = label position
+  let compare = Pervasives.compare
+end
 
-(* Removes all empty checkpoints. Can be applied as a final cleanup
- * when there are no osr-in points (because the osr instruction also
- * serves as a label for osr-entry). *)
-let remove_empty_osr : transform_instructions = fun input ->
-  let transform pc =
-    match[@warning "-4"] input.instrs.(pc) with
-    | Osr {cond} when cond = [] -> Remove 1
-    | _ -> Unchanged
+module TargetSet = Set.Make(LabelTarget)
+
+(* Removes all empty checkpoints with no incoming references *)
+let remove_empty_osr : opt_prog = fun prog ->
+  let get_targets = function[@warning "-4"]
+    | Osr {target; cond; frame_maps} when cond <> [] ->
+      let add tgs {cont_pos} = TargetSet.union tgs (TargetSet.singleton cont_pos) in
+      List.fold_left add (TargetSet.singleton target) frame_maps
+    | _ -> TargetSet.empty
   in
-  change_instrs transform input
+  let extract how what =
+    let add tgs e = TargetSet.union tgs (how e) in
+    List.fold_left add TargetSet.empty what
+  in
+  (* Collect the targets (including the extra frames continuations) of all non empty osrs *)
+  let used =
+    extract (fun (f : afunction) ->
+      extract (fun (v : version) ->
+        extract get_targets (Array.to_list v.instrs)) f.body) (prog.main::prog.functions)
+  in
+
+  (* Remove all empty and unused osr instructions in all versions *)
+  let changed = ref false in
+
+  let prog' =
+    let apply func =
+      let body =
+        List.map (fun version ->
+          let inp = (Analysis.as_analysis_input func version) in
+          let transform pc =
+            let target pos = { func = func.name; version = version.label; pos = pos } in
+            match[@warning "-4"] inp.instrs.(pc) with
+            | Osr {cond; label} when cond = [] && not (TargetSet.mem (target label) used) -> Remove 1
+            | _ -> Unchanged
+          in
+          match change_instrs transform inp with
+          | None -> version
+          | Some instrs ->
+              changed := true;
+              { version with instrs }
+        ) func.body
+      in
+      { func with body }
+    in
+    { main = apply prog.main;
+      functions = List.map apply prog.functions; }
+  in
+
+  if !changed
+  then Some prog'
+  else None
 
 (* Inserts the assumption that osr_condition is false at position pc.
  * The approach is to
