@@ -396,7 +396,7 @@ let reduce conf =
     else begin
       let osr_env, heap = build_osr_frame varmap conf.env conf.heap in
       let heap, extra_frames =
-        List.fold_left build_extra_osr_frame (heap, []) frame_maps in
+        List.fold_left build_extra_osr_frame (heap, []) (List.rev frame_maps) in
       let func = Instr.lookup_fun conf.program func in
       let version = Instr.get_version func version in
       let instrs = version.instrs in

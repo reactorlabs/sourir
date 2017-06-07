@@ -224,7 +224,7 @@ let inline ({main; functions} as orig_prog : program) : program option =
     let fixup_osr pc =
       match[@warning "-4"] input.instrs.(pc) with
       | Osr ({frame_maps} as osr) ->
-        Replace [ Osr {osr with frame_maps = extra_frames @ frame_maps} ]
+        Replace [ Osr {osr with frame_maps = frame_maps @ extra_frames} ]
       | _ -> Unchanged
     in
     match change_instrs fixup_osr input with
