@@ -192,11 +192,10 @@ let as_var_set (formals : formal_parameter list) =
   VarSet.of_list (as_var_list formals)
 
 let as_var_map formals =
-  let formals = VarSet.elements formals in
   VariableMap.initial formals
 
 let as_analysis_input (func:afunction) (version:version) =
-  { formals = as_var_set func.formals; instrs = version.instrs }
+  { formals = as_var_list func.formals; instrs = version.instrs }
 
 (* returns a 'pc -> pc set' computing reaching definitions *)
 let reaching {formals; instrs} : pc -> PosSet.t =
@@ -302,7 +301,7 @@ let required_vars ({instrs} as inp : analysis_input) : pc -> variable list =
 
 let aliased ({formals; instrs} : analysis_input) : pc -> VarSet.t =
   let ref_param params x = x :: params in
-  let mut_formals = List.fold_left ref_param [] (VarSet.elements formals) in
+  let mut_formals = List.fold_left ref_param [] formals in
   fun _ -> VarSet.of_list mut_formals
 
 module Expression = struct

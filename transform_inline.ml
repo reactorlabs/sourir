@@ -2,16 +2,6 @@ open Instr
 open Edit
 open Types
 
-(* Unlike `analysis_input`, this preserves the order of `formals`. This
-   facilitates matching the formals to the arguments passed at a callsite.*)
-type inlining_input = {
-  formals : variable list;
-  instrs : instructions;
-}
-
-let as_inlining_input (func : afunction) : inlining_input =
-  { formals = Analysis.as_var_list func.formals; instrs = (active_version func).instrs }
-
 type inlining_candidate = {
   pos : pc;
   target : afunction;
@@ -21,6 +11,9 @@ type inlining_candidate = {
   next : inlining_site;
 }
 and inlining_site = inlining_candidate list
+
+let as_inlining_input (func : afunction) =
+  { formals = Analysis.as_var_list func.formals; instrs = (active_version func).instrs }
 
 
 (* FUNCTION INLINING *)
@@ -66,7 +59,7 @@ let inline ({main; functions} as orig_prog : program) : program option =
       in
       loop 0 []
     in
-    let scope = Scope.infer {formals = VarSet.of_list callee.formals;
+    let scope = Scope.infer {formals = callee.formals;
                              instrs = callee.instrs;}
     in
     let returns = extract_returns instrs in
