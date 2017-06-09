@@ -96,6 +96,8 @@ let well_formed prog =
       let check_osr = function
         | Osr_var (_, e) -> check_expr e
       in
+      let check_osr_map = List.iter check_osr in
+      let check_osr_frame {varmap} = check_osr_map varmap in
       match instr with
       | Call (_x, f, es) ->
         (check_expr f;
@@ -115,9 +117,10 @@ let well_formed prog =
       | Array_assign (_, i, e) ->
         check_expr i;
         check_expr e;
-      | Osr {cond; map} ->
+      | Osr {cond; varmap; frame_maps} ->
         List.iter check_expr cond;
-        List.iter check_osr map
+        check_osr_map varmap;
+        List.iter check_osr_frame frame_maps
     in
 
     let seen = ref [] in

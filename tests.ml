@@ -419,9 +419,9 @@ let test_branch_pruning_exp prog expected =
   let prune = try_opt (combine_opt
                          [branch_prune;
                           (as_opt_function Transform_assumption.hoist_assumption);
-                          cleanup_all;
-                          (as_opt_function Transform_assumption.remove_empty_osr)]) in
+                          cleanup_all;]) in
   let prog2 = { prog with main = prune prog.main } in
+  let prog2 = try_opt Transform_assumption.remove_empty_osr prog2 in
   assert_equal_string expected
     (Disasm.disassemble_instrs_s (List.hd prog2.main.body).instrs) 
 
@@ -1550,7 +1550,7 @@ let do_test_inline () =
   let output_of prog = Eval.read_trace (Eval.run_forever no_input prog) in
   let test filename =
     let program = Parse.program_of_file filename in
-    let program' = Transform.try_opt Transform_inline.inline program in
+    let program' = Transform.try_opt (Transform_inline.inline ()) program in
     assert (output_of program = output_of program')
   in
 
@@ -1874,7 +1874,9 @@ let suite =
    "parser3">:: test_parse_disasm  ("var x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\nl:\n");
+   "parser5b">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)]\n");
+   "parser5c">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $]\n");
+   "parser5d">:: test_parse_disasm ("osr l [(x == y)] (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $], (f,v,l) [var y = $, var c = 4]\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) $as $fd\n");
    "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) $as $fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";

@@ -1,7 +1,7 @@
 open Instr
 
 type analysis_input = {
-  formals : VarSet.t;
+  formals : variable list;
   instrs : instructions;
 }
 

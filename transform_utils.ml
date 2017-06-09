@@ -57,7 +57,7 @@ let fix_scope : transform_instructions = fun {formals; instrs} ->
     let dropped = Instr.dropped_vars instr in
     VarSet.diff updated dropped
   in
-  let initial_state = formals in
+  let initial_state = VarSet.of_list formals in
   let scope = Analysis.forward_analysis initial_state instrs merge update in
   let succs = Analysis.successors instrs in
   let transform pc =

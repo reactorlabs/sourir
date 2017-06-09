@@ -12,11 +12,12 @@ open Transform_utils
  * to create a new version where the checkpoints are in sync.
  * This has to run before any optimistic optimizations. *)
 let insert_checkpoints (func:afunction) =
-  (* Can only insert checkpoints into an unoptimized function *)
-  if List.length func.body <> 1 then None else
-
-  let version = List.hd func.body in
+  let version = active_version func in
   let instrs = version.instrs in
+
+  (* Can only insert checkpoints into an unoptimized function *)
+  if has_osr instrs then None else
+
   let inp = Analysis.as_analysis_input func version in
   let scope = Scope.infer inp in
 
@@ -32,11 +33,11 @@ let insert_checkpoints (func:afunction) =
           version=version.label;
           pos=checkpoint_label pc;
         } in
-        InsertBefore [Osr {label=checkpoint_label pc; cond=[]; target; map=osr};]
+        InsertBefore [Osr {label=checkpoint_label pc; cond=[]; target; varmap=osr; frame_maps=[]};]
     in
-    if pc = 0 then Unchanged else
     match[@warning "-4"] instrs.(pc) with
-    | Stop _ | Return _ | Label _ | Comment _ -> Unchanged
+    | Label _ | Comment _ ->
+        Unchanged
     | Osr _ -> assert false
     | _ -> create_checkpoint pc
   in
@@ -48,16 +49,62 @@ let insert_checkpoints (func:afunction) =
              instrs = (|?) baseline instrs;
              annotations = None } ] }
 
-(* Removes all empty checkpoints. Can be applied as a final cleanup
- * when there are no osr-in points (because the osr instruction also
- * serves as a label for osr-entry). *)
-let remove_empty_osr : transform_instructions = fun input ->
-  let transform pc =
-    match[@warning "-4"] input.instrs.(pc) with
-    | Osr {cond} when cond = [] -> Remove 1
-    | _ -> Unchanged
+module LabelTarget = struct
+  type t = label position
+  let compare = Pervasives.compare
+end
+
+module TargetSet = Set.Make(LabelTarget)
+
+(* Removes all empty checkpoints with no incoming references *)
+let remove_empty_osr : opt_prog = fun prog ->
+  let get_targets = function[@warning "-4"]
+    | Osr {target; cond; frame_maps} when cond <> [] ->
+      let add tgs {cont_pos} = TargetSet.union tgs (TargetSet.singleton cont_pos) in
+      List.fold_left add (TargetSet.singleton target) frame_maps
+    | _ -> TargetSet.empty
   in
-  change_instrs transform input
+  let extract how what =
+    let add tgs e = TargetSet.union tgs (how e) in
+    List.fold_left add TargetSet.empty what
+  in
+  (* Collect the targets (including the extra frames continuations) of all non empty osrs *)
+  let used =
+    extract (fun (f : afunction) ->
+      extract (fun (v : version) ->
+        extract get_targets (Array.to_list v.instrs)) f.body) (prog.main::prog.functions)
+  in
+
+  (* Remove all empty and unused osr instructions in all versions *)
+  let changed = ref false in
+
+  let prog' =
+    let apply func =
+      let body =
+        List.map (fun version ->
+          let inp = (Analysis.as_analysis_input func version) in
+          let transform pc =
+            let target pos = { func = func.name; version = version.label; pos = pos } in
+            match[@warning "-4"] inp.instrs.(pc) with
+            | Osr {cond; label} when cond = [] && not (TargetSet.mem (target label) used) -> Remove 1
+            | _ -> Unchanged
+          in
+          match change_instrs transform inp with
+          | None -> version
+          | Some instrs ->
+              changed := true;
+              { version with instrs }
+        ) func.body
+      in
+      { func with body }
+    in
+    { main = apply prog.main;
+      functions = List.map apply prog.functions; }
+  in
+
+  if !changed
+  then Some prog'
+  else None
 
 (* Inserts the assumption that osr_condition is false at position pc.
  * The approach is to
@@ -75,9 +122,9 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
     let cur_version = Instr.active_version func in
     let transform pc =
       match[@warning "-4"] cur_version.instrs.(pc) with
-      | Osr {label; cond; target; map} ->
+      | Osr {label; cond; target; varmap; frame_maps} ->
         let target = {target with version = cur_version.label} in
-        Replace [Osr {label; cond; target; map}]
+        Replace [Osr {label; cond; target; varmap; frame_maps}]
       | _ -> Unchanged
     in
     let inp = Analysis.as_analysis_input func cur_version in
@@ -111,8 +158,8 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
   | None -> None
   | Some pc ->
     begin match[@warning "-4"] instrs.(pc) with
-    | Osr {label; cond; target; map} ->
-      instrs.(pc) <- Osr {label; cond=osr_cond::cond; target; map};
+    | Osr {label; cond; target; varmap; frame_maps} ->
+      instrs.(pc) <- Osr {label; cond=osr_cond::cond; target; varmap; frame_maps};
       Some { version with instrs }
     | _ -> assert (false)
     end
@@ -210,7 +257,7 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
   let changed = ref false in
   let push_osr pc =
     match[@warning "-4"] instrs.(pc) with
-    | Osr {label; cond; target; map} ->
+    | Osr {label; cond; target; varmap; frame_maps} ->
       let try_push c =
         let cond_vars = expr_vars c in
         begin match find_candidate_osr c cond_vars (pc-1) None with
@@ -218,15 +265,15 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
         | Some pc' ->
           changed := true;
           begin match[@warning "-4"] instrs.(pc') with
-          | Osr {label; cond; target; map} ->
-            instrs.(pc') <- Osr {label; cond = c::cond; target; map}
+          | Osr {label; cond; target; varmap; frame_maps} ->
+            instrs.(pc') <- Osr {label; cond = c::cond; target; varmap; frame_maps}
           | _ -> assert (false)
           end;
           false
         end
       in
       let remaining = List.filter try_push cond in
-      instrs.(pc) <- Osr {label; cond=remaining; target; map}
+      instrs.(pc) <- Osr {label; cond=remaining; target; varmap; frame_maps}
     | _ -> assert (false)
   in
   List.iter push_osr osrs;

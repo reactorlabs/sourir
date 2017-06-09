@@ -103,7 +103,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
 
     let initial_state =
       let add_formal x st = VarMap.add x Unknown st in
-      VarSet.fold add_formal formals VarMap.empty
+      VarSet.fold add_formal (VarSet.of_list formals) VarMap.empty
     in
     Analysis.forward_analysis initial_state instrs merge update
   in

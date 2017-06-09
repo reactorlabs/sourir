@@ -56,7 +56,12 @@ and instruction =
   | Print of expression
   | Assert of expression
   | Stop of expression
-  | Osr of {label : label; cond : expression list; target : label position; map : osr_def list; }
+  | Osr of {
+    label : label;
+    cond : expression list;
+    target : label position;
+    varmap : varmap;
+    frame_maps : osr_frame_map list; }
   | Comment of string
 and label_type =
   | MergeLabel of label
@@ -64,7 +69,12 @@ and label_type =
 and array_def =
   | Length of expression
   | List of expression list
-and osr_def =
+and varmap = varmap_entry list
+and osr_frame_map = {
+  varmap : varmap;
+  cont_pos : label position;
+  cont_res : variable; }
+and varmap_entry =
   | Osr_var of variable * expression
 and argument = expression
 and expression =
@@ -297,9 +307,14 @@ let used_vars = function
   | Goto _
   | Comment _
     -> VarSet.empty
-  | Osr {cond; map} ->
-    let exps = List.map (fun (Osr_var (_, e)) -> e) map in
-    VarSet.union (list_vars cond) (list_vars exps)
+  | Osr {cond; varmap; frame_maps} ->
+    let fold_cond used cond = VarSet.union used (expr_vars cond) in
+    let from_cond = List.fold_left fold_cond VarSet.empty cond in
+    let map_vars map = list_vars (List.map (fun (Osr_var (_, e)) -> e) map) in
+    let fold_map used {varmap} =
+      VarSet.union used (map_vars varmap) in
+    let from_map = List.fold_left fold_map (map_vars varmap) frame_maps in
+    VarSet.union from_cond from_map
 
 (* Which variables need to be in scope
  * Producer: declared_vars *)
@@ -378,6 +393,11 @@ let checkpoint_prefix = "cp_"
 let checkpoint_label pc =
   checkpoint_prefix ^ (string_of_int pc)
 
+let has_osr =
+  let is_osr = function[@warning "-4"]
+    | Osr _ -> true | _ -> false in
+  Array.exists is_osr
+
 let independent instr exp =
   VarSet.is_empty (VarSet.inter (changed_vars instr) (expr_vars exp))
 
@@ -407,16 +427,8 @@ class map = object (m)
 
   method goto_label l = l
   method branch_label l = l
+  method osr_label l = l
 
-  method func l = l
-  method version l = l
-  method pos l = l
-
-  method unique_pos {func; version; pos} = {
-    func = m#func func;
-    version = m#version version;
-    pos = m#pos pos;
-  }
   method instruction = function
     | Decl_var (x, e) ->
       Decl_var (m#binder x, m#expression e)
@@ -448,12 +460,13 @@ class map = object (m)
       Assert (m#expression e)
     | Stop e ->
       Stop (m#expression e)
-    | Osr {label; cond; target; map} ->
+    | Osr {label; cond; target; varmap; frame_maps} ->
       Osr {
-        label;
+        label = m#osr_label label;
         cond = List.map m#expression cond;
-        target = m#unique_pos target;
-        map = List.map m#osr_map map;
+        target = m#osr_target target;
+        varmap = m#osr_varmap varmap;
+        frame_maps = List.map m#osr_frame frame_maps;
       }
     | Comment s ->
       Comment s
@@ -463,7 +476,24 @@ class map = object (m)
       Length (m#expression e)
     | List es ->
       List (List.map m#expression es)
-  method osr_map = function
+
+  method osr_func_label l = l
+  method osr_version_label l = l
+  method osr_target_label l = m#osr_label l
+
+  method osr_target {func; version; pos} = {
+    func = m#osr_func_label func;
+    version = m#osr_version_label version;
+    pos = m#osr_target_label pos }
+
+  method frame_cont_res res = res
+  method osr_frame {varmap; cont_pos; cont_res} = {
+    varmap = m#osr_varmap varmap;
+    cont_pos = m#osr_target cont_pos;
+    cont_res = m#frame_cont_res cont_res;
+  }
+  method osr_varmap = List.map m#osr_varmap_entry
+  method osr_varmap_entry = function
     | Osr_var (x, e) ->
       Osr_var (m#binder x, m#expression e)
 end

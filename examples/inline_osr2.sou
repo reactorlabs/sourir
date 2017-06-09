@@ -1,0 +1,26 @@
+function main ()
+ var user_input = 1
+ var local_main = (3+user_input)
+
+ call foo_res = 'm1 (user_input)
+ print foo_res
+ print local_main
+
+function m1(var x_m1)
+ var local_m1 = (x_m1+7)
+ call res_m1 = 'm2(x_m1)
+ print local_m1
+ return res_m1
+
+function m2(var x_m2)
+ var local_m2 = (x_m2+8)
+ call res_m2 = 'foo(x_m2)
+ print local_m2
+ return res_m2
+
+function foo (var choice)
+ branch (choice==0) $a $b
+ $a:
+  return 1
+ $b:
+  return 0

@@ -57,7 +57,7 @@ let infer ({formals; instrs} : analysis_input) : inferred_scope array =
       let final_info = List.fold_left remove updated dropped in
       { sources = PcSet.singleton pc; info = final_info; }
     in
-    let initial = List.map (fun var -> (var, -1)) (VarSet.elements formals) in
+    let initial = List.map (fun var -> (var, -1)) formals in
     let initial_state = { sources = PcSet.empty; info = DeclSet.of_list initial; } in
     let res = Analysis.forward_analysis initial_state instrs merge update in
     fun pc -> (res pc).info in
