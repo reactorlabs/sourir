@@ -11,7 +11,7 @@ let rec dump_comma_separated how buf what =
   | [e] -> how buf e
   | e::t -> pr buf "%a, %a" how e (dump_comma_separated how) t
 
-let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
+let disassemble_instrs buf ?(ott_compatible = false) ?(format_pc = no_line_number) (prog : instructions) =
   let dump_instr buf pc instr =
     let simple buf = function
       | Var v             -> pr buf "%s" v
@@ -56,7 +56,7 @@ let disassemble_instrs buf ?(format_pc = no_line_number) (prog : instructions) =
     | Array_assign (var, index, exp)  -> pr buf " %s[%a] <- %a" var dump_expr index dump_expr exp
     | Branch (exp, l1, l2)            -> pr buf " branch %a $%s $%s" dump_expr exp l1 l2
     | Label (MergeLabel label)        -> pr buf "%s:" label
-    | Label (BranchLabel label)        -> pr buf "$%s:" label
+    | Label (BranchLabel label)       -> pr buf "$%s:" label
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print %a" dump_expr exp
     | Assert exp                      -> pr buf " assert %a" dump_expr exp

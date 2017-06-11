@@ -5,6 +5,7 @@ let quiet = ref false
 let autofix = ref false
 let opts = ref []
 let path = ref ""
+let ott = ref false
 
 let () =
   let cmd_args = [
@@ -13,6 +14,7 @@ let () =
     ("--quiet", Arg.Set quiet, "quiet");
     ("--autofix", Arg.Set autofix, "automatically normalize graph");
     ("--opt", Arg.String (fun s -> opts := String.split_on_char ',' s), "Enable optimizations");
+    ("--ott", Arg.Set ott, "Output ott rendering");
   ] in
   Arg.parse cmd_args (fun s ->
       if !path <> "" then raise (Arg.Bad ("Invalid argument "^s));
@@ -103,16 +105,21 @@ let () =
       exit 1
   in
 
-  if not !quiet then begin
-    Printf.printf "After optimizations\n";
-    Disasm.disassemble_o stdout program
-  end;
-
   begin try Scope.check_program program with
   | Scope.ScopeExceptionAt _ as exn ->
     Printf.eprintf "Scope error in the optimized program (%s):\n"
       (String.concat ", " !opts);
     Scope.report_error program exn
+  end;
+
+  if !ott then begin
+    Ott.disassemble_o stdout program;
+    exit 0
+  end;
+
+  if not !quiet then begin
+    Printf.printf "After optimizations\n";
+    Disasm.disassemble_o stdout program
   end;
 
   if not !run then ()
