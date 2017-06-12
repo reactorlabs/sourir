@@ -115,7 +115,7 @@ let remove_empty_osr : opt_prog = fun prog ->
  *    are instructions which interfere with the osr_condition. The
  *    condition has to be added to an existing osr instruction (see
  *    insert_checkpoints above). *)
-let insert_assumption (func : afunction) osr_cond pc : version option =
+let insert_assumption ?(hoist=false) (func : afunction) osr_cond pc : version option =
   (* This takes the active version and duplicates it. Osr targets are
    * updated to point to the currently active version *)
   let next_version (func:afunction) =
@@ -141,7 +141,10 @@ let insert_assumption (func : afunction) osr_cond pc : version option =
   let rec find_candidate_osr cond_vars pc acc =
     if pc < 0 then acc else
     match[@warning "-4"] instrs.(pc) with
-    | Osr _ -> find_candidate_osr cond_vars (pc-1) (Some pc)
+    | Osr _ ->
+      if hoist
+      then find_candidate_osr cond_vars (pc-1) (Some pc)
+      else Some pc
     | Label _ ->
       begin match[@warning "-4"] preds.(pc) with
       | [pred] -> find_candidate_osr cond_vars pred acc
