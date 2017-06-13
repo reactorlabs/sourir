@@ -6,6 +6,7 @@ let autofix = ref false
 let opts = ref []
 let path = ref ""
 let ott = ref false
+let num_opts = ref 1
 
 let () =
   let cmd_args = [
@@ -14,6 +15,7 @@ let () =
     ("--quiet", Arg.Set quiet, "quiet");
     ("--autofix", Arg.Set autofix, "automatically normalize graph");
     ("--opt", Arg.String (fun s -> opts := String.split_on_char ',' s), "Enable optimizations");
+    ("--num", Arg.String (fun s -> num_opts := int_of_string s), "Number of optimization runs");
     ("--ott", Arg.Set ott, "Output ott rendering");
   ] in
   Arg.parse cmd_args (fun s ->
@@ -98,7 +100,15 @@ let () =
     Scope.report_error program exn
   end;
 
-  let program = try Transform.(try_opt (optimize !opts) program) with
+  let optimize program =
+    let rec comb n =
+      if n = !num_opts then [] else Transform.optimize(!opts) :: comb (n+1)
+    in
+    let optimizations = Transform.combine_opt (comb 0) in
+    Transform.(try_opt optimizations program)
+  in
+
+  let program = try optimize program with
     | Transform.UnknownOptimization opt ->
       Printf.eprintf "Unknown optimization %s.\nValid optimizers are %s\n"
         opt (String.concat ", " (Transform.all_opts @ Transform.manual_opts));

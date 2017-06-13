@@ -146,9 +146,7 @@ let optimize (opts : string list) (prog : program) : program option =
     combine_opt [
         (as_opt_program Transform_assumption.insert_checkpoints);
         optimizer;
-        optimizer;
         Transform_assumption.remove_empty_osr;
-        optimizer;
         optimizer;
       ]
   in
