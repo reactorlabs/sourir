@@ -12,10 +12,10 @@ let rec dump_comma_separated how buf what =
   | e::t -> pr buf "%a, %a" how e (dump_comma_separated how) t
 
 let disassemble_instrs buf (instrs : instructions) =
-  let rec dump_instr buf pc needs_label =
-    if pc = Array.length instrs then ()
+  let rec dump_instr buf pc line needs_label =
+    if pc >= Array.length instrs then ()
     else begin
-      let dump_next_instr () = dump_instr buf (pc+1) true in
+      let dump_next_instr () = dump_instr buf (pc+1) (line+1) true in
       let simple buf = function
         | Var v             -> pr buf "%s" v
         | Constant c        -> pr buf "%s" (IO.string_of_value c)
@@ -42,15 +42,15 @@ let disassemble_instrs buf (instrs : instructions) =
         | Array_length e     -> pr buf "length(%a)" simple e
       in
       let dump_arg buf arg = dump_expr buf arg in
-      let print_pc_label () = pr buf "%d : " pc in
+      let print_default_label () = pr buf "%d : " line in
       let print_label label =
         let label = if String.length label = 1 then "l"^label else label in
         pr buf "%s : " label in
       begin match[@warning "-4"] instrs.(pc) with
-      | Label _ | Osr _ ->
+      | Label _ | Osr _ | Comment _ ->
         ()
       | _ ->
-        if needs_label then print_pc_label ()
+        if needs_label then print_default_label ()
       end;
       begin match instrs.(pc) with
       | Call (var, f, args)               ->
@@ -87,7 +87,7 @@ let disassemble_instrs buf (instrs : instructions) =
         dump_next_instr ()
       | Label (MergeLabel l | BranchLabel l) ->
         print_label l;
-        dump_instr buf (pc+1) false
+        dump_instr buf (pc+1) line false
       | Goto label                      ->
         pr buf " goto %s\n" label;
         dump_next_instr ()
@@ -107,9 +107,9 @@ let disassemble_instrs buf (instrs : instructions) =
         in
         let dump_frame buf {cont_pos={func; version; pos}; cont_res; varmap} =
           pr buf "(%s, %s, %s) [%s = $, %a]"
-              func version pos
-              cont_res
-              (dump_comma_separated dump_var) varmap
+            func version pos
+            cont_res
+            (dump_comma_separated dump_var) varmap
         in
         pr buf "osr %a , (%s, %s, %s) [%a], %a\n"
           (dump_comma_separated dump_expr) cond
@@ -118,24 +118,24 @@ let disassemble_instrs buf (instrs : instructions) =
           (dump_comma_separated dump_frame) frame_maps;
         dump_next_instr ()
       | Comment str                     ->
-        dump_next_instr ()
+        dump_instr buf (pc+1) line needs_label
       end;
     end
   in
-  dump_instr buf 0 true
+  dump_instr buf 0 1 true
 
 let disassemble buf (prog : Instr.program) =
   let dump_func buf {name; formals; body} =
-      let print_formal buf (Param x) = pr buf "%s " x in
-      let print_formals buf = (dump_comma_separated print_formal) buf formals in
-      Printf.bprintf buf "%s -> ( %t ) ( " name print_formals;
-      let dump_vers buf version =
-          pr buf "%s -> (\n" version.label;
-          disassemble_instrs buf version.instrs;
-          pr buf ") "
-      in
-      (dump_comma_separated dump_vers) buf body;
-      Printf.bprintf buf " ) ";
+    let print_formal buf (Param x) = pr buf "%s " x in
+    let print_formals buf = (dump_comma_separated print_formal) buf formals in
+    Printf.bprintf buf "%s -> ( %t ) ( " name print_formals;
+    let dump_vers buf version =
+      pr buf "%s -> (\n" version.label;
+      disassemble_instrs buf version.instrs;
+      pr buf ") "
+    in
+    (dump_comma_separated dump_vers) buf body;
+    Printf.bprintf buf " ) ";
   in
   Printf.bprintf buf "P( ";
   (dump_comma_separated dump_func) buf (prog.main :: prog.functions);
