@@ -12,7 +12,7 @@ function ncores {
   fi
 }
 
-export OPTS="prune\nconst_fold\nhoist_assign\nhoist_drop\nmin_live\ninline_small\ninline_med"
+export OPTS="prune\nprune_no_hoist\nhoist_osr\nconst_fold\nhoist_assign\nhoist_drop\nmin_live\ninline_small\ninline_med"
 export INPUTS="0\n1\n3\nnil\ntrue\nfalse"
 
 # Move into examples directory
@@ -41,8 +41,10 @@ if [[ "$LONG" == "--long" ]]; then
   p() { [ $# -eq 0 ] && echo || (shift; p "$@") | while read r ; do echo -e "$1,$r\n$r"; done }
   echo -e $OPTS | p `cat` | sort | uniq | sed 's/,$//' | tail -n +2 > $ALL_OPTS
   PROCS=`ncores`
+  export RUNS=1
 else
   echo "all" > $ALL_OPTS
+  export RUNS=5
 fi
 
 
@@ -69,7 +71,7 @@ function runtest {
     fi
   fi
 
-  yes "$INPUT" | $SOURIR "$TEST" --opt $OPT --quiet &> "$OPT_OUT"
+  yes "$INPUT" | $SOURIR "$TEST" --opt $OPT --num $RUNS --quiet &> "$OPT_OUT"
   if [ $? -ne 0 ]; then
     echo -e "\n\nOpt run failed on $TEST with input $INPUT and opts $OPT\n"
     echo " ----- LOG ----------------------------------------"

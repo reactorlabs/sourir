@@ -1,0 +1,14 @@
+function main ()
+ var question
+ read question
+ call conv = 'conv (question)
+ return conv
+
+function conv (var given)
+ var inc = 0
+ branch (given == nil) $isnil $notnil
+ $isnil:
+  return inc
+ $notnil:
+  inc <- 2
+  return (given + inc)

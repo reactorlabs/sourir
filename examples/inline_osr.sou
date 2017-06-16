@@ -1,15 +1,15 @@
 function main ()
- var user_input
- read user_input
- var local_var = (3+user_input)
+ var user
+ read user
+ var local = (3 + user)
 
- call foo_res = 'foo (user_input)
- print foo_res
- print local_var
+ call res = 'foo (user)
+ print res
+ print local
 
 function foo (var choice)
- branch (choice==0) $a $b
- $a:
+ branch (choice==0) $la $lb
+ $la:
   return 1
- $b:
+ $lb:
   return 0

@@ -89,7 +89,12 @@ let minimize_liverange = as_opt_function minimize_liverange_instrs
 let hoist_assignment = as_opt_function Transform_hoist_assign.hoist_assignment
 let hoist_drop = as_opt_function Transform_hoist.Drop.apply
 let branch_prune = optimistic_as_opt_function
-    Transform_prune.insert_branch_pruning_assumption
+    (Transform_prune.insert_branch_pruning_assumption)
+    (combine_transform_instructions [
+       Transform_prune.branch_prune;
+       Transform_cleanup.remove_unreachable_code;])
+let branch_prune_no_hoist = optimistic_as_opt_function
+    (Transform_prune.insert_branch_pruning_assumption ~hoist:false)
     (combine_transform_instructions [
        Transform_prune.branch_prune;
        Transform_cleanup.remove_unreachable_code;])
@@ -99,6 +104,8 @@ let normalize_graph = as_opt_program (as_opt_function normalize_graph_instrs)
 exception UnknownOptimization of string
 
 let all_opts = ["prune";
+                "prune_no_hoist";
+                "hoist_osr";
                 "const_fold";
                 "hoist_assign";
                 "hoist_drop";
@@ -106,8 +113,6 @@ let all_opts = ["prune";
                 "inline_small"]
 let manual_opts = ["inline_med";
                    "inline_max"]
-
-let assumption_opts = ["prune"]
 
 let optimize (opts : string list) (prog : program) : program option =
   let optimizer = function
@@ -119,8 +124,12 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program minimize_liverange
     | "const_fold" ->
       as_opt_program const_fold
+    | "prune_no_hoist" ->
+      as_opt_program branch_prune_no_hoist
     | "prune" ->
       as_opt_program branch_prune
+    | "hoist_osr" ->
+      as_opt_program (as_opt_function Transform_assumption.hoist_assumption)
     | "inline_max" ->
       Transform_inline.inline ()
     | "inline_med" ->
@@ -130,22 +139,15 @@ let optimize (opts : string list) (prog : program) : program option =
     | o ->
       raise (UnknownOptimization o)
   in
-  let opts_assumpt, opts_other = List.partition (fun o -> List.mem o assumption_opts) opts in
   let optimizers = (List.map optimizer opts) @ [(as_opt_program cleanup_all)] in
-  let optimizers_classic = (List.map optimizer opts_other) @ [(as_opt_program cleanup_all)] in
   let optimizer = combine_opt optimizers in
-  let optimizer_classic = combine_opt optimizers_classic in
 
   let optimizer =
-    if opts_assumpt <> []
-    then combine_opt [
+    combine_opt [
         (as_opt_program Transform_assumption.insert_checkpoints);
         optimizer;
-        (as_opt_program (as_opt_function Transform_assumption.hoist_assumption));
-        optimizer;
         Transform_assumption.remove_empty_osr;
-        optimizer_classic;
+        optimizer;
       ]
-    else optimizer
   in
   optimizer prog
