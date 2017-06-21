@@ -19,6 +19,7 @@ let keyword_table = [
   "function", FUNCTION;
   "array", ARRAY;
   "length", LENGTH;
+  "guard_hint", GUARD_HINT;
 ]
 
 let id_or_keyword id =

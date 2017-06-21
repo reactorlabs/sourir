@@ -7,7 +7,7 @@ let remove_falltrough ({instrs} as inp : analysis_input) =
     let fresh_label label tag = (Edit.fresh_label instrs (label ^ "_" ^ tag)) in
     let has_fallthrough pc =
       match instrs.(pc-1) with
-      | Decl_var _ | Decl_array _
+      | Guard_hint _ | Decl_var _ | Decl_array _
       | Assign _ | Array_assign _
       | Drop _ | Read _ | Call _ | Label _
       | Comment _ | Osr _ | Print _ | Assert _ -> true

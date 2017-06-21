@@ -26,7 +26,7 @@ let successors_at (instrs : instructions) resolve pc : pc list =
   let instr = instrs.(pc) in
   let all_succ =
     match instr with
-    | Decl_var _ | Decl_array _
+    | Guard_hint _ | Decl_var _ | Decl_array _
     | Assign _ | Array_assign _
     | Drop _ | Read _ | Call _ | Label _
     | Comment _ | Osr _ | Print _ | Assert _ ->

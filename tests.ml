@@ -1741,6 +1741,55 @@ let do_test_autofix () =
 
   ()
 
+let do_test_assumptions () =
+  let open Transform in
+  let test t e =
+    let input, expected = (parse t), (parse e) in
+    let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) input in
+    let activate = try_opt (combine_opt
+                           [Transform.activate_assumptions]) in
+    let prog2 = { prog with main = activate prog.main } in
+    let prog2 = try_opt Transform_assumption.remove_empty_osr prog2 in
+    if (Disasm.disassemble_s prog2) <> (Disasm.disassemble_s expected) then begin
+      Printf.printf "\ninput: '%s'\noutput: '%s'\nexpected: '%s'\n%!"
+        (Disasm.disassemble_s input)
+        (Disasm.disassemble_s prog2)
+        (Disasm.disassemble_s expected);
+      assert false
+    end
+  in
+
+  test {input|
+    var x = 1
+    guard_hint (x==1)
+    branch (x==1) $la $lb
+    $la:
+      return 1
+    $lb:
+      return 2
+  |input} {expect|
+    function main ()
+    version anon_1
+     var x = 1
+     osr cp_1 [(x == 1)] (main, anon, cp_1) [var x = x]
+     branch (x == 1) $la $lb
+    $la:
+     return 1
+    $lb:
+     return 2
+    version anon
+     var x = 1
+     osr cp_1 [] (main, anon, cp_1) [var x = x]
+     guard_hint (x == 1)
+     branch (x == 1) $la $lb
+    $la:
+     return 1
+    $lb:
+     return 2
+  |expect};
+  ()
+
+
 
 let suite =
   "suite">:::
@@ -1925,6 +1974,7 @@ let suite =
    "array">:: do_test_array;
    "inline">:: do_test_inline;
    "normalize">:: do_test_autofix;
+   "assumptions">:: do_test_assumptions;
    ]
 ;;
 

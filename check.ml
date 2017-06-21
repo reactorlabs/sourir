@@ -116,7 +116,9 @@ let well_formed prog =
       | Goto _ | Label _ | Comment _ -> ()
       | Array_assign (_, i, e) ->
         check_expr i;
-        check_expr e;
+        check_expr e
+      | Guard_hint es ->
+        List.iter check_expr es
       | Osr {cond; varmap; frame_maps} ->
         List.iter check_expr cond;
         check_osr_map varmap;

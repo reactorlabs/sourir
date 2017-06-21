@@ -88,6 +88,10 @@ let const_fold = as_opt_function const_fold_instrs
 let minimize_liverange = as_opt_function minimize_liverange_instrs
 let hoist_assignment = as_opt_function Transform_hoist_assign.hoist_assignment
 let hoist_drop = as_opt_function Transform_hoist.Drop.apply
+let activate_assumptions = optimistic_as_opt_function
+    (Transform_assumption.activate_assumptions)
+    (combine_transform_instructions [
+       Transform_cleanup.remove_unreachable_code;])
 let branch_prune = optimistic_as_opt_function
     (Transform_prune.insert_branch_pruning_assumption)
     (combine_transform_instructions [
@@ -110,6 +114,7 @@ let all_opts = ["prune";
                 "hoist_assign";
                 "hoist_drop";
                 "min_live";
+                "assumptions";
                 "inline_small"]
 let manual_opts = ["inline_med";
                    "inline_max"]
@@ -126,6 +131,8 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program const_fold
     | "prune_no_hoist" ->
       as_opt_program branch_prune_no_hoist
+    | "assumptions" ->
+      as_opt_program activate_assumptions
     | "prune" ->
       as_opt_program branch_prune
     | "hoist_osr" ->

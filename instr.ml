@@ -56,6 +56,7 @@ and instruction =
   | Print of expression
   | Assert of expression
   | Stop of expression
+  | Guard_hint of expression list
   | Osr of {
     label : label;
     cond : expression list;
@@ -234,6 +235,7 @@ let declared_vars = function
     | Return _
     | Branch _
     | Label _
+    | Guard_hint _
     | Goto _
     | Print _
     | Assert _
@@ -252,6 +254,7 @@ let defined_vars = function
     | Branch _
     | Label _
     | Goto _
+    | Guard_hint _
     | Comment _
     | Print _
     | Assert _
@@ -270,6 +273,7 @@ let dropped_vars = function
   | Array_assign _
   | Read _
   | Branch _
+  | Guard_hint _
   | Label _
   | Goto _
   | Comment _
@@ -306,6 +310,7 @@ let used_vars = function
   | Label _
   | Goto _
   | Comment _
+  | Guard_hint _
     -> VarSet.empty
   | Osr {cond; varmap; frame_maps} ->
     let fold_cond used cond = VarSet.union used (expr_vars cond) in
@@ -330,6 +335,7 @@ let required_vars = function
     | Decl_array _
     | Array_assign _
     | Branch _
+    | Guard_hint _
     | Label _
     | Goto _
     | Comment _
@@ -348,6 +354,7 @@ let changed_vars = function
   | Read x -> VarSet.singleton x
   | Return _
   | Branch _
+  | Guard_hint _
   | Label _
   | Goto _
   | Comment _
@@ -458,6 +465,8 @@ class map = object (m)
       Print (m#expression e)
     | Assert e ->
       Assert (m#expression e)
+    | Guard_hint es ->
+      Guard_hint (List.map m#expression es)
     | Stop e ->
       Stop (m#expression e)
     | Osr {label; cond; target; varmap; frame_maps} ->

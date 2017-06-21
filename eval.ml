@@ -317,6 +317,7 @@ let reduce conf =
      let v = eval conf e in
      { conf with
        status = Result v }
+  | Guard_hint _
   | Comment _ -> { conf with
                    pc = pc' }
   | Decl_var (x, e) ->
