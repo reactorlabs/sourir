@@ -134,7 +134,7 @@ let disassemble buf (prog : Instr.program) =
       disassemble_instrs buf version.instrs;
       pr buf ") "
     in
-    dump_vers buf body;
+    List.iter (dump_vers buf) body;
     Printf.bprintf buf " ) ";
   in
   Printf.bprintf buf "P( ";
