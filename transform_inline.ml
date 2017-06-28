@@ -20,7 +20,7 @@ and inlining_site = {
    Transitively recursive calls are inlined until they become self recursive.
    Self recursive callsites are not inlined. Intermediate inlined versions are
    stored in the caller. *)
-let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog : program) : program option =
+let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog : program) : program option =
 
   (* Given the formals and instructions of a function, get all the declared and
      used vars in the function. *)
@@ -178,25 +178,27 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
           cont_pos = pos; }
       in
       let visit_instr pc =
-        assert (pc+1 < Array.length new_instrs);
-        match[@warning "-4"] new_instrs.(pc) with
-        | Call (x, (Simple (Constant (Fun_ref f))), es) ->
-          if LabelSet.mem f seen then () else begin
-            (* To be able to osr out of this call we need to have a var_map
-             * after the call to reconstruct the caller environment and
-             * to have a target label after the call to reconstruct the continuation. *)
-            let checkpoint = (
-              match[@warning "-4"] new_instrs.(pc+1) with
-                | Osr {label; varmap; frame_maps} ->
-                  Some ((create_osr_continuation varmap x label) :: frame_maps)
-                | _ -> None) in
-            let seen = LabelSet.add f seen in
-            let callee = lookup_fun orig_prog f in
-            let next = compute_inline_order callee seen (depth+1) in
-            let inlining = { pos = pc; target = callee; ret = x; args = es; osr = checkpoint; next } in
-            inlinings := inlining :: !inlinings
-          end
-        | _ -> ()
+        if List.length !inlinings < max_inlinings then begin
+          assert (pc+1 < Array.length new_instrs);
+          match[@warning "-4"] new_instrs.(pc) with
+          | Call (x, (Simple (Constant (Fun_ref f))), es) ->
+            if LabelSet.mem f seen then () else begin
+              (* To be able to osr out of this call we need to have a var_map
+               * after the call to reconstruct the caller environment and
+               * to have a target label after the call to reconstruct the continuation. *)
+              let checkpoint = (
+                match[@warning "-4"] new_instrs.(pc+1) with
+                  | Osr {label; varmap; frame_maps} ->
+                    Some ((create_osr_continuation varmap x label) :: frame_maps)
+                  | _ -> None) in
+              let seen = LabelSet.add f seen in
+              let callee = lookup_fun orig_prog f in
+              let next = compute_inline_order callee seen (depth+1) in
+              let inlining = { pos = pc; target = callee; ret = x; args = es; osr = checkpoint; next } in
+              inlinings := inlining :: !inlinings
+            end
+          | _ -> ()
+        end
       in
       for pc = 0 to (Array.length new_instrs) - 2 do
         visit_instr pc

@@ -12,7 +12,7 @@ function ncores {
   fi
 }
 
-export OPTS="prune_true\ninline_small\nprune\nprune_true_no_hoist\nhoist_osr\ninline_small\nconst_fold\nhoist_assign\nhoist_drop\nmin_live\ninline_med"
+export OPTS="inline_small\nprune\nprune_true_no_hoist\nhoist_osr\ninline_small\nconst_fold\nhoist_assign\nhoist_drop\nmin_live\ninline_small"
 export INPUTS="0\n1\n3\nnil\ntrue\nfalse"
 
 # Move into examples directory
@@ -95,7 +95,7 @@ function status {
   name=$1
   done=`wc -l < $STATUS`
   if [[ "$LONG" == "--long" ]]; then
-    echo "[${done}/${NUM_TESTS}] ${name}"
+    echo -ne "\n[${done}/${NUM_TESTS}] ${name}"
   else
     echo -ne "\e[0K\r[${done}/${NUM_TESTS}] ${name}                    "
   fi
@@ -110,6 +110,7 @@ function runtests {
     do
       runtest $TEST $i $opt
     done
+    echo -n "."
   done < $ALL_OPTS
   echo $TEST >> $STATUS
   status "$TEST"
