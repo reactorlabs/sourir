@@ -1,0 +1,17 @@
+function main()
+ # inlining twice the same function will result in
+ # duplicate checkpoint labels if we are not careful
+ call x1 = 'foo(1)
+ call x2 = 'foo(2)
+ assert (x1 == 41)
+ assert (x2 == 43)
+ return 0
+
+function foo(var x)
+ # make sure we get a bailout here
+ guard_hint (x==1)
+ branch (x==1) $a $b
+$a:
+ return 41
+$b:
+ return 43

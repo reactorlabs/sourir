@@ -34,10 +34,17 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
   (* Replace variables in `callee` instructions so that they don't match the
      `caller` variables. The formals list of the callee is also updated
      accordingly *)
+  let existing_vars = ref VarSet.empty in
+  let fresh_var var =
+    let next = Edit.fresh_one (!existing_vars) var in
+    existing_vars := StringSet.add next !existing_vars;
+    next
+  in
   let replace_vars caller ({formals; instrs} as callee) =
     let caller_vars = function_vars caller in
+    existing_vars := StringSet.union !existing_vars caller_vars;
     let callee_vars = VarSet.elements (function_vars callee) in
-    let replacements = fresh_many caller_vars callee_vars in
+    let replacements = fresh_many fresh_var callee_vars in
     {formals = List.map (fun var -> List.assoc var replacements) formals;
      instrs = Array.map (replace_all_vars replacements)#instruction instrs;}
   in
@@ -82,9 +89,9 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
 
   (* Replace labels in `callee` instructions so that they don't match the
      `caller` labels *)
-  let replace_labels used_labels ({formals; instrs} as callee) =
+  let replace_labels fresh_label ({formals; instrs} as callee) =
     let callee_labels = LabelSet.elements (extract_labels callee.instrs) in
-    let replacements = fresh_many used_labels callee_labels in
+    let replacements = fresh_many fresh_label callee_labels in
     let mapper instr =
       let replace l = List.assoc l replacements in
       match[@warning "-4"] instr with
@@ -94,8 +101,7 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
       | Branch (e, l1, l2) -> Branch (e, replace l1, replace l2)
       | i -> i
     in
-    let new_labels = LabelSet.of_list (snd (List.split replacements)) in
-    {callee with instrs = Array.map mapper instrs}, LabelSet.union used_labels new_labels
+    {callee with instrs = Array.map mapper instrs}
   in
 
   (* Inserts the header for the inlined callee body. Assigns all the formals to
@@ -120,10 +126,10 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
 
   (* Transforms the callee instructions to a form that can be substituted
      inside the caller.*)
-  let compose caller callee used_labels ret_var arguments =
-    let callee, used_labels = callee
-                            |> replace_vars caller
-                            |> replace_labels used_labels
+  let compose caller callee (fresh_label : string -> string) ret_var arguments =
+    let callee = callee
+                 |> replace_vars caller
+                 |> replace_labels fresh_label
     in
     (* It is important to generate return label and result variable after
        replacing variables and labels. Otherwise there is a good chance that
@@ -133,17 +139,13 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
        callee with `res_1` and `res_1` is already used for the result variable.
        This problem will not happen if we `replace_vars` before generating a
        fresh `res_var`. *)
-    let ret_lab = fresh used_labels "inl" in
-    let used_labels = LabelSet.add ret_lab used_labels in
+    let ret_lab = fresh_label "inl" in
+    let res_var = fresh_var "res" in
 
-    let res_var =
-      fresh (VarSet.union (function_vars callee) (function_vars caller)) "res"
-    in
-    let res = callee
-            |> replace_returns res_var ret_lab
-            |> insert_prologue res_var arguments
-            |> insert_epilogue res_var ret_var ret_lab in
-    (res, used_labels)
+    callee
+    |> replace_returns res_var ret_lab
+    |> insert_prologue res_var arguments
+    |> insert_epilogue res_var ret_var ret_lab
   in
 
   (* This function computes an order for inlining of the entire program.
@@ -217,12 +219,13 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
    *
    * The list of extra osr frames is accumulated by compute_inlining_order
    * *)
-  let fixup_osr extra_frames input =
+  let fixup_osr extra_frames input fresh_label =
     let open Transform_utils in
     let fixup_osr pc =
       match[@warning "-4"] input.instrs.(pc) with
-      | Osr ({frame_maps} as osr) ->
-        Replace [ Osr {osr with frame_maps = frame_maps @ extra_frames} ]
+      | Osr ({label; frame_maps} as osr) ->
+        Replace [ Osr {osr with label = fresh_label label;
+                       frame_maps = frame_maps @ extra_frames} ]
       | _ -> Unchanged
     in
     match change_instrs fixup_osr input with
@@ -235,7 +238,8 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
     if inlinings = []
     then cur
     else
-      let used_labels = ref (extract_labels cur.instrs) in
+      let fresh_bailout_label = Edit.bailout_label_freshener cur.instrs in
+      let fresh_label = Edit.label_freshener cur.instrs in
       let get {target; next; pos; ret; args; osr} =
         let apply next = if next = []
                          then Analysis.as_analysis_input target (active_version target)
@@ -243,13 +247,11 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
         let callee = apply next in
         match has_osr callee.instrs, osr with
         | false, _ ->
-          let inlinee, new_used = compose cur callee !used_labels ret args in
-          used_labels := new_used;
+          let inlinee = compose cur callee fresh_label ret args in
           (pos, 1, inlinee.instrs)
         | true, Some osr ->
-          let inlinee, new_used = compose cur callee !used_labels ret args in
-          used_labels := new_used;
-          (pos, 1, fixup_osr osr inlinee)
+          let inlinee = compose cur callee fresh_label ret args in
+          (pos, 1, fixup_osr osr inlinee fresh_bailout_label)
         | true, None ->
           (* The callee needs to osr but the caller does not have a safepoint
            * after the call. We can't do anything. *)

@@ -140,12 +140,14 @@ let well_formed prog =
         | _ -> ()
         end;
         check_fun_ref instr
-      | Osr {target = {func; version; pos=label}} ->
+      | Osr {label; target = {func; version; pos}} ->
         (* check if the function exists and if the actual arguments
          * are compatible with the formals *)
         let func = lookup_fun func in
         let vers = lookup_version func version in
-        let _ = Instr.resolve_osr vers.instrs label in
+        let _ = Instr.resolve_osr vers.instrs pos in
+        let pc' = Instr.resolve_osr instrs label in
+        if (pc' <> pc) then raise (DuplicateLabel label);
         check_fun_ref instr
       | Goto l ->
         let _ = Instr.resolve instrs (MergeLabel l) in
