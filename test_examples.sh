@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-LONG=$1
+export LONG=$1
 
 export SOURIR="../sourir"
 
@@ -12,7 +12,7 @@ function ncores {
   fi
 }
 
-export OPTS="prune_true\nprune\nprune_true_no_hoist\nhoist_osr\nconst_fold\nhoist_assign\nhoist_drop\nmin_live\ninline_small\ninline_med"
+export OPTS="prune_true\ninline_small\nprune\nprune_true_no_hoist\nhoist_osr\ninline_small\nconst_fold\nhoist_assign\nhoist_drop\nmin_live\ninline_med"
 export INPUTS="0\n1\n3\nnil\ntrue\nfalse"
 
 # Move into examples directory
@@ -41,7 +41,7 @@ if [[ "$LONG" == "--long" ]]; then
   p() { [ $# -eq 0 ] && echo || (shift; p "$@") | while read r ; do echo -e "$1,$r\n$r"; done }
   echo -e $OPTS | p `cat` | sort | uniq | sed 's/,$//' | tail -n +2 > $ALL_OPTS
   PROCS=`ncores`
-  export RUNS=1
+  export RUNS=2
 else
   echo "all" > $ALL_OPTS
   export RUNS=5
@@ -94,7 +94,11 @@ function runtest {
 function status {
   name=$1
   done=`wc -l < $STATUS`
-  echo -ne "\e[0K\r[${done}/${NUM_TESTS}] ${name}                    "
+  if [[ "$LONG" == "--long" ]]; then
+    echo "[${done}/${NUM_TESTS}] ${name}"
+  else
+    echo -ne "\e[0K\r[${done}/${NUM_TESTS}] ${name}                    "
+  fi
 }
 
 function runtests {

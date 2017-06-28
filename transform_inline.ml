@@ -10,7 +10,10 @@ type inlining_candidate = {
   osr : osr_frame_map list option;
   next : inlining_site;
 }
-and inlining_site = inlining_candidate list
+and inlining_site = {
+  version : version;
+  candidates : inlining_candidate list;
+}
 
 (* FUNCTION INLINING *)
 (* Given a program, inline the functions in it to the maximum possible extent.
@@ -153,11 +156,14 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
      the call chain and stops when it encounters an edge which leads to recursion.
   *)
   let rec compute_inline_order func seen depth : inlining_site =
-    let version = (active_version func) in
-    let instrs = version.instrs in
-    if depth = max_depth || Array.length instrs > max_size
-    then []
+    let version = active_version func in
+    if depth > max_depth || Array.length version.instrs > max_size
+    then { version; candidates = []}
     else begin
+      (* This step is absolutely crucial to make sure that all checkpoints refer to the
+       * current scope *)
+      let new_version = Transform_assumption.create_new_version func in
+      let new_instrs = new_version.instrs in
       let inlinings = ref [] in
       (* This function takes the information of a callsite and a safepoint after it to
        * compute a combined osr frames list for the inlinee. To this end the current
@@ -165,22 +171,22 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
       let create_osr_continuation top_frame call_var osr_label =
         let pos = {
           func = func.name;
-          version = version.label;
+          version = version.label;  (* need OLD version here *)
           pos = osr_label; } in
         { varmap = List.filter (fun v -> match v with | Osr_var (x, _) -> x <> call_var) top_frame;
           cont_res = call_var;
           cont_pos = pos; }
       in
       let visit_instr pc =
-        assert (pc+1 < Array.length instrs);
-        match[@warning "-4"] instrs.(pc) with
+        assert (pc+1 < Array.length new_instrs);
+        match[@warning "-4"] new_instrs.(pc) with
         | Call (x, (Simple (Constant (Fun_ref f))), es) ->
           if LabelSet.mem f seen then () else begin
             (* To be able to osr out of this call we need to have a var_map
              * after the call to reconstruct the caller environment and
              * to have a target label after the call to reconstruct the continuation. *)
             let checkpoint = (
-              match[@warning "-4"] instrs.(pc+1) with
+              match[@warning "-4"] new_instrs.(pc+1) with
                 | Osr {label; varmap; frame_maps} ->
                   Some ((create_osr_continuation varmap x label) :: frame_maps)
                 | _ -> None) in
@@ -192,10 +198,10 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
           end
         | _ -> ()
       in
-      for pc = 0 to (Array.length instrs) - 2 do
+      for pc = 0 to (Array.length new_instrs) - 2 do
         visit_instr pc
       done;
-      !inlinings
+      { version = new_version; candidates = !inlinings }
     end
   in
 
@@ -219,13 +225,17 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
    *
    * The list of extra osr frames is accumulated by compute_inlining_order
    * *)
-  let fixup_osr extra_frames input fresh_label =
+  let fixup_osr extra_frames input inlinee_name fresh_label =
     let open Transform_utils in
     let fixup_osr pc =
       match[@warning "-4"] input.instrs.(pc) with
       | Osr ({label; frame_maps} as osr) ->
-        Replace [ Osr {osr with label = fresh_label label;
-                       frame_maps = frame_maps @ extra_frames} ]
+        (* Two functions might import the same bailout label, we need to freshen them.
+         * This is valid since we created a new version, thus we are guaranteed to not be
+         * an active bailout target. *)
+        let label = fresh_label (inlinee_name^"_"^label) in
+        let frame_maps = frame_maps @ extra_frames in
+        Replace [ Osr { osr with label; frame_maps } ]
       | _ -> Unchanged
     in
     match change_instrs fixup_osr input with
@@ -233,53 +243,69 @@ let inline ?(max_depth=100) ?(max_size=1000) () ({main; functions} as orig_prog 
     | Some instrs -> instrs
   in
 
-  let rec apply_inlinings func inlinings =
-    let cur = Analysis.as_analysis_input func (active_version func) in
-    if inlinings = []
-    then cur
-    else
-      let fresh_bailout_label = Edit.bailout_label_freshener cur.instrs in
-      let fresh_label = Edit.label_freshener cur.instrs in
-      let get {target; next; pos; ret; args; osr} =
-        let apply next = if next = []
-                         then Analysis.as_analysis_input target (active_version target)
-                         else apply_inlinings target next in
-        let callee = apply next in
-        match has_osr callee.instrs, osr with
-        | false, _ ->
-          let inlinee = compose cur callee fresh_label ret args in
-          (pos, 1, inlinee.instrs)
-        | true, Some osr ->
-          let inlinee = compose cur callee fresh_label ret args in
-          (pos, 1, fixup_osr osr inlinee fresh_bailout_label)
-        | true, None ->
-          (* The callee needs to osr but the caller does not have a safepoint
-           * after the call. We can't do anything. *)
-          (pos, 0, [| |])
-      in
-      let to_inline = List.map get inlinings in
-      let instrs, _ = Edit.subst_many cur.instrs to_inline in
-      { cur with instrs }
+  let apply_inlinings func inlinings =
+    let updated = ref [] in
+    let rec apply_inlinings func inlinings : version =
+      let new_version = inlinings.version in
+      let candidates = inlinings.candidates in
+      if candidates = []
+      then new_version
+      else
+        let instrs = new_version.instrs in
+        let fresh_bailout_label = Edit.bailout_label_freshener instrs in
+        let inp = Analysis.as_analysis_input func new_version in
+        let fresh_label = Edit.label_freshener instrs in
+        let get {target; next; pos; ret; args; osr} =
+          let apply next = if next.candidates = []
+                           then active_version target
+                           else apply_inlinings target next in
+          let callee = Analysis.as_analysis_input target (apply next) in
+          match has_osr callee.instrs, osr with
+          | false, _ ->
+            let inlinee = compose inp callee fresh_label ret args in
+            (pos, 1, inlinee.instrs)
+          | true, Some osr ->
+            let inlinee = compose inp callee fresh_label ret args in
+            (pos, 1, fixup_osr osr inlinee target.name fresh_bailout_label)
+          | true, None ->
+            (* The callee needs to osr but the caller does not have a safepoint
+             * after the call. We can't do anything. *)
+            (pos, 0, [| |])
+        in
+        let to_inline = List.map get inlinings.candidates in
+        let instrs, _ = Edit.subst_many instrs to_inline in
+        let new_version = { new_version with instrs } in
+        if new_version.label <> (active_version func).label
+        then updated := (func.name, new_version) :: !updated;
+        new_version
+    in
+    let _ = apply_inlinings func inlinings in
+    !updated
   in
 
   let inline_at func =
     let inline_order = compute_inline_order func LabelSet.empty 0 in
     (* If there are no caller-callee pairs to inline, return `None`, else return
        the completely inlined program *)
-    if inline_order = []
+    if inline_order.candidates = []
     then None
     else
       let result = apply_inlinings func inline_order in
-      let label = fresh_version_label func "inlined_version" in
-      Some { label; annotations = None; instrs = result.instrs }
+      if result = []
+      then None
+      else Some result
   in
 
   (* Starting from main inline all the way down *)
   match inline_at orig_prog.main with
   | None -> None
-  | Some v ->
-    Some { orig_prog with
-      main = { orig_prog.main with
-        body = v :: orig_prog.main.body
-      }
-    }
+  | Some res ->
+    let try_update func =
+      match List.assoc func.name res with
+      | exception Not_found -> func
+      | vers ->
+        { func with body = vers :: func.body }
+    in
+    let functions = List.map try_update orig_prog.functions in
+    let main = try_update orig_prog.main in
+    Some { main; functions }

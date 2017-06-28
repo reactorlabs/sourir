@@ -139,9 +139,9 @@ let optimize (opts : string list) (prog : program) : program option =
     | "inline_max" ->
       Transform_inline.inline ()
     | "inline_med" ->
-      Transform_inline.inline ~max_depth:4 ~max_size:220 ()
+      Transform_inline.inline ~max_depth:3 ~max_size:220 ()
     | "inline_small" ->
-      Transform_inline.inline ~max_depth:2 ~max_size:170 ()
+      Transform_inline.inline ~max_depth:2 ~max_size:140 ()
     | o ->
       raise (UnknownOptimization o)
   in
