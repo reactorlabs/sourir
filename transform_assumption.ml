@@ -58,22 +58,33 @@ module TargetSet = Set.Make(LabelTarget)
 
 (* Removes all empty checkpoints with no incoming references *)
 let remove_empty_osr : opt_prog = fun prog ->
-  let get_targets = function[@warning "-4"]
-    | Osr {target; cond; frame_maps} when cond <> [] ->
-      let add tgs {cont_pos} = TargetSet.union tgs (TargetSet.singleton cont_pos) in
-      List.fold_left add (TargetSet.singleton target) frame_maps
+  let get_targets func version seen = function[@warning "-4"]
+    | Osr {label; target; cond; frame_maps} ->
+      let my_pos = { func = func.name; version = version.label; pos = label } in
+      if cond <> [] || TargetSet.mem my_pos seen then begin
+        let add tgs {cont_pos} = TargetSet.union tgs (TargetSet.singleton cont_pos) in
+        List.fold_left add (TargetSet.singleton target) frame_maps
+      end else TargetSet.empty
     | _ -> TargetSet.empty
   in
   let extract how what =
     let add tgs e = TargetSet.union tgs (how e) in
     List.fold_left add TargetSet.empty what
   in
-  (* Collect the targets (including the extra frames continuations) of all non empty osrs *)
-  let used =
-    extract (fun (f : afunction) ->
-      extract (fun (v : version) ->
-        extract get_targets (Array.to_list v.instrs)) f.body) (prog.main::prog.functions)
+  (* Collect the targets (including the extra frames continuations) of all non empty osrs.
+   * This is a fixedpoint computation since empty osrs might be targets and thus need to be
+   * kept alive, even though they are empty. *)
+  let rec fixpoint_used seen =
+    let used =
+      extract (fun (f : afunction) ->
+        extract (fun (v : version) ->
+          extract (get_targets f v seen) (Array.to_list v.instrs)) f.body) (prog.main::prog.functions)
+    in
+    if TargetSet.equal used seen
+    then used
+    else fixpoint_used used
   in
+  let used = fixpoint_used TargetSet.empty in
 
   (* Remove all empty and unused osr instructions in all versions *)
   let changed = ref false in
