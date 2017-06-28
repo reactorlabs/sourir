@@ -7,7 +7,7 @@ type inlining_candidate = {
   target : afunction;
   ret : variable;
   args : argument list;
-  osr : osr_frame_map list option;
+  extra_frames : extra_frame list option;
   next : inlining_site;
 }
 and inlining_site = {
@@ -166,14 +166,14 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
       let new_instrs = new_version.instrs in
       let inlinings = ref [] in
       (* This function takes the information of a callsite and a safepoint after it to
-       * compute a combined osr frames list for the inlinee. To this end the current
+       * compute a combined checkpoint frames list for the inlinee. To this end the current
        * toplevel varmap has to be put into the extra frames list. *)
-      let create_osr_continuation top_frame call_var osr_label =
+      let create_bailout_continuation top_frame call_var bailout_label =
         let pos = {
           func = func.name;
           version = version.label;  (* need OLD version here *)
-          pos = osr_label; } in
-        { varmap = List.filter (fun v -> match v with | Osr_var (x, _) -> x <> call_var) top_frame;
+          pos = bailout_label; } in
+        { varmap = List.filter (fun v -> match v with | (x, _) -> x <> call_var) top_frame;
           cont_res = call_var;
           cont_pos = pos; }
       in
@@ -186,15 +186,15 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
               (* To be able to osr out of this call we need to have a var_map
                * after the call to reconstruct the caller environment and
                * to have a target label after the call to reconstruct the continuation. *)
-              let checkpoint = (
+              let extra_frames = (
                 match[@warning "-4"] new_instrs.(pc+1) with
-                  | Osr {label; varmap; frame_maps} ->
-                    Some ((create_osr_continuation varmap x label) :: frame_maps)
+                  | Assume {label; varmap; extra_frames} ->
+                    Some ((create_bailout_continuation varmap x label) :: extra_frames)
                   | _ -> None) in
               let seen = LabelSet.add f seen in
               let callee = lookup_fun orig_prog f in
               let next = compute_inline_order callee seen (depth+1) in
-              let inlining = { pos = pc; target = callee; ret = x; args = es; osr = checkpoint; next } in
+              let inlining = { pos = pc; target = callee; ret = x; args = es; extra_frames; next } in
               inlinings := inlining :: !inlinings
             end
           | _ -> ()
@@ -215,7 +215,7 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
    *  version v1:
    *    ...
    *    call res = foo _
-   *    osr t0 _ (f0,v0,t0) [frame0]  (f1,v1,t1) [frame1], (f2,v2,t2) [frame2]
+   *    assume t0 _ (f0,v0,t0) [frame0]  (f1,v1,t1) [frame1], (f2,v2,t2) [frame2]
    *
    * Then we want to extend foo's extra_frames list by the following list:
    *    (f0,v1,t0) [var res = $, frame0/res], (f1,v1,t1) [frame1], (f2,v2,t2) [frame2]
@@ -223,24 +223,24 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
    * This ensures that when the deoptimized foo returns it returns after the call with the call
    * stack identical to before the call and the result stored to res.
    * Note: in the target we create function and version are the current active version and
-   *       not the original osr target (ie. v1 in (f0,v1,t0) is not a typo).
+   *       not the original bailout target (ie. v1 in (f0,v1,t0) is not a typo).
    *
-   * The list of extra osr frames is accumulated by compute_inlining_order
+   * The list of extra frames is accumulated by compute_inlining_order
    * *)
-  let fixup_osr extra_frames input inlinee_name fresh_label =
+  let fixup_extra_frames extra_frames' input inlinee_name fresh_label =
     let open Transform_utils in
-    let fixup_osr pc =
+    let fixup pc =
       match[@warning "-4"] input.instrs.(pc) with
-      | Osr ({label; frame_maps} as osr) ->
+      | Assume ({label; extra_frames} as def) ->
         (* Two functions might import the same bailout label, we need to freshen them.
          * This is valid since we created a new version, thus we are guaranteed to not be
          * an active bailout target. *)
         let label = fresh_label (inlinee_name^"_"^label) in
-        let frame_maps = frame_maps @ extra_frames in
-        Replace [ Osr { osr with label; frame_maps } ]
+        let extra_frames = extra_frames @ extra_frames' in
+        Replace [ Assume { def with label; extra_frames } ]
       | _ -> Unchanged
     in
-    match change_instrs fixup_osr input with
+    match change_instrs fixup input with
     | None -> input.instrs
     | Some instrs -> instrs
   in
@@ -257,20 +257,20 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
         let fresh_bailout_label = Edit.bailout_label_freshener instrs in
         let inp = Analysis.as_analysis_input func new_version in
         let fresh_label = Edit.label_freshener instrs in
-        let get {target; next; pos; ret; args; osr} =
+        let get {target; next; pos; ret; args; extra_frames} =
           let apply next = if next.candidates = []
                            then active_version target
                            else apply_inlinings target next in
           let callee = Analysis.as_analysis_input target (apply next) in
-          match has_osr callee.instrs, osr with
+          match has_checkpoint callee.instrs, extra_frames with
           | false, _ ->
             let inlinee = compose inp callee fresh_label ret args in
             (pos, 1, inlinee.instrs)
-          | true, Some osr ->
+          | true, Some extra_frames ->
             let inlinee = compose inp callee fresh_label ret args in
-            (pos, 1, fixup_osr osr inlinee target.name fresh_bailout_label)
+            (pos, 1, fixup_extra_frames extra_frames inlinee target.name fresh_bailout_label)
           | true, None ->
-            (* The callee needs to osr but the caller does not have a safepoint
+            (* The callee needs to bailout but the caller does not have a safepoint
              * after the call. We can't do anything. *)
             (pos, 0, [| |])
         in

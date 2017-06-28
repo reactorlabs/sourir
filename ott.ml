@@ -47,7 +47,7 @@ let disassemble_instrs buf (instrs : instructions) =
         let label = if String.length label = 1 then "l"^label else label in
         pr buf "%s : " label in
       begin match[@warning "-4"] instrs.(pc) with
-      | Label _ | Osr _ | Comment _ ->
+      | Label _ | Assume _ | Comment _ ->
         ()
       | _ ->
         if needs_label then print_default_label ()
@@ -100,10 +100,10 @@ let disassemble_instrs buf (instrs : instructions) =
       | Read var                        ->
         pr buf " read %s\n" var;
         dump_next_instr ()
-      | Osr {label; cond; target={func; version; pos}; varmap; frame_maps} ->
+      | Assume {label; guards; target={func; version; pos}; varmap; extra_frames} ->
         print_label label;
         let dump_var buf = function
-          | Osr_var (x, e)     -> pr buf "%s = %a" x dump_expr e
+          | x, e -> pr buf "%s = %a" x dump_expr e
         in
         let dump_frame buf {cont_pos={func; version; pos}; cont_res; varmap} =
           pr buf "(%s, %s, %s) [%s = $, %a]"
@@ -111,11 +111,11 @@ let disassemble_instrs buf (instrs : instructions) =
             cont_res
             (dump_comma_separated dump_var) varmap
         in
-        pr buf "osr %a , (%s, %s, %s) [%a], %a\n"
-          (dump_comma_separated dump_expr) cond
+        pr buf "assume %a else (%s, %s, %s) [%a], %a\n"
+          (dump_comma_separated dump_expr) guards
           func version pos
           (dump_comma_separated dump_var) varmap
-          (dump_comma_separated dump_frame) frame_maps;
+          (dump_comma_separated dump_frame) extra_frames;
         dump_next_instr ()
       | Guard_hint _
       | Comment _                     ->

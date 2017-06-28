@@ -6,7 +6,7 @@
 %token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD DOUBLE_AMP DOUBLE_PIPE BANG
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
 %token COLON EQUAL LEFTARROW TRIPLE_DOT COMMA DOLLAR
-%token VAR GUARD_HINT BRANCH GOTO PRINT ASSERT OSR STOP READ DROP RETURN CALL VERSION FUNCTION
+%token VAR GUARD_HINT BRANCH GOTO PRINT ASSERT ASSUME ELSE STOP READ DROP RETURN CALL VERSION FUNCTION
 %token ARRAY LENGTH
 %token<string> COMMENT
 %token NEWLINE
@@ -109,10 +109,10 @@ var_def:
 | VAR x=variable EQUAL e=expression { (x, e) }
 | VAR x=variable { (x, Simple (Constant Nil)) }
 
-osr_def: d=var_def { let (x, e) = d in Osr_var (x, e) }
-osr_map: LBRACKET map=separated_list(COMMA, osr_def) RBRACKET { map }
-osr_frame:
-  | LPAREN func=label COMMA version=label COMMA pos=label RPAREN LBRACKET VAR cont_res=variable EQUAL DOLLAR varmap=list(preceded(COMMA, osr_def)) RBRACKET
+varmap_entry: d=var_def { let (x, e) = d in (x, e) }
+varmap: LBRACKET map=separated_list(COMMA, varmap_entry) RBRACKET { map }
+extra_frame:
+  | LPAREN func=label COMMA version=label COMMA pos=label RPAREN LBRACKET VAR cont_res=variable EQUAL DOLLAR varmap=list(preceded(COMMA, varmap_entry)) RBRACKET
   { {varmap; cont_pos={func; version; pos}; cont_res} }
 
 instruction:
@@ -147,13 +147,14 @@ instruction:
   { Assert e }
 | GUARD_HINT es=separated_list(COMMA, expression)
   { Guard_hint es }
-| OSR
+| ASSUME
   label=label
-  LBRACKET cond=separated_list(COMMA, expression) RBRACKET
+  LBRACKET guards=separated_list(COMMA, expression) RBRACKET
+  ELSE
   LPAREN func=label COMMA version=label COMMA pos=label RPAREN
-  top=osr_map
-  frames=list(preceded(COMMA, osr_frame))
-  { Osr {label; cond; target= {func; version; pos}; varmap=top; frame_maps=frames} }
+  varmap=varmap
+  extra_frames=list(preceded(COMMA, extra_frame))
+  { Assume {label; guards; target= {func; version; pos}; varmap; extra_frames;} }
 | STOP e=expression
   { Stop e }
 | s=COMMENT

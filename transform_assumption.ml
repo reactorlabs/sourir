@@ -3,10 +3,10 @@ open Types
 open Transform_utils
 
 (* Inserts checkpoints at all program points
- * A checkpoint is a well-formed osr point and a matching label.
+ * A checkpoint is a well-formed assumption point and a matching label.
  * For example:
  *   checkpoint_1:
- *     osr [] (func, version, checkpoint_1) [mut x = &x]
+ *     assume [] (func, version, checkpoint_1) [mut x = &x]
  * Initially the checkpoint is self referential (ie. its target is
  * the label right above. Insert assumption makes use of this property
  * to create a new version where the checkpoints are in sync.
@@ -16,7 +16,7 @@ let insert_checkpoints (func:afunction) =
   let instrs = version.instrs in
 
   (* Can only insert checkpoints into an unoptimized function *)
-  if has_osr instrs then None else
+  if has_checkpoint instrs then None else
 
   let inp = Analysis.as_analysis_input func version in
   let scope = Scope.infer inp in
@@ -27,18 +27,18 @@ let insert_checkpoints (func:afunction) =
       | DeadScope -> Unchanged
       | Scope scope ->
         let vars = VarSet.elements scope in
-        let osr = List.map (fun x -> Osr_var (x, (Simple (Var x)))) vars in
+        let varmap = List.map (fun x -> (x, (Simple (Var x)))) vars in
         let target = {
           func=func.name;
           version=version.label;
           pos=checkpoint_label pc;
         } in
-        InsertBefore [Osr {label=checkpoint_label pc; cond=[]; target; varmap=osr; frame_maps=[]};]
+        InsertBefore [Assume {label=checkpoint_label pc; guards=[]; target; varmap; extra_frames=[]};]
     in
     match[@warning "-4"] instrs.(pc) with
     | Label _ | Comment _ ->
         Unchanged
-    | Osr _ -> assert false
+    | Assume _ -> assert false
     | _ -> create_checkpoint pc
   in
   let baseline = change_instrs transform inp in
@@ -57,13 +57,13 @@ end
 module TargetSet = Set.Make(LabelTarget)
 
 (* Removes all empty checkpoints with no incoming references *)
-let remove_empty_osr : opt_prog = fun prog ->
+let remove_empty_checkpoints : opt_prog = fun prog ->
   let get_targets func version seen = function[@warning "-4"]
-    | Osr {label; target; cond; frame_maps} ->
+    | Assume {label; target; guards; extra_frames} ->
       let my_pos = { func = func.name; version = version.label; pos = label } in
-      if cond <> [] || TargetSet.mem my_pos seen then begin
+      if guards <> [] || TargetSet.mem my_pos seen then begin
         let add tgs {cont_pos} = TargetSet.union tgs (TargetSet.singleton cont_pos) in
-        List.fold_left add (TargetSet.singleton target) frame_maps
+        List.fold_left add (TargetSet.singleton target) extra_frames
       end else TargetSet.empty
     | _ -> TargetSet.empty
   in
@@ -71,9 +71,9 @@ let remove_empty_osr : opt_prog = fun prog ->
     let add tgs e = TargetSet.union tgs (how e) in
     List.fold_left add TargetSet.empty what
   in
-  (* Collect the targets (including the extra frames continuations) of all non empty osrs.
-   * This is a fixedpoint computation since empty osrs might be targets and thus need to be
-   * kept alive, even though they are empty. *)
+  (* Collect the targets (including the extra frames continuations) of all non empty checkpoints.
+   * This is a fixedpoint computation since even when there are no guards it might be a target itself
+   * and thus need to be kept alive. *)
   let rec fixpoint_used seen =
     let used =
       extract (fun (f : afunction) ->
@@ -86,7 +86,6 @@ let remove_empty_osr : opt_prog = fun prog ->
   in
   let used = fixpoint_used TargetSet.empty in
 
-  (* Remove all empty and unused osr instructions in all versions *)
   let changed = ref false in
 
   let prog' =
@@ -97,7 +96,7 @@ let remove_empty_osr : opt_prog = fun prog ->
           let transform pc =
             let target pos = { func = func.name; version = version.label; pos = pos } in
             match[@warning "-4"] inp.instrs.(pc) with
-            | Osr {cond; label} when cond = [] && not (TargetSet.mem (target label) used) -> Remove 1
+            | Assume {guards; label} when guards = [] && not (TargetSet.mem (target label) used) -> Remove 1
             | _ -> Unchanged
           in
           match change_instrs transform inp with
@@ -117,18 +116,11 @@ let remove_empty_osr : opt_prog = fun prog ->
   then Some prog'
   else None
 
-(* Inserts the assumption that osr_condition is false at position pc.
- * The approach is to
- * 1. Create a new version. This is a copy of the current one where all
- *    the osr targets point one version down (ie. to the current one).
- * 2. Starting from pc walk up the cfg and find the earliest possible
- *    checkpoint for the osr_condition. Branch targets are blocking as
- *    are instructions which interfere with the osr_condition. The
- *    condition has to be added to an existing osr instruction (see
- *    insert_checkpoints above). *)
-
+(* Create a new version. This is a copy of the current one where all
+ *    the bailout targets point one version down (ie. to the current one).
+ *)
 let create_new_version (func : afunction) : version =
-  (* This takes the active version and duplicates it. Osr targets are
+  (* This takes the active version and duplicates it. Bailout targets are
    * updated to point to the currently active version *)
   let next_version (func:afunction) =
     let cur_version = Instr.active_version func in
@@ -136,18 +128,18 @@ let create_new_version (func : afunction) : version =
     let scope = Scope.infer inp in
     let transform pc =
       match[@warning "-4"] cur_version.instrs.(pc) with
-      | Osr {label; cond; target; varmap; frame_maps} ->
+      | Assume {label;guards} ->
         begin match scope.(pc) with
         | DeadScope -> Remove 1
         | Scope scope ->
           let vars = VarSet.elements scope in
-          let osr = List.map (fun x -> Osr_var (x, (Simple (Var x)))) vars in
+          let varmap = List.map (fun x -> (x, (Simple (Var x)))) vars in
           let target = {
             func=func.name;
             version=cur_version.label;
             pos=label;
           } in
-          Replace [Osr {label; cond; target; varmap=osr; frame_maps=[]};]
+          Replace [Assume {label; guards; target; varmap; extra_frames=[]};]
         end
       | _ -> Unchanged
     in
@@ -158,37 +150,41 @@ let create_new_version (func : afunction) : version =
   in
   next_version func
 
-
-let add_guard ?(hoist=false) (func : afunction) (version : version) osr_cond pc : version option =
+(* Starting from pc walk up the cfg and find the earliest possible
+ *    checkpoint for the guard. Branch targets are blocking as
+ *    are instructions which interfere with the guard. The
+ *    condition has to be added to an existing checkpoint instruction (see
+ *    insert_checkpoints above). *)
+let add_guard ?(hoist=false) (func : afunction) (version : version) cond pc : version option =
   let instrs = version.instrs in
   let preds = Analysis.predecessors instrs in
-  (* Finds the highest up osr checkpoint in that basic block where the
+  (* Finds the highest up checkpoint in that basic block where the
    * assumption can be placed. *)
-  let rec find_candidate_osr cond_vars pc acc =
+  let rec find_candidate cond_vars pc acc =
     if pc < 0 then acc else
     match[@warning "-4"] instrs.(pc) with
-    | Osr _ ->
+    | Assume _ ->
       if hoist
-      then find_candidate_osr cond_vars (pc-1) (Some pc)
+      then find_candidate cond_vars (pc-1) (Some pc)
       else Some pc
     | Label _ ->
       begin match[@warning "-4"] preds.(pc) with
-      | [pred] -> find_candidate_osr cond_vars pred acc
+      | [pred] -> find_candidate cond_vars pred acc
       | _ -> acc
       end
     | _ ->
       assert (preds.(pc) = [pc-1] || preds.(pc) = []);
-      if preds.(pc) <> [] && Instr.independent instrs.(pc) osr_cond
-      then find_candidate_osr cond_vars (pc-1) acc
+      if preds.(pc) <> [] && Instr.independent instrs.(pc) cond
+      then find_candidate cond_vars (pc-1) acc
       else acc
   in
-  let osr_vars = expr_vars osr_cond in
-  begin match find_candidate_osr osr_vars (pc-1) None with
+  let vars = expr_vars cond in
+  begin match find_candidate vars (pc-1) None with
   | None -> None
   | Some pc ->
     begin match[@warning "-4"] instrs.(pc) with
-    | Osr {label; cond; target; varmap; frame_maps} ->
-      instrs.(pc) <- Osr {label; cond=osr_cond::cond; target; varmap; frame_maps};
+    | Assume ({guards} as def) ->
+      instrs.(pc) <- Assume {def with guards=cond::guards};
       Some { version with instrs }
     | _ -> assert (false)
     end
@@ -246,66 +242,66 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
   let available = Analysis.valid_assumptions inp in
   let preds = Analysis.predecessors instrs in
   let dominates = Analysis.dominates inp in
-  let rec find_osrs pc acc =
+  let rec find_candidates pc acc =
     if pc = Array.length instrs then acc else
     match[@warning "-4"] instrs.(pc) with
-    | Osr {cond} when cond <> [] -> find_osrs (pc+1) (pc::acc)
-    | _ -> find_osrs (pc+1) acc
+    | Assume {guards} when guards <> [] -> find_candidates (pc+1) (pc::acc)
+    | _ -> find_candidates (pc+1) acc
   in
-  let osrs = find_osrs 0 [] in
+  let candidates = find_candidates 0 [] in
 
-  (* Finds the highest up osr checkpoint that dominates this instruction
+  (* Finds the highest up checkpoint that dominates this instruction
    * and where the intermediate instructions don't change the condition.
    * For multi-predecessor instruction we can push the assumption to a
    * unique dominator if the assumption is available on all other
    * predecessors. *)
-  let rec find_candidate_osr osr_cond cond_vars pc acc =
+  let rec find_candidate_cp cond cond_vars pc acc =
     if pc < 0 then acc else
     match[@warning "-4"] instrs.(pc) with
-    | Osr _ -> find_candidate_osr osr_cond cond_vars (pc-1) (Some pc)
+    | Assume _ -> find_candidate_cp cond cond_vars (pc-1) (Some pc)
     | Label _ ->
       let doms, rest = List.partition (fun pc' -> dominates pc' pc) preds.(pc) in
       begin match doms with
       | [dom] ->
         let all_guarded = List.for_all (fun pc' ->
             let available = available pc' in
-            Analysis.ExpressionSet.mem osr_cond available
+            Analysis.ExpressionSet.mem cond available
           ) rest in
         if all_guarded
-        then find_candidate_osr osr_cond cond_vars dom acc
+        then find_candidate_cp cond cond_vars dom acc
         else acc
       | _ -> acc
       end
     | _ ->
       assert (preds.(pc) = [pc-1] || preds.(pc) == []);
-      if preds.(pc) <> [] && Instr.independent instrs.(pc) osr_cond
-      then find_candidate_osr osr_cond cond_vars (pc-1) acc
+      if preds.(pc) <> [] && Instr.independent instrs.(pc) cond
+      then find_candidate_cp cond cond_vars (pc-1) acc
       else acc
   in
 
   let changed = ref false in
-  let push_osr pc =
+  let push_guard pc =
     match[@warning "-4"] instrs.(pc) with
-    | Osr {label; cond; target; varmap; frame_maps} ->
+    | Assume ({guards} as def) ->
       let try_push c =
         let cond_vars = expr_vars c in
-        begin match find_candidate_osr c cond_vars (pc-1) None with
+        begin match find_candidate_cp c cond_vars (pc-1) None with
         | None -> true
         | Some pc' ->
           changed := true;
           begin match[@warning "-4"] instrs.(pc') with
-          | Osr {label; cond; target; varmap; frame_maps} ->
-            instrs.(pc') <- Osr {label; cond = c::cond; target; varmap; frame_maps}
+          | Assume ({guards} as def) ->
+            instrs.(pc') <- Assume {def with guards = c :: guards}
           | _ -> assert (false)
           end;
           false
         end
       in
-      let remaining = List.filter try_push cond in
-      instrs.(pc) <- Osr {label; cond=remaining; target; varmap; frame_maps}
+      let remaining = List.filter try_push guards in
+      instrs.(pc) <- Assume {def with guards = remaining}
     | _ -> assert (false)
   in
-  List.iter push_osr osrs;
+  List.iter push_guard candidates;
   if !changed then Some instrs else None
 
 

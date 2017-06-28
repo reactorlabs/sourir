@@ -93,11 +93,11 @@ let well_formed prog =
         | Array_length (e) ->
           check_simple_expr e in
       let check_arg = check_expr in
-      let check_osr = function
-        | Osr_var (_, e) -> check_expr e
+      let check_varmap_entry = function
+        | _, e -> check_expr e
       in
-      let check_osr_map = List.iter check_osr in
-      let check_osr_frame {varmap} = check_osr_map varmap in
+      let check_varmap = List.iter check_varmap_entry in
+      let check_extra_frame {varmap} = check_varmap varmap in
       match instr with
       | Call (_x, f, es) ->
         (check_expr f;
@@ -119,10 +119,10 @@ let well_formed prog =
         check_expr e
       | Guard_hint es ->
         List.iter check_expr es
-      | Osr {cond; varmap; frame_maps} ->
-        List.iter check_expr cond;
-        check_osr_map varmap;
-        List.iter check_osr_frame frame_maps
+      | Assume {guards; varmap; extra_frames} ->
+        List.iter check_expr guards;
+        check_varmap varmap;
+        List.iter check_extra_frame extra_frames
     in
 
     let seen = ref [] in
@@ -140,13 +140,13 @@ let well_formed prog =
         | _ -> ()
         end;
         check_fun_ref instr
-      | Osr {label; target = {func; version; pos}} ->
+      | Assume {label; target = {func; version; pos}} ->
         (* check if the function exists and if the actual arguments
          * are compatible with the formals *)
         let func = lookup_fun func in
         let vers = lookup_version func version in
-        let _ = Instr.resolve_osr vers.instrs pos in
-        let pc' = Instr.resolve_osr instrs label in
+        let _ = Instr.resolve_bailout vers.instrs pos in
+        let pc' = Instr.resolve_bailout instrs label in
         if (pc' <> pc) then raise (DuplicateLabel label);
         check_fun_ref instr
       | Goto l ->

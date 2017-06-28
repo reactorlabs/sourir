@@ -10,7 +10,7 @@ version inlined_version
  var local_m2 = (x_m2 + 8)
  var res = nil
  var choice = x_m2
- osr cp_0 [(choice == 0)] (foo, anon, cp_0) [var choice = choice], (m2, anon, cp_2) [var res_m2 = $, var local_m2 = local_m2, var x_m2 = x_m2], (m1, anon, cp_2) [var res_m1 = $, var local_m1 = local_m1, var x_m1 = x_m1], (main, anon, cp_3) [var foo_res = $, var local_main = local_main, var user_input = user_input]
+ assume cp_0 [(choice != 0)] else (foo, anon, cp_0) [var choice = choice], (m2, anon, cp_2) [var res_m2 = $, var local_m2 = local_m2, var x_m2 = x_m2], (m1, anon, cp_2) [var res_m1 = $, var local_m1 = local_m1, var x_m1 = x_m1], (main, anon, cp_3) [var foo_res = $, var local_main = local_main, var user_input = user_input]
  res <- 0
  drop choice
  var res_m2 = res
@@ -35,29 +35,29 @@ version anon
  var user_input = 1
  var local_main = (3 + user_input)
  call foo_res = 'm1 (user_input)
- osr cp_3 [] (main, anon, cp_3) [var foo_res = foo_res, var local_main = local_main, var user_input = user_input]
+ assume cp_3 [] else (main, anon, cp_3) [var foo_res = foo_res, var local_main = local_main, var user_input = user_input]
  print foo_res
  print local_main
 function m1 (var x_m1)
 version anon
  var local_m1 = (x_m1 + 7)
  call res_m1 = 'm2 (x_m1)
- osr cp_2 [] (m1, anon, cp_2) [var local_m1 = local_m1, var res_m1 = res_m1, var x_m1 = x_m1]
+ assume cp_2 [] else (m1, anon, cp_2) [var local_m1 = local_m1, var res_m1 = res_m1, var x_m1 = x_m1]
  print local_m1
  return res_m1
 function m2 (var x_m2)
 version anon
  var local_m2 = (x_m2 + 8)
  call res_m2 = 'foo (x_m2)
- osr cp_2 [] (m2, anon, cp_2) [var local_m2 = local_m2, var res_m2 = res_m2, var x_m2 = x_m2]
+ assume cp_2 [] else (m2, anon, cp_2) [var local_m2 = local_m2, var res_m2 = res_m2, var x_m2 = x_m2]
  print local_m2
  return res_m2
 function foo (var choice)
 version anon_1
- osr cp_0 [(choice == 0)] (foo, anon, cp_0) [var choice = choice]
+ assume cp_0 [(choice != 0)] else (foo, anon, cp_0) [var choice = choice]
  return 0
 version anon
- osr cp_0 [] (foo, anon, cp_0) [var choice = choice]
+ assume cp_0 [] else (foo, anon, cp_0) [var choice = choice]
  branch (choice == 0) $a $b
 $a:
  return 1

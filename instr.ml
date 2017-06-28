@@ -57,12 +57,12 @@ and instruction =
   | Assert of expression
   | Stop of expression
   | Guard_hint of expression list
-  | Osr of {
+  | Assume of {
     label : label;
-    cond : expression list;
+    guards : expression list;
     target : label position;
     varmap : varmap;
-    frame_maps : osr_frame_map list; }
+    extra_frames : extra_frame list; }
   | Comment of string
 and label_type =
   | MergeLabel of label
@@ -70,13 +70,11 @@ and label_type =
 and array_def =
   | Length of expression
   | List of expression list
-and varmap = varmap_entry list
-and osr_frame_map = {
+and varmap = (variable * expression) list
+and extra_frame = {
   varmap : varmap;
   cont_pos : label position;
   cont_res : variable; }
-and varmap_entry =
-  | Osr_var of variable * expression
 and argument = expression
 and expression =
   | Simple of simple_expression
@@ -110,6 +108,29 @@ and binop =
   | Mod
   | And
   | Or
+
+let negate = function
+  | Simple (Var x)                  -> Some (Unop (Not, (Var x)))
+  | Simple (Constant (Bool false))  -> Some (Simple (Constant (Bool true)))
+  | Simple (Constant (Bool true))   -> Some (Simple (Constant (Bool false)))
+  | Unop (Not, se)                  -> Some (Simple se)
+  | Binop ((Neq|Eq|Gte|Gt|Lte|Lt) as op, e1, e2) ->
+      let nop = begin match[@warning "-4"] op with
+      | Eq   -> Neq
+      | Neq  -> Eq
+      | Lt   -> Gte
+      | Lte  -> Gt
+      | Gt   -> Lte
+      | Gte  -> Lt
+      | _    -> assert(false)
+      end in
+      Some (Binop (nop, e1, e2))
+  | Simple (Constant (Nil| Int _|Fun_ref _|Array _))
+  | Binop ((Plus|Sub|Mult|Div|Mod), _, _)
+  | Binop ((And|Or), _, _)  (* TODO *)
+  | Unop (Neg, _)
+  | Array_index _
+  | Array_length _ -> None
 
 type scope_annotation =
   | ExactScope of VarSet.t
@@ -148,7 +169,7 @@ type binding =
   | Ref of address
 
 exception Unbound_label of label_type
-exception Unbound_osr_label of label
+exception Unbound_bailout_label of label
 
 let resolve_by pred code =
   let rec loop i =
@@ -165,13 +186,13 @@ let resolve code l =
   try resolve_by pred code
   with Not_found -> raise (Unbound_label l)
 
-let resolve_osr code l =
+let resolve_bailout code l =
   let pred = function[@warning "-4"]
-    | Osr {label} -> label = l
+    | Assume {label} -> label = l
     | _ -> false
   in
   try resolve_by pred code
-  with Not_found -> raise (Unbound_osr_label l)
+  with Not_found -> raise (Unbound_bailout_label l)
 
 let resolver_by indexer code =
   let tbl = Hashtbl.create 42 in
@@ -194,15 +215,15 @@ let resolver code =
     try resolver l
     with Not_found -> raise (Unbound_label l)
 
-let resolver_osr code =
+let resolver_bailout code =
   let indexer = function[@warning "-4"]
-    | Osr {label} -> Some label
+    | Assume {label} -> Some label
     | _ -> None
   in
   let resolver = resolver_by indexer code in
   fun l ->
     try resolver l
-    with Not_found -> raise (Unbound_osr_label l)
+    with Not_found -> raise (Unbound_bailout_label l)
 
 let simple_expr_vars = function
   | Var x -> VarSet.singleton x
@@ -239,7 +260,7 @@ let declared_vars = function
     | Goto _
     | Print _
     | Assert _
-    | Osr _
+    | Assume _
     | Comment _
     | Stop _) -> VarSet.empty
 
@@ -258,7 +279,7 @@ let defined_vars = function
     | Comment _
     | Print _
     | Assert _
-    | Osr _
+    | Assume _
     | Array_assign _ (* The array has to be defined already. *)
     | Stop _
   ) as e -> declared_vars e
@@ -279,7 +300,7 @@ let dropped_vars = function
   | Comment _
   | Print _
   | Assert _
-  | Osr _
+  | Assume _
   | Stop _ -> VarSet.empty
 
 (* Which variables need to be defined
@@ -312,13 +333,13 @@ let used_vars = function
   | Comment _
   | Guard_hint _
     -> VarSet.empty
-  | Osr {cond; varmap; frame_maps} ->
-    let fold_cond used cond = VarSet.union used (expr_vars cond) in
-    let from_cond = List.fold_left fold_cond VarSet.empty cond in
-    let map_vars map = list_vars (List.map (fun (Osr_var (_, e)) -> e) map) in
+  | Assume {guards; varmap; extra_frames} ->
+    let fold_cond used guard = VarSet.union used (expr_vars guard) in
+    let from_cond = List.fold_left fold_cond VarSet.empty guards in
+    let map_vars map = list_vars (List.map (fun (_, e) -> e) map) in
     let fold_map used {varmap} =
       VarSet.union used (map_vars varmap) in
-    let from_map = List.fold_left fold_map (map_vars varmap) frame_maps in
+    let from_map = List.fold_left fold_map (map_vars varmap) extra_frames in
     VarSet.union from_cond from_map
 
 (* Which variables need to be in scope
@@ -341,7 +362,7 @@ let required_vars = function
     | Comment _
     | Print _
     | Assert _
-    | Osr _
+    | Assume _
     ) as e -> used_vars e
 
 let changed_vars = function
@@ -360,7 +381,7 @@ let changed_vars = function
   | Comment _
   | Print _
   | Assert _
-  | Osr _
+  | Assume _
   | Stop _ -> VarSet.empty
 
 exception FunctionDoesNotExist of identifier
@@ -400,10 +421,19 @@ let checkpoint_prefix = "cp_"
 let checkpoint_label pc =
   checkpoint_prefix ^ (string_of_int pc)
 
-let has_osr =
-  let is_osr = function[@warning "-4"]
-    | Osr _ -> true | _ -> false in
-  Array.exists is_osr
+let pcs (instrs : instructions) : pc array =
+  Array.mapi (fun pc _ -> pc) instrs
+
+let is_checkpoint = function[@warning "-4"]
+  | Assume _ -> true
+  | _ -> false
+
+let checkpoints (instrs : instructions) =
+  let pcs = Array.to_list (pcs instrs) in
+  List.filter (fun pc -> is_checkpoint instrs.(pc)) pcs
+
+let has_checkpoint =
+  Array.exists is_checkpoint
 
 let independent instr exp =
   VarSet.is_empty (VarSet.inter (changed_vars instr) (expr_vars exp))
@@ -412,7 +442,7 @@ class map = object (m)
   method variable_use x = x
   method variable_assign x = x
   method binder x = x
-  method osr_binder x = x
+  method varmap_binder x = x
 
   method value v = v
 
@@ -470,13 +500,13 @@ class map = object (m)
       Guard_hint (List.map m#expression es)
     | Stop e ->
       Stop (m#expression e)
-    | Osr {label; cond; target; varmap; frame_maps} ->
-      Osr {
+    | Assume {label; guards; target; varmap; extra_frames} ->
+      Assume {
         label = m#osr_label label;
-        cond = List.map m#expression cond;
+        guards = List.map m#expression guards;
         target = m#osr_target target;
         varmap = m#osr_varmap varmap;
-        frame_maps = List.map m#osr_frame frame_maps;
+        extra_frames = List.map m#extra_frame extra_frames;
       }
     | Comment s ->
       Comment s
@@ -497,13 +527,12 @@ class map = object (m)
     pos = m#osr_target_label pos }
 
   method frame_cont_res res = res
-  method osr_frame {varmap; cont_pos; cont_res} = {
+  method extra_frame {varmap; cont_pos; cont_res} = {
     varmap = m#osr_varmap varmap;
     cont_pos = m#osr_target cont_pos;
     cont_res = m#frame_cont_res cont_res;
   }
   method osr_varmap = List.map m#osr_varmap_entry
   method osr_varmap_entry = function
-    | Osr_var (x, e) ->
-      Osr_var (m#osr_binder x, m#expression e)
+    | x, e -> m#varmap_binder x, m#expression e
 end
