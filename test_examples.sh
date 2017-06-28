@@ -12,7 +12,7 @@ function ncores {
   fi
 }
 
-export OPTS="prune_true\ninline_small\nprune\nprune_false_no_hoist\nhoist_guards\ninline_small\nconst_fold\nhoist_assign\nhoist_drop\nmin_live\ninline_small"
+export OPTS="prune_true\ninline_small\nprune\nprune_false_no_hoist\nhoist_guards\nconst_fold\nhoist_assign\nhoist_drop\nmin_live"
 export INPUTS="0\n1\n3\nnil\ntrue\nfalse"
 
 # Move into examples directory
@@ -41,10 +41,10 @@ if [[ "$LONG" == "--long" ]]; then
   p() { [ $# -eq 0 ] && echo || (shift; p "$@") | while read r ; do echo -e "$1,$r\n$r"; done }
   echo -e $OPTS | p `cat` | sort | uniq | sed 's/,$//' | tail -n +2 > $ALL_OPTS
   PROCS=`ncores`
-  export RUNS=2
+  export RUNS=4
 else
   echo "all" > $ALL_OPTS
-  export RUNS=5
+  export RUNS=7
 fi
 
 

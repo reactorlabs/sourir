@@ -104,10 +104,7 @@ let () =
   end;
 
   let optimize program =
-    let rec comb n =
-      if n = !num_opts then [] else Transform.optimize(!opts) :: comb (n+1)
-    in
-    let optimizations = Transform.combine_opt (comb 0) in
+    let optimizations = Transform.optimize !opts !num_opts in
     Transform.(try_opt optimizations program)
   in
 
