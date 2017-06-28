@@ -1,18 +1,29 @@
-## Warmup
+## Simple inlining
 
 As a simple warmup example lets consider inlining a function without osrs.
-Using some fresh variables for all variables of the function we simulate a letrec
-block to evaluate the body inside.
+
 
 ```
 function main()
   var x = 1
-  call y = 'foo(x)
+  call y = 'foo(x) -> l
   print y
 
 function foo(var x)
-  return x
+  var t = nil
+  read t
+  branch t $z $x
+  $z:
+    var z = x + x
+    print z
+    return z
+  $x:
+    return x
 ```
+
+(the `-> l` syntax indicates that `l` is the "return label" of the
+call; it is a goto-label such that jumping to it goes to the next
+instruction after the call.)
 
 The call to foo is constant and we can inline.
 
@@ -20,16 +31,31 @@ The call to foo is constant and we can inline.
 function main()
   var x = 1
 
-  #inline prologue: create fresh names
-  var x_1 = x
+  # inline prologue: create fresh names for the formals
+  # and create the return variable
+  var x' = x
+  var y = nil
   # inline body
-  var res = x_1
-  goto inline_epilogue:
-  # epilogue
-  inline_epiloque:
-  drop x_1
-  var y = res
-  drop res
+  var t' = nil
+  read t'
+  branch t' $z' $x'
+  $z':
+    var z' = x' + x'
+    print z'
+    # each return gets turned into an assignment to the return variable,
+    # then a drop of all the callee variables
+    # then a jump to the return label
+    y <- z'
+    drop t'
+    drop z'
+    goto l
+  $x':
+    y <- x'
+    drop t'
+    drop z'
+    goto l
+  # epilogue: return label
+  l:
 
   print y
 ```
@@ -52,74 +78,114 @@ to:
 function main()
   var x = 1
   var call = someExpression
-  osr [call != 'foo] ...
+  assume [call == 'foo] or ...
   call y = 'foo(x)
   print y
 ```
 
 ## With osr
 
-Having the osr in the outer function poses no additional difficulties. Now lets assume the inlinee has safepoints.
-As an example:
+Having the osr in the outer function poses no additional
+difficulties. Now lets assume the inlinee has safepoints.
+
+As an example (we use `rN` for calleR labels, `eN` for calleE label,
+and `iN` for Inlined-code labels):
 
 ```
 function main()
   version base
-    1   var x = 1
-    2   call y = 'foo(x)
-    3   osr sp1 [] (main, base, sp1) [var x = x, var y = y]
-    4   print y
+    r1:   var x = 1
+    r2:   call y = 'foo(x) -> l
+    r3:   print y
+    r4:   stop
 
 function foo(var z)
   version base
-    1   osr sp2 [] (foo, base, sp2) [var z = z]
-    2   return z
+    e1:   assume [...] or (bar, base, checkpoint) [var z = z], cont-frames
+    e2:   return z
 ```
 
-The safepoints of the inlinee need to be extended to recreate the correct number of stack frames.
 Not accounting for the additional stackframe the (incorrect) optimized version looks like this:
 
 ```
 function main()
   version opt
-    1   var x = 1
-    2a  var z_1 = x
-    2b  osr sp2 [] (foo, base, sp2) [var z = z_1]   # wrong
-    2c  var y = z_1
-    2d  drop x_1
-    3   osr sp1 [] (main, base, sp1) [var x = x, var y = y]
-    4   print y
-  ...
-
-function foo(var z)
-  version base
-    1   osr sp2 [] (foo, base, sp2) [var z = z]
-    2   return z
+        var x = 1
+        # prologue
+        var z' = z
+        var y = nil
+    i1: assume [...] or (bar, base, checkpoint) varmap, cont-frames # wrong
+    i2:
+        y <- z'
+        drop z'
+        goto l
+    l:
+        print y
 ```
 
-For the recreation of the stack to work the precise stacklayout of the caller needs to be known after the inlinee returns (ie. there must be an osr right after the call).
-The combined osr is supposed to push the continuation for the call to foo.
+This is incorrect, because we would jump into (bar, base, checkpoint)
+with one less frame on the stack than previously. Before inlining, the
+bailout would end up with `main()`, then `foo()`, then the frames of
+`cont-frames` on the stack. After this broken inlining you would only
+get `main(), cont-frames`. We need to recreate a frame for `foo()`.
+
+A continuation frame description contains:
+
+- the return variable `y`
+
+- caller version (`main/base`)
+
+- the return label label `l`, which will be turned into a return pc
+  when building the frame at runtime
+
+- the environment at the call point (or, really, the environment
+  needed after returning)
+
+To know what the environment at the call-point is, we could decide to
+only inline function calls that are followed by a checkpoint; the
+call-point environment would be exactly the checkpoint
+environment. But in fact we don't need this restriction; during
+inlining, the current dynamic environment for each instruction iN can
+always be split into two components:
+
+- the environment of the caller, E{caller}
+- the environment of the inlined code, E{inlined}N
+
+At any label `iN`, the current environment is the disjoint union of
+`E{caller}` and `E{inlined}N`. We know that `E{caller}` is unchanged during
+the inlined function execution, given that those instructions come
+from the callee where it is not in scope, and thus cannot modify it.
+
+Finally, there is a substitution function `ρ` that goes from the
+environment `E{callee}N` of the position `eN` of the callee into the
+environment of `iN`, and more precisely its inlinee-part
+`E{inlined}N` -- as `E{caller}` is not in scope in `eN`. It is not in
+general an identity function, as the variables of the callee have been
+renamed during inlining.
+
+Let us consider again the bailout instruction to inline:
 
 ```
-    2b  osr sp2 [] (foo, base, sp2) [var z = z_1],
-                   (main, base, sp1) [var y = $, var x = x]
+    e1:   assume [...] or (bar, base, checkpoint) varmap, cont-frames
 ```
 
-The special $ register specifies the target binding for the continuation.
+The bailout mapping `map` goes from the environment `E{callee}N` to
+the bailout-destination environment that we can call
+`E{checkpoint}`. In the inlined position, we need to use `ρ(varmap)`
+instead (applying `ρ` to every right-hand-side of `varmap`), that goes
+from `E{inlined}N` (or its extension, the environment of `eN`) into
+`E{checkpoint}` as expected.
 
-Remember the following defs from the semantic:
+The continuation frames need to be updated in the same way.
 
-    C ::= (a, E, I, l)                 continuation:  result accumulator, environment, instructions, label
-    M ::= (P, C*) : (I, T, H, E, l)    machine state: program, continuations : instructions, trace, heap, environment, pc
+The new continuation frame is `(y, main/opt, l, E{caller})`. Note that
+we decided to go to `main/opt` instead of `main/base`, so that we jump
+into code that had the opportunity to be optimized after the inlining
+transformation.
 
-Before the safepoint `sp2` our machine state is:
+To summarize:
 
-    (P, ())                          :  (main::opt, T, H, {x=1, z_1=1}, 2b)
-
-If the osr fires the next state would be:
-
-    (P, (y, {x=1}, main::base, sp1)) :  (foo::base, T, H, {z=1},         1)
-
-After the function foo returns it is:
-
-    (P, ())                          :  (main::base, T, H, {x=1, y=1},   3)
+```
+    i1:   assume [ρ(...)] or (bar, base, checkpoint) ρ(varmap),
+            (y, main/opt, l, E{caller}), ρ(cont-frames)
+```
