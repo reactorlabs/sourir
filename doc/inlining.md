@@ -178,14 +178,22 @@ from `E{inlined}N` (or its extension, the environment of `eN`) into
 
 The continuation frames need to be updated in the same way.
 
-The new continuation frame is `(y, main/opt, l, E{caller})`. Note that
-we decided to go to `main/opt` instead of `main/base`, so that we jump
-into code that had the opportunity to be optimized after the inlining
-transformation.
+The new continuation frame is `(y, main/base, l, E{caller})`.
+
+Note that we do *not* use `main/opt` as the continuation return
+version, although it does contain a label `l`.
+
+At first using `main/opt` sounds like a good idea, given that the code
+after `l` in `main/opt` may be further optimized using information
+made available by inlining (for example if the return value of `foo`
+is statically known, it can be constant-folded after `l:`). But note
+that if we bail out of `foo`, it is precisely because some of its
+assumptions are invalid; we don't want to jump back into code that may
+be optimized based on assumptions that we now know are incorrect.
 
 To summarize:
 
 ```
     i1:   assume [ρ(...)] or (bar, base, checkpoint) ρ(varmap),
-            (y, main/opt, l, E{caller}), ρ(cont-frames)
+            (y, main/base, l, E{caller}), ρ(cont-frames)
 ```
