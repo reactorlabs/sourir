@@ -15,7 +15,8 @@ let insert_branch_pruning_assumption ?(hoist=true) (func : afunction) : version 
   match find_branch 0 with
   | None -> None
   | Some (pc, branch_cond) ->
-    Transform_assumption.insert_assumption ~hoist:hoist func branch_cond pc
+    let version = Transform_assumption.create_new_version func in
+    Transform_assumption.add_guard ~hoist:hoist func version branch_cond pc
 
 let branch_prune : transform_instructions = fun input ->
   let assumptions = Analysis.valid_assumptions input in

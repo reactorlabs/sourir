@@ -90,7 +90,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
         (* the array case could be improved with approximation for
            arrays *)
         VarMap.add x Unknown cur
-      | ( Branch _ | Label _ | Goto _ | Return _
+      | ( Guard_hint _ | Branch _ | Label _ | Goto _ | Return _
         | Print _ | Assert _ | Stop _ | Osr _ | Comment _)
         as instr ->
         begin

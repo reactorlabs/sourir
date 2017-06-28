@@ -115,7 +115,8 @@ let remove_empty_osr : opt_prog = fun prog ->
  *    are instructions which interfere with the osr_condition. The
  *    condition has to be added to an existing osr instruction (see
  *    insert_checkpoints above). *)
-let insert_assumption ?(hoist=false) (func : afunction) osr_cond pc : version option =
+
+let create_new_version (func : afunction) : version =
   (* This takes the active version and duplicates it. Osr targets are
    * updated to point to the currently active version *)
   let next_version (func:afunction) =
@@ -132,10 +133,12 @@ let insert_assumption ?(hoist=false) (func : afunction) osr_cond pc : version op
       instrs = (match change_instrs transform inp with | None -> cur_version.instrs | Some i -> i);
       annotations = None }
   in
+  next_version func
 
-  let version = next_version func in
+
+let add_guard ?(hoist=false) (func : afunction) (version : version) osr_cond pc : version option =
   let instrs = version.instrs in
-  let preds = Analysis.predecessors version.instrs in
+  let preds = Analysis.predecessors instrs in
   (* Finds the highest up osr checkpoint in that basic block where the
    * assumption can be placed. *)
   let rec find_candidate_osr cond_vars pc acc =
@@ -281,3 +284,31 @@ let hoist_assumption : transform_instructions = fun ({instrs; _} as inp) ->
   in
   List.iter push_osr osrs;
   if !changed then Some instrs else None
+
+
+let activate_assumptions ?(hoist=true) (func : afunction) : version option =
+  let version = ref (create_new_version func) in
+  let instrs = (!version).instrs in
+  let rec find_assume pc =
+    if pc = Array.length instrs then [] else
+    match[@warning "-4"] instrs.(pc) with
+    | Guard_hint (exps) ->
+        let new_assumptions = List.map (fun exp -> pc, exp) exps in
+        new_assumptions @ find_assume (pc+1)
+    | _ -> find_assume (pc+1)
+  in
+  let assumes = find_assume 0 in
+  List.iter (fun (pc, exp) ->
+    match add_guard ~hoist:hoist func (!version) exp pc with
+    | Some v -> version := v
+    | None -> ()
+  ) assumes;
+  let instrs = (!version).instrs in
+  let remove_assumes pc =
+    match[@warning "-4"] instrs.(pc) with
+    | Guard_hint _ -> Transform_utils.Remove 1
+    | _ -> Transform_utils.Unchanged
+  in
+  match change_instrs remove_assumes (Analysis.as_analysis_input func {(!version) with instrs}) with
+  | Some instrs -> Some {!version with instrs}
+  | None -> None

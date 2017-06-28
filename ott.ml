@@ -117,7 +117,8 @@ let disassemble_instrs buf (instrs : instructions) =
           (dump_comma_separated dump_var) varmap
           (dump_comma_separated dump_frame) frame_maps;
         dump_next_instr ()
-      | Comment str                     ->
+      | Guard_hint _
+      | Comment _                     ->
         dump_instr buf (pc+1) line needs_label
       end;
     end

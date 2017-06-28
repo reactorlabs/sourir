@@ -60,6 +60,7 @@ let disassemble_instrs buf ?(ott_compatible = false) ?(format_pc = no_line_numbe
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print %a" dump_expr exp
     | Assert exp                      -> pr buf " assert %a" dump_expr exp
+    | Guard_hint es                    -> pr buf " guard_hint %a" (dump_comma_separated dump_expr) es
     | Read var                        -> pr buf " read %s" var
     | Osr {label; cond; target={func; version; pos}; varmap; frame_maps} ->
       let dump_var buf = function
