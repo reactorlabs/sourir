@@ -123,7 +123,7 @@ let all_opts = ["prune_true";
 let manual_opts = ["inline_med";
                    "inline_max"]
 
-let optimize (opts : string list) (prog : program) : program option =
+let optimize (opts : string list) (num : int) (prog : program) : program option =
   let optimizer = function
     | "hoist_assign" ->
       as_opt_program hoist_assignment
@@ -152,16 +152,18 @@ let optimize (opts : string list) (prog : program) : program option =
     | o ->
       raise (UnknownOptimization o)
   in
+  (* The strategy is to run all user selected optimizations for num times, then
+    * remove empty checkpoints, then run the optimizations once again. *)
   let optimizers = (List.map optimizer opts) @ [(as_opt_program cleanup_all)] in
   let optimizer = combine_opt optimizers in
-
-  let optimizer =
-    combine_opt [
+  let opt_runs = Array.to_list (Array.make num optimizer) in
+  let final_optimizer =
+    combine_opt ([
         (as_opt_program Transform_assumption.insert_checkpoints);
-        as_opt_program activate_assumptions;
-        optimizer;
+        as_opt_program activate_assumptions; ] @
+        opt_runs @ [
         Transform_assumption.remove_empty_checkpoints;
         optimizer;
-      ]
+      ])
   in
-  optimizer prog
+  final_optimizer prog
