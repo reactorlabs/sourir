@@ -132,11 +132,23 @@ let create_new_version (func : afunction) : version =
    * updated to point to the currently active version *)
   let next_version (func:afunction) =
     let cur_version = Instr.active_version func in
+    let inp = Analysis.as_analysis_input func cur_version in
+    let scope = Scope.infer inp in
     let transform pc =
       match[@warning "-4"] cur_version.instrs.(pc) with
       | Osr {label; cond; target; varmap; frame_maps} ->
-        let target = {target with version = cur_version.label} in
-        Replace [Osr {label; cond; target; varmap; frame_maps}]
+        begin match scope.(pc) with
+        | DeadScope -> Remove 1
+        | Scope scope ->
+          let vars = VarSet.elements scope in
+          let osr = List.map (fun x -> Osr_var (x, (Simple (Var x)))) vars in
+          let target = {
+            func=func.name;
+            version=cur_version.label;
+            pos=label;
+          } in
+          Replace [Osr {label; cond; target; varmap=osr; frame_maps=[]};]
+        end
       | _ -> Unchanged
     in
     let inp = Analysis.as_analysis_input func cur_version in
