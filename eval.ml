@@ -251,7 +251,7 @@ let instruction conf =
 let reduce conf =
   let eval conf e = eval conf.heap conf.env e in
   let resolve instrs label = Instr.resolver instrs label in
-  let resolve_osr instrs label = Instr.resolver_osr instrs label in
+  let resolve_bailout instrs label = Instr.resolver_bailout instrs label in
   let pc' = conf.pc + 1 in
   assert (conf.status = Running);
 
@@ -265,7 +265,7 @@ let reduce conf =
   in
 
   let build_osr_frame varmap old_env old_heap =
-    let add (env, heap) (Osr_var (x, e)) =
+    let add (env, heap) (x, e) =
       (Env.add x (Val (eval conf e)) env, heap)
     in
     List.fold_left add (Env.empty, old_heap) varmap
@@ -280,7 +280,7 @@ let reduce conf =
     let pos = {
       func = cont_pos.func;
       version = cont_pos.version;
-      pos = resolve_osr version.instrs cont_pos.pos} in
+      pos = resolve_bailout version.instrs cont_pos.pos} in
     heap, (cont_res, osr_env, pos) :: frames
   in
 
@@ -388,21 +388,21 @@ let reduce conf =
           pc = pc';
         }
     end
-  | Osr {cond; target={func;version; pos=label}; varmap; frame_maps} ->
-    let triggered = List.exists (fun cond -> get_bool (eval conf cond)) cond in
-    if not triggered then
+  | Assume {guards; target={func;version; pos=label}; varmap; extra_frames} ->
+    let failed = List.exists (fun guard -> not (get_bool (eval conf guard))) guards in
+    if not failed then
       { conf with
         pc = pc';
       }
     else begin
       let osr_env, heap = build_osr_frame varmap conf.env conf.heap in
       let heap, extra_frames =
-        List.fold_left build_extra_osr_frame (heap, []) (List.rev frame_maps) in
+        List.fold_left build_extra_osr_frame (heap, []) (List.rev extra_frames) in
       let func = Instr.lookup_fun conf.program func in
       let version = Instr.get_version func version in
       let instrs = version.instrs in
       { conf with
-        pc = resolve_osr instrs label;
+        pc = resolve_bailout instrs label;
         env = osr_env;
         heap;
         instrs = instrs;

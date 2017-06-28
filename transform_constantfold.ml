@@ -91,7 +91,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
            arrays *)
         VarMap.add x Unknown cur
       | ( Guard_hint _ | Branch _ | Label _ | Goto _ | Return _
-        | Print _ | Assert _ | Stop _ | Osr _ | Comment _)
+        | Print _ | Assert _ | Stop _ | Assume _ | Comment _)
         as instr ->
         begin
           assert (VarSet.is_empty (changed_vars instr));

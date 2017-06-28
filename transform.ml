@@ -92,24 +92,29 @@ let activate_assumptions = optimistic_as_opt_function
     (Transform_assumption.activate_assumptions)
     (combine_transform_instructions [
        Transform_cleanup.remove_unreachable_code;])
-let branch_prune_instr = combine_transform_instructions [
+let branch_prune_instrs = combine_transform_instructions [
        Transform_prune.branch_prune;
        Transform_cleanup.remove_unreachable_code;]
-let branch_prune = as_opt_function branch_prune_instr
+let branch_prune = as_opt_function branch_prune_instrs
 let branch_prune_true = optimistic_as_opt_function
     (Transform_prune.insert_branch_pruning_assumption ~prune:true)
-    branch_prune_instr
-let branch_prune_true_no_hoist = optimistic_as_opt_function
-    (Transform_prune.insert_branch_pruning_assumption ~prune:true ~hoist:false)
-    branch_prune_instr
+    branch_prune_instrs
+let branch_prune_false = optimistic_as_opt_function
+    (Transform_prune.insert_branch_pruning_assumption ~prune:false)
+    branch_prune_instrs
+let branch_prune_false_no_hoist = optimistic_as_opt_function
+    (Transform_prune.insert_branch_pruning_assumption ~prune:false ~hoist:false)
+    branch_prune_instrs
 let normalize_graph = as_opt_program (as_opt_function normalize_graph_instrs)
 
 (* Main optimizer loop *)
 exception UnknownOptimization of string
 
 let all_opts = ["prune_true";
-                "prune_true_no_hoist";
-                "hoist_osr";
+                "prune_false";
+                "prune";
+                "prune_false_no_hoist";
+                "hoist_guards";
                 "const_fold";
                 "hoist_assign";
                 "hoist_drop";
@@ -128,13 +133,15 @@ let optimize (opts : string list) (prog : program) : program option =
       as_opt_program minimize_liverange
     | "const_fold" ->
       as_opt_program const_fold
-    | "prune_true_no_hoist" ->
-      as_opt_program branch_prune_true_no_hoist
-    | "prune" ->
-      as_opt_program branch_prune
+    | "prune_false_no_hoist" ->
+      as_opt_program branch_prune_false_no_hoist
+    | "prune_false" ->
+      as_opt_program branch_prune_false
     | "prune_true" ->
       as_opt_program branch_prune_true
-    | "hoist_osr" ->
+    | "prune" ->
+      as_opt_program branch_prune
+    | "hoist_guards" ->
       as_opt_program (as_opt_function Transform_assumption.hoist_assumption)
     | "inline_max" ->
       Transform_inline.inline ()
@@ -153,7 +160,7 @@ let optimize (opts : string list) (prog : program) : program option =
         (as_opt_program Transform_assumption.insert_checkpoints);
         as_opt_program activate_assumptions;
         optimizer;
-        Transform_assumption.remove_empty_osr;
+        Transform_assumption.remove_empty_checkpoints;
         optimizer;
       ]
   in

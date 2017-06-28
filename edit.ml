@@ -51,7 +51,7 @@ let extract_labels instrs =
 let extract_bailout_labels instrs =
   let add_label acc instr =
     match[@warning "-4"] instr with
-    | Osr {label} -> LabelSet.add label acc
+    | Assume {label} -> LabelSet.add label acc
     | _ -> acc
   in
   Array.fold_left add_label LabelSet.empty instrs

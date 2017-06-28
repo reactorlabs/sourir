@@ -10,7 +10,7 @@ let remove_falltrough ({instrs} as inp : analysis_input) =
       | Guard_hint _ | Decl_var _ | Decl_array _
       | Assign _ | Array_assign _
       | Drop _ | Read _ | Call _ | Label _
-      | Comment _ | Osr _ | Print _ | Assert _ -> true
+      | Comment _ | Assume _ | Print _ | Assert _ -> true
       | Stop _ | Return _ | Goto _ | Branch _ -> false
     in
     match[@warning "-4"] instrs.(pc) with
