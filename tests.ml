@@ -1064,11 +1064,11 @@ let do_test_const_fold_driver () =
   (* Propagating function references *)
   test {input|
     var f = 'foo
-    call x = f ()
+    call x = f () c1
    function foo ()
     return 42
   |input} {expect|
-    call x = 'foo ()
+    call x = 'foo () c1
    function foo ()
     return 42
   |expect};
@@ -1076,9 +1076,9 @@ let do_test_const_fold_driver () =
   test {input|
     var a = 1
     var b = 2
-    call w = 'f ((a + a))
-    call y = 'f (b)
-    call z = 'g (b)
+    call w = 'f ((a + a)) c1
+    call y = 'f (b) c2
+    call z = 'g (b) c3
    function f (var n)
     var a = (2 + 3)
     return a
@@ -1089,9 +1089,9 @@ let do_test_const_fold_driver () =
     m <- b
     return m
   |input} {expect|
-    call w = 'f (2)
-    call y = 'f (2)
-    call z = 'g (2)
+    call w = 'f (2) c1
+    call y = 'f (2) c2
+    call z = 'g (2) c3
    function f (var n)
     return 5
    function g (var m)

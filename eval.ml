@@ -285,7 +285,7 @@ let reduce conf =
   in
 
   match instruction conf with
-  | Call (x, f, args) ->
+  | Call (_, x, f, args) ->
     let f = eval conf f in
     let func = lookup_fun conf.program (get_fun f) in
     if List.length func.formals <> List.length args then raise InvalidNumArgs;

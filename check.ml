@@ -99,7 +99,7 @@ let well_formed prog =
       let check_varmap = List.iter check_varmap_entry in
       let check_extra_frame {varmap} = check_varmap varmap in
       match instr with
-      | Call (_x, f, es) ->
+      | Call (_, _x, f, es) ->
         (check_expr f;
          List.iter check_arg es)
       | Decl_var (_, e)
@@ -130,7 +130,7 @@ let well_formed prog =
     (* Check correctness of calls and osrs *)
     let check_instr pc instr =
       match[@warning "-4"] instr with
-      | Call (x, f, exs) ->
+      | Call (_, x, f, exs) ->
         (* if it's a static call check that the function exists and if the
          * actual arguments are compatible with the formals *)
         begin match[@warning "-4"] f with

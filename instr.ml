@@ -44,7 +44,7 @@ type instructions = instruction array
 and instruction =
   | Decl_var of variable * expression
   | Decl_array of variable * array_def
-  | Call of variable * expression * (argument list)
+  | Call of label * variable * expression * (argument list)
   | Return of expression
   | Drop of variable
   | Assign of variable * expression
@@ -174,22 +174,24 @@ exception Unbound_bailout_label of label
 let resolve_by pred code =
   let rec loop i =
     if i >= Array.length code then raise Not_found
-    else if pred code.(i) then i
-    else loop (i + 1)
+    else match pred code.(i) with
+    | Some o -> i+o
+    | None -> loop (i + 1)
   in loop 0
 
 let resolve code l =
   let pred = function[@warning "-4"]
-      | Label label -> label = l
-      | _ -> false
+      | Label label when label = l -> Some 0
+      | _ -> None
   in
   try resolve_by pred code
   with Not_found -> raise (Unbound_label l)
 
 let resolve_bailout code l =
   let pred = function[@warning "-4"]
-    | Assume {label} -> label = l
-    | _ -> false
+    | Assume {label} when label = l -> Some 0
+    | Call (label, _,_,_) when label = l -> Some 1
+    | _ -> None
   in
   try resolve_by pred code
   with Not_found -> raise (Unbound_bailout_label l)
@@ -198,16 +200,16 @@ let resolver_by indexer code =
   let tbl = Hashtbl.create 42 in
   let add pc instr = match indexer instr with
     | None -> ()
-    | Some idx ->
+    | Some (idx, off) ->
       assert (not (Hashtbl.mem tbl idx));
-      Hashtbl.add tbl idx pc
+      Hashtbl.add tbl idx (pc+off)
   in
   Array.iteri add code;
   fun index -> Hashtbl.find tbl index
 
 let resolver code =
   let indexer = function[@warning "-4"]
-    | Label l -> Some l
+    | Label l -> Some (l, 0)
     | _ -> None
   in
   let resolver = resolver_by indexer code in
@@ -217,7 +219,8 @@ let resolver code =
 
 let resolver_bailout code =
   let indexer = function[@warning "-4"]
-    | Assume {label} -> Some label
+    | Assume {label} -> Some (label, 0)
+    | Call (label, _,_,_) -> Some (label, 1)
     | _ -> None
   in
   let resolver = resolver_by indexer code in
@@ -248,7 +251,7 @@ let list_vars ls =
 
 let declared_vars = function
   | Assign _ | Read _ -> VarSet.empty
-  | Call (x, _, _)
+  | Call (_, x, _, _)
   | Decl_var (x, _) -> VarSet.singleton x
   | Decl_array (x, _) -> VarSet.singleton x
   | ( Drop _
@@ -308,7 +311,7 @@ let dropped_vars = function
 let used_vars = function
   | Assign (_, e) -> expr_vars e
   | Read x -> VarSet.empty
-  | Call (_x, f, es) ->
+  | Call (_, _x, f, es) ->
     let v = expr_vars f in
     let vs = List.map arg_vars es in
     List.fold_left VarSet.union v vs
@@ -366,7 +369,7 @@ let required_vars = function
     ) as e -> used_vars e
 
 let changed_vars = function
-  | Call (x, _, _)
+  | Call (_, x, _, _)
   | Decl_var (x, _) -> VarSet.singleton x
   | Assign (x ,_)
   | Array_assign (x ,_ , _)
@@ -465,15 +468,15 @@ class map = object (m)
 
   method goto_label l = l
   method branch_label l = l
-  method osr_label l = l
+  method bailout_label l = l
 
   method instruction = function
     | Decl_var (x, e) ->
       Decl_var (m#binder x, m#expression e)
     | Decl_array (x, def) ->
       Decl_array (m#binder x, m#array_def def)
-    | Call (x, e, args) ->
-      Call (m#binder x, m#expression e, List.map m#argument args)
+    | Call (l, x, e, args) ->
+      Call (m#bailout_label l, m#binder x, m#expression e, List.map m#argument args)
     | Return e ->
       Return (m#expression e)
     | Drop x ->
@@ -502,7 +505,7 @@ class map = object (m)
       Stop (m#expression e)
     | Assume {label; guards; target; varmap; extra_frames} ->
       Assume {
-        label = m#osr_label label;
+        label = m#bailout_label label;
         guards = List.map m#expression guards;
         target = m#osr_target target;
         varmap = m#osr_varmap varmap;
@@ -519,7 +522,7 @@ class map = object (m)
 
   method osr_func_label l = l
   method osr_version_label l = l
-  method osr_target_label l = m#osr_label l
+  method osr_target_label l = l
 
   method osr_target {func; version; pos} = {
     func = m#osr_func_label func;

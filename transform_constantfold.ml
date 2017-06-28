@@ -78,7 +78,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
         (* this case could be improved with approximation for arrays so
            that, eg., length(x) could be constant-folded *)
         VarMap.add x Unknown cur
-      | Call (x, _, _) as call ->
+      | Call (_, x, _, _) as call ->
         let mark_unknown x cur = VarMap.add x Unknown cur in
         cur
         |> VarSet.fold mark_unknown (changed_vars call)
