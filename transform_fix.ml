@@ -3,8 +3,8 @@ open Transform_utils
 open Types
 
 let remove_falltrough ({instrs} as inp : analysis_input) =
+  let fresh_label = Edit.label_freshener inp.instrs in
   let normalize pc =
-    let fresh_label label tag = (Edit.fresh_label instrs (label ^ "_" ^ tag)) in
     let has_fallthrough pc =
       match instrs.(pc-1) with
       | Guard_hint _ | Decl_var _ | Decl_array _
@@ -19,7 +19,7 @@ let remove_falltrough ({instrs} as inp : analysis_input) =
         then InsertBeforeLabel [ Goto l ]
         else Unchanged
     | Label (BranchLabel l) ->
-        let l' = fresh_label l (string_of_int pc) in
+        let l' = fresh_label l in
         if has_fallthrough pc
         then ReplaceLabel [ Goto l';
                             Label (BranchLabel l); Goto l';
@@ -30,6 +30,7 @@ let remove_falltrough ({instrs} as inp : analysis_input) =
   change_instrs normalize inp
 
 let make_branch_targets_unique ({instrs} as inp : analysis_input) =
+  let fresh_label = Edit.label_freshener inp.instrs in
   let normalize pc =
     let incoming_branches label =
       (* should not rely on preds on a broken graph *)
@@ -44,7 +45,6 @@ let make_branch_targets_unique ({instrs} as inp : analysis_input) =
       in
       incoming 0
     in
-    let fresh_label label tag = (Edit.fresh_label instrs (label ^ "_" ^ tag)) in
     match[@warning "-4"] instrs.(pc) with
     | Label (BranchLabel l) ->
         if List.length (incoming_branches l) > 1
@@ -61,17 +61,16 @@ let make_branch_targets_unique ({instrs} as inp : analysis_input) =
             Unchanged
         | [pc1], _ ->
             assert(pc1 = pc);
-            let l2' = fresh_label l2 (string_of_int pc) in
+            let l2' = fresh_label l2 in
             Replace [ Branch (e, l1, l2'); Label (BranchLabel l2'); Goto l2 ]
         | _, [pc2] ->
             assert(pc2 = pc);
-            let l1' = fresh_label l1 (string_of_int pc) in
+            let l1' = fresh_label l1 in
             Replace [ Branch (e, l1', l2); Label (BranchLabel l1'); Goto l1 ]
         | _, _ ->
-            (* It might still be that l1 = l2.
-             * To avoid creating a duplicated label we tag with l/r *)
-            let l1' = fresh_label l1 ((string_of_int pc) ^ "l") in
-            let l2' = fresh_label l2 ((string_of_int pc) ^ "r") in
+            let l1' = fresh_label l1 in
+            let l2' = fresh_label l2 in
+            assert (l1' <> l2');
             Replace [ Branch (e, l1', l2');
                       Label (BranchLabel l1'); Goto l1;
                       Label (BranchLabel l2'); Goto l2 ]

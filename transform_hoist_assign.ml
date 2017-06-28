@@ -4,9 +4,10 @@ open Types
 let freshen_assign ({instrs} as inp : analysis_input) (def : pc) future_pos =
   let uses = Analysis.PcSet.elements (Analysis.uses inp def) in
   let instr = instrs.(def) in
+  let fresh_var = Edit.var_freshener instrs in
   match[@warning "-4"] instr with
   | Assign (x, exp) ->
-    let fresh = Edit.fresh_var instrs x in
+    let fresh = fresh_var x in
     let all_changed = ref true in
     let open Transform_utils in
     let change_use pc =

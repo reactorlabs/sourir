@@ -412,6 +412,7 @@ class map = object (m)
   method variable_use x = x
   method variable_assign x = x
   method binder x = x
+  method osr_binder x = x
 
   method value v = v
 
@@ -504,5 +505,5 @@ class map = object (m)
   method osr_varmap = List.map m#osr_varmap_entry
   method osr_varmap_entry = function
     | Osr_var (x, e) ->
-      Osr_var (m#binder x, m#expression e)
+      Osr_var (m#osr_binder x, m#expression e)
 end

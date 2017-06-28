@@ -43,56 +43,59 @@ let () =
 
   opts := if !opts = ["all"] then Transform.all_opts else !opts;
 
-  begin try Check.well_formed program with
-  | Check.MissingMain ->
-    Printf.eprintf "Program is missing an explicit or implicit main function\n";
-    exit 1
-  | Check.InvalidMain ->
-    Printf.eprintf "Main function cannot have arguments\n";
-    exit 1
-  | Check.DuplicateFunctionDeclaration f ->
-    Printf.eprintf "Duplicate function declaration %s\n" f;
-    exit 1
-  | Check.DuplicateVersion (f, v) ->
-    Printf.eprintf "Version %s in function %s is defined twice\n" v f;
-    exit 1
-  | Check.EmptyFunction f ->
-    Printf.eprintf "Function %s has no body\n" f;
-    exit 1
-  | Check.DuplicateParameter (f, x) ->
-    Printf.eprintf "Function %s : parameter %s is given twice\n" f x;
-    exit 1
-  | Check.ErrorAt (f, v, e) ->
-    Printf.eprintf "Error in function %s version %s: " f v;
-    begin match[@warning "-4"] e with
-    | Check.MissingReturn ->
-      Printf.eprintf "missing return statement\n";
-    | Check.FunctionDoesNotExist f' ->
-      Printf.eprintf "called function %s does not exist\n" f';
-    | Check.VersionDoesNotExist (f', v') ->
-      Printf.eprintf "osr target %s %s does not exist\n" f' v';
-    | Check.InvalidNumArgs pc ->
-      Printf.eprintf "at line %d: invalid number of arguments\n" (pc+1);
-    | Check.InvalidArgument (pc, expression) ->
-      Printf.eprintf "at line %d: invalid argument\n" (pc+1);
-    | Instr.Unbound_label (MergeLabel l) ->
-      Printf.eprintf "label %s does not exist\n" l;
-    | Instr.Unbound_label (BranchLabel l) ->
-      Printf.eprintf "label $%s does not exist\n" l;
-    | Instr.Unbound_osr_label l ->
-      Printf.eprintf "osr target %s does not exist\n" l;
-    | Check.BranchLabelReused pc ->
-      Printf.eprintf "label at line %d is used more than once\n" (pc+1);
-    | Check.FallthroughLabel pc ->
-      Printf.eprintf "fallthrough label at line %d is not allowed\n" (pc+1);
-    | Check.EntryPointIsLabel ->
-      Printf.eprintf "the first instruction cannot be a label\n";
-    | Check.DuplicateLabel l ->
-      Printf.eprintf "label %s used multiple times\n" l;
-    | _ -> assert(false)
-    end;
-    exit 1
-  end;
+  let check_prog program =
+    begin try Check.well_formed program with
+    | Check.MissingMain ->
+      Printf.eprintf "Program is missing an explicit or implicit main function\n";
+      exit 1
+    | Check.InvalidMain ->
+      Printf.eprintf "Main function cannot have arguments\n";
+      exit 1
+    | Check.DuplicateFunctionDeclaration f ->
+      Printf.eprintf "Duplicate function declaration %s\n" f;
+      exit 1
+    | Check.DuplicateVersion (f, v) ->
+      Printf.eprintf "Version %s in function %s is defined twice\n" v f;
+      exit 1
+    | Check.EmptyFunction f ->
+      Printf.eprintf "Function %s has no body\n" f;
+      exit 1
+    | Check.DuplicateParameter (f, x) ->
+      Printf.eprintf "Function %s : parameter %s is given twice\n" f x;
+      exit 1
+    | Check.ErrorAt (f, v, e) ->
+      Printf.eprintf "Error in function %s version %s: " f v;
+      begin match[@warning "-4"] e with
+      | Check.MissingReturn ->
+        Printf.eprintf "missing return statement\n";
+      | Check.FunctionDoesNotExist f' ->
+        Printf.eprintf "called function %s does not exist\n" f';
+      | Check.VersionDoesNotExist (f', v') ->
+        Printf.eprintf "osr target %s %s does not exist\n" f' v';
+      | Check.InvalidNumArgs pc ->
+        Printf.eprintf "at line %d: invalid number of arguments\n" (pc+1);
+      | Check.InvalidArgument (pc, expression) ->
+        Printf.eprintf "at line %d: invalid argument\n" (pc+1);
+      | Instr.Unbound_label (MergeLabel l) ->
+        Printf.eprintf "label %s does not exist\n" l;
+      | Instr.Unbound_label (BranchLabel l) ->
+        Printf.eprintf "label $%s does not exist\n" l;
+      | Instr.Unbound_osr_label l ->
+        Printf.eprintf "osr target %s does not exist\n" l;
+      | Check.BranchLabelReused pc ->
+        Printf.eprintf "label at line %d is used more than once\n" (pc+1);
+      | Check.FallthroughLabel pc ->
+        Printf.eprintf "fallthrough label at line %d is not allowed\n" (pc+1);
+      | Check.EntryPointIsLabel ->
+        Printf.eprintf "the first instruction cannot be a label\n";
+      | Check.DuplicateLabel l ->
+        Printf.eprintf "label %s used multiple times\n" l;
+      | _ -> assert(false)
+      end;
+      exit 1
+    end
+  in
+  check_prog program;
 
   begin try Scope.check_program program with
   | Scope.ScopeExceptionAt _ as exn ->
@@ -108,6 +111,11 @@ let () =
     Transform.(try_opt optimizations program)
   in
 
+  if !ott then begin
+    Ott.disassemble_o stdout program;
+    exit 0
+  end;
+
   let program = try optimize program with
     | Transform.UnknownOptimization opt ->
       Printf.eprintf "Unknown optimization %s.\nValid optimizers are %s\n"
@@ -115,21 +123,17 @@ let () =
       exit 1
   in
 
+  if not !quiet then begin
+    Printf.printf "After optimizations\n";
+    Disasm.disassemble_o stdout program
+  end;
+
+  check_prog program;
   begin try Scope.check_program program with
   | Scope.ScopeExceptionAt _ as exn ->
     Printf.eprintf "Scope error in the optimized program (%s):\n"
       (String.concat ", " !opts);
     Scope.report_error program exn
-  end;
-
-  if !ott then begin
-    Ott.disassemble_o stdout program;
-    exit 0
-  end;
-
-  if not !quiet then begin
-    Printf.printf "After optimizations\n";
-    Disasm.disassemble_o stdout program
   end;
 
   if not !run then ()

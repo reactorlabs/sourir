@@ -1,0 +1,15 @@
+function main ()
+ #inline here
+ call x = 'foo(10)
+ print x
+ return x
+
+function foo(var x)
+  var d = (x - 1)
+  # this is inside foo
+  branch (d == 0) $c $r
+ $r:
+  call r = 'foo(d)
+  return r
+ $c:
+  return d

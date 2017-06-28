@@ -58,22 +58,33 @@ module TargetSet = Set.Make(LabelTarget)
 
 (* Removes all empty checkpoints with no incoming references *)
 let remove_empty_osr : opt_prog = fun prog ->
-  let get_targets = function[@warning "-4"]
-    | Osr {target; cond; frame_maps} when cond <> [] ->
-      let add tgs {cont_pos} = TargetSet.union tgs (TargetSet.singleton cont_pos) in
-      List.fold_left add (TargetSet.singleton target) frame_maps
+  let get_targets func version seen = function[@warning "-4"]
+    | Osr {label; target; cond; frame_maps} ->
+      let my_pos = { func = func.name; version = version.label; pos = label } in
+      if cond <> [] || TargetSet.mem my_pos seen then begin
+        let add tgs {cont_pos} = TargetSet.union tgs (TargetSet.singleton cont_pos) in
+        List.fold_left add (TargetSet.singleton target) frame_maps
+      end else TargetSet.empty
     | _ -> TargetSet.empty
   in
   let extract how what =
     let add tgs e = TargetSet.union tgs (how e) in
     List.fold_left add TargetSet.empty what
   in
-  (* Collect the targets (including the extra frames continuations) of all non empty osrs *)
-  let used =
-    extract (fun (f : afunction) ->
-      extract (fun (v : version) ->
-        extract get_targets (Array.to_list v.instrs)) f.body) (prog.main::prog.functions)
+  (* Collect the targets (including the extra frames continuations) of all non empty osrs.
+   * This is a fixedpoint computation since empty osrs might be targets and thus need to be
+   * kept alive, even though they are empty. *)
+  let rec fixpoint_used seen =
+    let used =
+      extract (fun (f : afunction) ->
+        extract (fun (v : version) ->
+          extract (get_targets f v seen) (Array.to_list v.instrs)) f.body) (prog.main::prog.functions)
+    in
+    if TargetSet.equal used seen
+    then used
+    else fixpoint_used used
   in
+  let used = fixpoint_used TargetSet.empty in
 
   (* Remove all empty and unused osr instructions in all versions *)
   let changed = ref false in
@@ -121,11 +132,23 @@ let create_new_version (func : afunction) : version =
    * updated to point to the currently active version *)
   let next_version (func:afunction) =
     let cur_version = Instr.active_version func in
+    let inp = Analysis.as_analysis_input func cur_version in
+    let scope = Scope.infer inp in
     let transform pc =
       match[@warning "-4"] cur_version.instrs.(pc) with
       | Osr {label; cond; target; varmap; frame_maps} ->
-        let target = {target with version = cur_version.label} in
-        Replace [Osr {label; cond; target; varmap; frame_maps}]
+        begin match scope.(pc) with
+        | DeadScope -> Remove 1
+        | Scope scope ->
+          let vars = VarSet.elements scope in
+          let osr = List.map (fun x -> Osr_var (x, (Simple (Var x)))) vars in
+          let target = {
+            func=func.name;
+            version=cur_version.label;
+            pos=label;
+          } in
+          Replace [Osr {label; cond; target; varmap=osr; frame_maps=[]};]
+        end
       | _ -> Unchanged
     in
     let inp = Analysis.as_analysis_input func cur_version in

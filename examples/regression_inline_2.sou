@@ -1,0 +1,19 @@
+function main()
+ call x1 = 'f1(2)
+ return 0
+
+function f1(var x)
+ call x1 = 'f2(x)
+ return x1
+
+function f2(var x)
+ # make sure we get a bailout here
+ guard_hint (x==1)
+ branch (x==1) $a $b
+$a:
+ return 41
+$b:
+ var xd = (x - 1)
+ # when inlined into f1, this can be inlined again
+ call rec = 'f2(xd)
+ return rec

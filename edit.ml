@@ -3,7 +3,15 @@ open Types
 
 module StringSet = Set.Make(String)
 
-let fresh (existing : StringSet.t) (name : string) : string =
+let fresh_one (existing : StringSet.t) (name : string) : string =
+  let rec get_basename pos =
+    if pos = 0
+    then name
+    else if String.get name pos = '_'
+    then String.sub name 0 pos
+    else get_basename (pos-1)
+  in
+  let name = get_basename ((String.length name) - 1) in
   let cand i = name ^ "_" ^ (string_of_int i) in
   let is_fresh cand_var = not (StringSet.mem cand_var existing) in
   let rec find i =
@@ -13,19 +21,24 @@ let fresh (existing : StringSet.t) (name : string) : string =
   then name
   else find 1
 
-let fresh_many existing names =
-  let replace (used, acc) old =
-    let fresh_var = fresh used old in
-    (VarSet.add fresh_var used, (old, fresh_var) :: acc)
-  in
-  snd (List.fold_left replace (existing, []) names)
+let freshener existing =
+  let existing = ref existing in
+  fun label ->
+    let next = fresh_one !existing label in
+    existing := StringSet.add next !existing;
+    next
 
-let fresh_var instrs var =
-  let existing = Array.fold_left
-      (fun acc instr -> VarSet.union (declared_vars instr) acc)
-      VarSet.empty instrs
+let fresh_many f (names : string list) =
+  let replace acc old =
+    let fresh_var = f old in
+    (old, fresh_var) :: acc
   in
-  fresh existing var
+  List.fold_left replace [] names
+
+let extract_vars instrs =
+  Array.fold_left
+    (fun acc instr -> VarSet.union (declared_vars instr) acc)
+    VarSet.empty instrs
 
 let extract_labels instrs =
   let add_label acc instr =
@@ -35,11 +48,21 @@ let extract_labels instrs =
   in
   Array.fold_left add_label LabelSet.empty instrs
 
-let fresh_label instrs label = fresh (extract_labels instrs) label
+let extract_bailout_labels instrs =
+  let add_label acc instr =
+    match[@warning "-4"] instr with
+    | Osr {label} -> LabelSet.add label acc
+    | _ -> acc
+  in
+  Array.fold_left add_label LabelSet.empty instrs
 
 let fresh_version_label (func : afunction) label =
   let existing = List.map (fun {label} -> label) func.body in
-  fresh (StringSet.of_list existing) label
+  fresh_one (StringSet.of_list existing) label
+
+let label_freshener instrs = freshener (extract_labels instrs)
+let bailout_label_freshener instrs = freshener (extract_bailout_labels instrs)
+let var_freshener instrs = freshener (extract_vars instrs)
 
 type pc_map = int -> int
 

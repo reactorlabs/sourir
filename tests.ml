@@ -417,7 +417,7 @@ let test_branch_pruning_exp prog expected =
   let open Transform in
   let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) prog in
   let prune = try_opt (combine_opt
-                         [branch_prune;
+                         [branch_prune_true;
                           (as_opt_function Transform_assumption.hoist_assumption);
                           cleanup_all;]) in
   let prog2 = { prog with main = prune prog.main } in
@@ -429,7 +429,7 @@ let test_branch_pruning prog deopt =
   let open Eval in
   let open Transform in
   let prog = try_opt (as_opt_program Transform_assumption.insert_checkpoints) prog in
-  let prog2 = { prog with main = try_opt branch_prune prog.main } in
+  let prog2 = { prog with main = try_opt branch_prune_true prog.main } in
   let res1 = Eval.run_forever no_input prog in
   let res2 = Eval.run_forever no_input prog2 in
   assert_equal res1.trace res2.trace;
@@ -1657,10 +1657,10 @@ let do_test_autofix () =
     $a:
      return 1
   |input} {expect|
-     branch 1 $a_0l $a_0r
-    $a_0l:
+     branch 1 $a_1 $a_2
+    $a_1:
      goto a
-    $a_0r:
+    $a_2:
      goto a
     a:
      return 1
@@ -1676,8 +1676,8 @@ let do_test_autofix () =
     end:
      return 1
   |input} {expect|
-     branch 1 $a $b_0
-    $b_0:
+     branch 1 $a $b_1
+    $b_1:
      goto b
     $a:
      branch 1 $b_2 $c
@@ -1699,18 +1699,18 @@ let do_test_autofix () =
     $c:
      return 1
   |input} {expect|
-     branch 1 $a $b_0
-    $b_0:
+     branch 1 $a $b_1
+    $b_1:
      goto b
     $a:
      branch 1 $b_2 $c
     $b_2:
      goto b
     b:
-     goto c_4
+     goto c_1
     $c:
-     goto c_4
-    c_4:
+     goto c_1
+    c_1:
      return 1
   |expect};
 
@@ -1726,16 +1726,16 @@ let do_test_autofix () =
     a:
      goto a_1
     a_1:
-     branch 1 $a_5l $b_5r
-    $a_5l:
+     branch 1 $a_2 $b_1
+    $a_2:
      goto a
-    $b_5r:
+    $b_1:
      goto b
     b:
-     branch 1 $a_7l $b_7r
-    $a_7l:
+     branch 1 $a_3 $b_2
+    $a_3:
      goto a
-    $b_7r:
+    $b_2:
      goto b
   |expect};
 
