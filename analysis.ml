@@ -105,11 +105,13 @@ let forward_analysis init_state instrs merge update =
   make_total (dataflow_analysis successors init instrs merge update)
 
 let backwards_analysis init_state instrs merge update =
-  let predecessors = predecessors instrs in
-  let exits = stops instrs @ checkpoints instrs in
-  assert (exits <> []);
-  let init = List.map (fun pos -> (init_state, pos)) exits in
-  make_total (dataflow_analysis predecessors init instrs merge update)
+  if instrs = [||] then fun _ -> assert(false) else begin
+    let predecessors = predecessors instrs in
+    let exits = stops instrs @ checkpoints instrs in
+    assert (exits <> []);
+    let init = List.map (fun pos -> (init_state, pos)) exits in
+    make_total (dataflow_analysis predecessors init instrs merge update)
+  end
 
 let find (next : pc list array)
          (start : pc)
