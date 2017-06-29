@@ -1,12 +1,15 @@
 ## Simple inlining
 
-As a simple warmup example lets consider inlining a function without osrs.
+As a simple warmup example lets consider inlining a function without
+osrs. We will always assume that there is a goto-label right after the
+call, and we will call it the "return label" of the call.
 
 
 ```
 function main()
   var x = 1
-  call y = 'foo(x) -> l
+  call y = 'foo(x)
+  l:
   print y
 
 function foo(var x)
@@ -20,10 +23,6 @@ function foo(var x)
   $x:
     return x
 ```
-
-(the `-> l` syntax indicates that `l` is the "return label" of the
-call; it is a goto-label such that jumping to it goes to the next
-instruction after the call.)
 
 The call to foo is constant and we can inline.
 
@@ -54,11 +53,10 @@ function main()
     drop t'
     drop z'
     goto l
-  # epilogue: return label
-  # the scope at `l`, because we dropped caller variables,
+
+  # note that the scope at `l`, because we dropped caller variables,
   # is the same as in the non-inlined version
   l:
-
   print y
 ```
 
@@ -71,7 +69,8 @@ function main()
 version base
   var x = 1
   var fun = someExpression
-  lcall: call y = fun(x) -> lret
+  lcall: call y = fun(x)
+  lret:
   print y
 ```
 
@@ -82,7 +81,8 @@ function main()
   var x = 1
   var fun = someExpression
   assume [fun == 'foo] else (main, base, lcall) [var x = x, var fun = fun]
-  lcall: call y = 'foo(x) -> l
+  lcall: call y = 'foo(x)
+  lret:
   print y
 ```
 
@@ -98,7 +98,8 @@ As an example (we use `rN` for "calle**r** labels", `eN` for
 function main()
   version base
     r1:   var x = 1
-    r2:   call y = 'foo(x) -> l
+    r2:   call y = 'foo(x)
+     l:
     r3:   print y
     r4:   stop
 
@@ -113,7 +114,8 @@ Not accounting for the additional stackframe the (incorrect) optimized version l
 ```
 function main()
   version opt
-        var x = 1
+    r1:  var x = 1
+    r2:
         # prologue
         var z' = z
         var y = nil
@@ -122,8 +124,9 @@ function main()
         y <- z'
         drop z'
         goto l
-    l:
-        print y
+     l:
+    r3: print y
+    r4: stop
 ```
 
 This is incorrect, because on bailout we would jump into (bar,
