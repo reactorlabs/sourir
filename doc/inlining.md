@@ -55,6 +55,8 @@ function main()
     drop z'
     goto l
   # epilogue: return label
+  # the scope at `l`, because we dropped caller variables,
+  # is the same as in the non-inlined version
   l:
 
   print y
@@ -66,9 +68,10 @@ As a sidenote: If the call is not constant yet we could optimistically make it c
 
 ```
 function main()
+version base
   var x = 1
-  var call = someExpression
-  call y = call(x)
+  var fun = someExpression
+  lcall: call y = fun(x) -> lret
   print y
 ```
 
@@ -77,9 +80,9 @@ to:
 ```
 function main()
   var x = 1
-  var call = someExpression
-  assume [call == 'foo] or ...
-  call y = 'foo(x)
+  var fun = someExpression
+  assume [fun == 'foo] else (main, base, lcall) [var x = x, var fun = fun]
+  lcall: call y = 'foo(x) -> l
   print y
 ```
 
@@ -88,8 +91,8 @@ function main()
 Having the osr in the outer function poses no additional
 difficulties. Now lets assume the inlinee has safepoints.
 
-As an example (we use `rN` for calleR labels, `eN` for calleE label,
-and `iN` for Inlined-code labels):
+As an example (we use `rN` for "calle**r** labels", `eN` for
+"calle**e** label", and `iN` for "**i**nlined-code" labels):
 
 ```
 function main()
@@ -101,7 +104,7 @@ function main()
 
 function foo(var z)
   version base
-    e1:   assume [...] or (bar, base, checkpoint) [var z = z], cont-frames
+    e1:   assume [...] else (bar, base, checkpoint) [var z = z], cont-frames
     e2:   return z
 ```
 
@@ -114,7 +117,7 @@ function main()
         # prologue
         var z' = z
         var y = nil
-    i1: assume [...] or (bar, base, checkpoint) varmap, cont-frames # wrong
+    i1: assume [...] else (bar, base, checkpoint) varmap, cont-frames # wrong
     i2:
         y <- z'
         drop z'
@@ -123,11 +126,12 @@ function main()
         print y
 ```
 
-This is incorrect, because we would jump into (bar, base, checkpoint)
-with one less frame on the stack than previously. Before inlining, the
-bailout would end up with `main()`, then `foo()`, then the frames of
-`cont-frames` on the stack. After this broken inlining you would only
-get `main(), cont-frames`. We need to recreate a frame for `foo()`.
+This is incorrect, because on bailout we would jump into (bar,
+base, checkpoint) with one less frame on the stack than
+previously. Before inlining, the bailout would end up with `main()`,
+then `foo()`, then the frames of `cont-frames` on the stack. After
+this broken inlining you would only get `main(), cont-frames`. We need
+to recreate a frame for `foo()`.
 
 A continuation frame description contains:
 
@@ -135,8 +139,7 @@ A continuation frame description contains:
 
 - caller version (`main/base`)
 
-- the return label label `l`, which will be turned into a return pc
-  when building the frame at runtime
+- the return label `l`
 
 - the environment at the call point (or, really, the environment
   needed after returning)
@@ -166,19 +169,20 @@ renamed during inlining.
 Let us consider again the bailout instruction to inline:
 
 ```
-    e1:   assume [...] or (bar, base, checkpoint) varmap, cont-frames
+    e1:   assume [...] else (bar, base, checkpoint) varmap, cont-frames
 ```
 
 The bailout mapping `map` goes from the environment `E{callee}N` to
 the bailout-destination environment that we can call
 `E{checkpoint}`. In the inlined position, we need to use `ρ(varmap)`
-instead (applying `ρ` to every right-hand-side of `varmap`), that goes
-from `E{inlined}N` (or its extension, the environment of `eN`) into
-`E{checkpoint}` as expected.
+instead, that goes from `E{inlined}N` (or its extension, the
+environment of `eN`) into `E{checkpoint}` as expected.
 
-The continuation frames need to be updated in the same way.
+The inlined continuation frames `cont-frames` need to be updated in
+the same way.
 
-The new continuation frame is `(y, main/base, l, E{caller})`.
+The new frame does not need to use `ρ`: it is
+`(y, main/base, l, E{caller})`.
 
 Note that we do *not* use `main/opt` as the continuation return
 version, although it does contain a label `l`.
@@ -194,6 +198,10 @@ be optimized based on assumptions that we now know are incorrect.
 To summarize:
 
 ```
-    i1:   assume [ρ(...)] or (bar, base, checkpoint) ρ(varmap),
+    i1:   assume [ρ(...)] else (bar, base, checkpoint) ρ(varmap),
             (y, main/base, l, E{caller}), ρ(cont-frames)
 ```
+
+Note that this is equivalent to applying the substitution to the whole
+inlined instruction, `ρ(assume [...] else varmap, cont-frames)`, and
+then adding the new continuation frame `(y, main/base, l, E{caller})`.
