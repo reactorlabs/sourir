@@ -47,14 +47,14 @@ let disassemble_instrs buf (instrs : instructions) =
         let label = if String.length label = 1 then "l"^label else label in
         pr buf "%s : " label in
       begin match[@warning "-4"] instrs.(pc) with
-      | Label _ | Assume _ | Comment _ ->
+      | Label _ | Call _ | Assume _ | Comment _ ->
         ()
       | _ ->
         if needs_label then print_default_label ()
       end;
       begin match instrs.(pc) with
-      | Call (var, f, args)               ->
-        pr buf " call %s = "var;
+      | Call (l, var, f, args)          ->
+        pr buf "%s : call %s = " l var;
         dump_expr buf f;
         pr buf " (%a)\n" (dump_comma_separated dump_arg) args;
         dump_next_instr ()

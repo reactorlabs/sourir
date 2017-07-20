@@ -17,6 +17,12 @@
 
 %{ open Instr
 
+let next_cont_label =
+  let cur = ref 0 in
+  fun () ->
+    cur := !cur + 1;
+    "__cont_"^string_of_int(!cur)
+
 let scope_annotation (mode, xs) =
   let xs = Instr.VarSet.of_list xs in
   match mode with
@@ -116,8 +122,10 @@ extra_frame:
   { {varmap; cont_pos={func; version; pos}; cont_res} }
 
 instruction:
+| CALL x=variable EQUAL f=expression LPAREN args=separated_list(COMMA, argument) RPAREN label=label
+  { Call (label, x, f, args) }
 | CALL x=variable EQUAL f=expression LPAREN args=separated_list(COMMA, argument) RPAREN
-  { Call (x, f, args) }
+  { Call (next_cont_label (), x, f, args) }
 | RETURN e=expression
   { Return e }
 | d=var_def { let (x, e) = d in Decl_var (x, e) }

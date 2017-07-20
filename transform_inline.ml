@@ -7,7 +7,7 @@ type inlining_candidate = {
   target : afunction;
   ret : variable;
   args : argument list;
-  extra_frames : extra_frame list option;
+  extra_frame : extra_frame option;
   next : inlining_site;
 }
 and inlining_site = {
@@ -162,39 +162,35 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
     else begin
       (* This step is absolutely crucial to make sure that all checkpoints refer to the
        * current scope *)
-      let new_version = Transform_assumption.create_new_version func in
+      let new_version = { version with label = Edit.fresh_version_label func (version.label^"_inline") } in
       let new_instrs = new_version.instrs in
       let inlinings = ref [] in
-      (* This function takes the information of a callsite and a safepoint after it to
-       * compute a combined checkpoint frames list for the inlinee. To this end the current
-       * toplevel varmap has to be put into the extra frames list. *)
-      let create_bailout_continuation top_frame call_var bailout_label =
-        let pos = {
-          func = func.name;
-          version = version.label;  (* need OLD version here *)
-          pos = bailout_label; } in
-        { varmap = List.filter (fun v -> match v with | (x, _) -> x <> call_var) top_frame;
-          cont_res = call_var;
-          cont_pos = pos; }
-      in
+      let scope = Scope.infer (Analysis.as_analysis_input func new_version) in
       let visit_instr pc =
         if List.length !inlinings < max_inlinings then begin
           assert (pc+1 < Array.length new_instrs);
           match[@warning "-4"] new_instrs.(pc) with
-          | Call (x, (Simple (Constant (Fun_ref f))), es) ->
+          | Call (cont_label, x, (Simple (Constant (Fun_ref f))), es) ->
             if LabelSet.mem f seen then () else begin
               (* To be able to osr out of this call we need to have a var_map
                * after the call to reconstruct the caller environment and
                * to have a target label after the call to reconstruct the continuation. *)
-              let extra_frames = (
-                match[@warning "-4"] new_instrs.(pc+1) with
-                  | Assume {label; varmap; extra_frames} ->
-                    Some ((create_bailout_continuation varmap x label) :: extra_frames)
-                  | _ -> None) in
+              let extra_frame = (
+                match[@warning "-4"] scope.(pc+1) with
+                  | Scope vars ->
+                    (* due to new_version *)
+                    let varmap = List.filter (fun v -> v <> x) (VarSet.elements vars) in
+                    let varmap = List.map (fun x -> x, Simple (Var x)) varmap in
+                    let pos = {
+                      func = func.name;
+                      version = version.label;  (* need OLD version here *)
+                      pos = cont_label; } in
+                    Some {cont_pos = pos; cont_res = x; varmap}
+                  | DeadScope -> None) in
               let seen = LabelSet.add f seen in
               let callee = lookup_fun orig_prog f in
               let next = compute_inline_order callee seen (depth+1) in
-              let inlining = { pos = pc; target = callee; ret = x; args = es; extra_frames; next } in
+              let inlining = { pos = pc; target = callee; ret = x; args = es; extra_frame; next } in
               inlinings := inlining :: !inlinings
             end
           | _ -> ()
@@ -227,7 +223,7 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
    *
    * The list of extra frames is accumulated by compute_inlining_order
    * *)
-  let fixup_extra_frames extra_frames' input inlinee_name fresh_label =
+  let fixup_extra_frames extra_frame input inlinee_name fresh_label =
     let open Transform_utils in
     let fixup pc =
       match[@warning "-4"] input.instrs.(pc) with
@@ -236,7 +232,7 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
          * This is valid since we created a new version, thus we are guaranteed to not be
          * an active bailout target. *)
         let label = fresh_label (inlinee_name^"_"^label) in
-        let extra_frames = extra_frames @ extra_frames' in
+        let extra_frames = extra_frames @ [extra_frame] in
         Replace [ Assume { def with label; extra_frames } ]
       | _ -> Unchanged
     in
@@ -246,7 +242,6 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
   in
 
   let apply_inlinings func inlinings =
-    let updated = ref [] in
     let rec apply_inlinings func inlinings : version =
       let new_version = inlinings.version in
       let candidates = inlinings.candidates in
@@ -257,18 +252,24 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
         let fresh_bailout_label = Edit.bailout_label_freshener instrs in
         let inp = Analysis.as_analysis_input func new_version in
         let fresh_label = Edit.label_freshener instrs in
-        let get {target; next; pos; ret; args; extra_frames} =
+        let get {target; next; pos; ret; args; extra_frame} =
+          (* apply the next inlining *)
           let apply next = if next.candidates = []
                            then active_version target
                            else apply_inlinings target next in
-          let callee = Analysis.as_analysis_input target (apply next) in
-          match has_checkpoint callee.instrs, extra_frames with
+          let callee = apply next in
+          let callee_inp = Analysis.as_analysis_input target callee in
+          match has_checkpoint callee.instrs, extra_frame with
           | false, _ ->
-            let inlinee = compose inp callee fresh_label ret args in
+            (* inlinee has no checkpoints -> nothing to be done *)
+            let inlinee = compose inp callee_inp fresh_label ret args in
             (pos, 1, inlinee.instrs)
-          | true, Some extra_frames ->
-            let inlinee = compose inp callee fresh_label ret args in
-            (pos, 1, fixup_extra_frames extra_frames inlinee target.name fresh_bailout_label)
+          | true, Some extra_frame ->
+            (* inlinee has checkpoints -> we need to fixup the checkpoints by adding the extra frames.
+             * note: extra_frame does not need to be renamed as it is from the outer scope! *)
+            let inlinee = compose inp callee_inp fresh_label ret args in
+            let instrs = fixup_extra_frames extra_frame inlinee target.name fresh_bailout_label in
+            (pos, 1, instrs)
           | true, None ->
             (* The callee needs to bailout but the caller does not have a safepoint
              * after the call. We can't do anything. *)
@@ -277,12 +278,9 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
         let to_inline = List.map get inlinings.candidates in
         let instrs, _ = Edit.subst_many instrs to_inline in
         let new_version = { new_version with instrs } in
-        if new_version.label <> (active_version func).label
-        then updated := (func.name, new_version) :: !updated;
         new_version
     in
-    let _ = apply_inlinings func inlinings in
-    !updated
+    apply_inlinings func inlinings
   in
 
   let inline_at func =
@@ -291,23 +289,17 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
        the completely inlined program *)
     if inline_order.candidates = []
     then None
-    else
-      let result = apply_inlinings func inline_order in
-      if result = []
-      then None
-      else Some result
+    else begin
+      let res = apply_inlinings func inline_order in
+      if res.instrs <> (active_version func).instrs
+      then Some res
+      else None
+    end
   in
 
   (* Starting from main inline all the way down *)
   match inline_at orig_prog.main with
   | None -> None
   | Some res ->
-    let try_update func =
-      match List.assoc func.name res with
-      | exception Not_found -> func
-      | vers ->
-        { func with body = vers :: func.body }
-    in
-    let functions = List.map try_update orig_prog.functions in
-    let main = try_update orig_prog.main in
-    Some { main; functions }
+    let main = { orig_prog.main with body = res :: orig_prog.main.body } in
+    Some { orig_prog with main }

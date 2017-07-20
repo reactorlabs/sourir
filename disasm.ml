@@ -41,10 +41,10 @@ let disassemble_instrs buf ?(ott_compatible = false) ?(format_pc = no_line_numbe
     let dump_arg buf arg = dump_expr buf arg in
     format_pc buf pc;
     begin match instr with
-    | Call (var, f, args)               ->
+    | Call (l, var, f, args)          ->
       pr buf " call %s = "var;
       dump_expr buf f;
-      pr buf " (%a)" (dump_comma_separated dump_arg) args;
+      pr buf " (%a) %s" (dump_comma_separated dump_arg) args l;
     | Stop exp                        -> pr buf " stop %a" dump_expr exp
     | Return exp                      -> pr buf " return %a" dump_expr exp
     | Decl_var (var, exp)           -> pr buf " var %s = %a" var dump_expr exp
