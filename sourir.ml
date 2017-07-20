@@ -108,17 +108,17 @@ let () =
     Transform.(try_opt optimizations program)
   in
 
-  if !ott then begin
-    Ott.disassemble_o stdout program;
-    exit 0
-  end;
-
   let program = try optimize program with
     | Transform.UnknownOptimization opt ->
       Printf.eprintf "Unknown optimization %s.\nValid optimizers are %s\n"
         opt (String.concat ", " (Transform.all_opts @ Transform.manual_opts));
       exit 1
   in
+
+  if !ott then begin
+    Ott.disassemble_o stdout program;
+    exit 0
+  end;
 
   if not !quiet then begin
     Printf.printf "After optimizations\n";
