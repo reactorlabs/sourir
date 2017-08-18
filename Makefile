@@ -11,7 +11,7 @@ OCAMLBUILD+= -use-menhir
 OCAMLBUILD+= -no-links
 
 # Bisect ocamlbuild plugin for coverage analysis
-OCAMLBUILD+= -plugin-tag 'package(bisect_ppx.ocamlbuild)'
+OCAMLBUILD+= -plugin-tag 'package(bisect_ppx-ocamlbuild)'
 
 all: tests test_examples sourir
 
