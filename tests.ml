@@ -1,5 +1,6 @@
 open OUnit
 open Instr
+open Eval
 
 let ok _ = true
 
@@ -1600,7 +1601,7 @@ let do_test_deopt () =
   ()
 
 let do_test_assert () =
-  let postcondition = has_var "x" (Value.int 2) in
+  let postcondition = has_var "x" (Int 2) in
   let assert_true = parse {|
     var x = 2
     assert (x == 2)
@@ -1794,111 +1795,111 @@ let do_test_assumptions () =
 let suite =
   "suite">:::
   ["var">:: run test_var no_input
-     (has_var "x" (Value.int 2)
-      &&& (trace_is Value.[int 1; int 2]));
+     (has_var "x" (Int 2)
+      &&& (trace_is [Int 1; Int 2]));
    "decl_var">:: run test_decl_var no_input
-     (has_var "x" (Value.int 1));
+     (has_var "x" (Int 1));
    "incr_var">:: run test_incr_var no_input
-     (has_var "x" (Value.int 2));
+     (has_var "x" (Int 2));
    "print">:: run test_print no_input
-     (trace_is Value.[int 1; int 2]);
+     (trace_is [Int 1; Int 2]);
    "assert">:: do_test_assert;
    "jump">:: run test_jump no_input
-     (has_var "x" (Value.bool true));
+     (has_var "x" (Bool true));
    "jump (oo)" >:: run test_overloading no_input
-     (has_var "b" (Value.bool true)
-      &&& has_var "x" (Value.int 2)
-      &&& has_var "y" (Value.int 1));
+     (has_var "b" (Bool true)
+      &&& has_var "x" (Int 2)
+      &&& has_var "y" (Int 1));
    "neg">:: run (test_neg 1) no_input
-     (has_var "y" (Value.int (-1)));
+     (has_var "y" (Int (-1)));
    "neg2">:: run (test_neg (-1)) no_input
-     (has_var "y" (Value.int 1));
+     (has_var "y" (Int 1));
    "add">:: run (test_add "1" "2") no_input
-     (has_var "z" (Value.int 3));
+     (has_var "z" (Int 3));
    "add2">:: run (test_add "2" "1") no_input
-     (has_var "z" (Value.int 3));
+     (has_var "z" (Int 3));
    "sub">:: run (test_sub "1" "2") no_input
-     (has_var "z" (Value.int (-1)));
+     (has_var "z" (Int (-1)));
    "sub2">:: run (test_sub "2" "1") no_input
-     (has_var "z" (Value.int 1));
+     (has_var "z" (Int 1));
    "mult">:: run (test_mult "1" "2") no_input
-     (has_var "z" (Value.int 2));
+     (has_var "z" (Int 2));
    "mult2">:: run (test_mult "2" "1") no_input
-     (has_var "z" (Value.int 2));
+     (has_var "z" (Int 2));
    "div">:: run (test_div "1" "2") no_input
-     (has_var "z" (Value.int 0));
+     (has_var "z" (Int 0));
    "div2">:: run (test_div "2" "1") no_input
-     (has_var "z" (Value.int 2));
+     (has_var "z" (Int 2));
    "div3">::
    (fun () -> assert_raises (Eval.Division_by_zero)
        (run_unchecked (test_div "1" "0") no_input ok));
    "mod">:: run (test_mod "1" "2") no_input
-     (has_var "z" (Value.int 1));
+     (has_var "z" (Int 1));
    "mod2">:: run (test_mod "2" "1") no_input
-     (has_var "z" (Value.int 0));
+     (has_var "z" (Int 0));
    "mod3">::
    (fun () -> assert_raises (Eval.Division_by_zero)
        (run_unchecked (test_mod "1" "0") no_input ok));
    "eq">:: run (test_eq 1 2) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "eq2">:: run (test_eq 1 1) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "neq">:: run (test_neq 1 2) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "neq2">:: run (test_neq 1 1) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "lt">:: run (test_lt 1 2) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "lt2">:: run (test_lt 2 1) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "lt3">:: run (test_lt 1 1) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "lte">:: run (test_lte 1 2) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "lt2">:: run (test_lte 2 1) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "lt3">:: run (test_lte 1 1) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "gt">:: run (test_gt 1 2) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "gt2">:: run (test_gt 2 1) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "gt3">:: run (test_gt 1 1) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "gte">:: run (test_gte 1 2) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "gte2">:: run (test_gte 2 1) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "gte3">:: run (test_gte 1 1) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "not">:: run (test_not true) no_input
-     (has_var "y" (Value.bool false));
+     (has_var "y" (Bool false));
    "not2">:: run (test_not false) no_input
-     (has_var "y" (Value.bool true));
+     (has_var "y" (Bool true));
    "and">:: run (test_and true true) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "and2">:: run (test_and true false) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "and3">:: run (test_and false true) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "and4">:: run (test_and false false) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "or">:: run (test_or true true) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "or2">:: run (test_or true false) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "or3">:: run (test_or false true) no_input
-     (has_var "z" (Value.bool true));
+     (has_var "z" (Bool true));
    "or4">:: run (test_or false false) no_input
-     (has_var "z" (Value.bool false));
+     (has_var "z" (Bool false));
    "loops">:: run (test_sum 5) no_input
-     (has_var "sum" (Value.int 10));
-   "read">:: run test_read_print (input [Value.bool false; Value.int 1])
-     (trace_is Value.[int 1; bool false]);
+     (has_var "sum" (Int 10));
+   "read">:: run test_read_print (input [Bool false; Int 1])
+     (trace_is [Int 1; Bool false]);
    "mut_undeclared">::
    (fun () -> assert_raises (Eval.Unbound_variable "b")
        (run_unchecked test_read_print_err
-          (input [Value.bool false; Value.int 1]) ok));
+          (input [Bool false; Int 1]) ok));
    "mut_undeclared2">::
    (fun () -> assert_raises (Scope.ScopeExceptionAt("main", "anon", (Scope.UndeclaredVariable (VarSet.singleton "b", 1))))
        (fun() -> Scope.check_function test_read_print_err.main));
@@ -1912,7 +1913,7 @@ let suite =
    "scope4fixed">:: run test_broken_scope_4_fixed no_input ok;
    "scope5">:: infer_broken_scope test_broken_scope_5 (undeclared ["w"] 2);
    "scope1ok">:: run (test_scope_1 "c" "c") no_input
-     (has_var "c" (Value.int 0));
+     (has_var "c" (Int 0));
    "scope1broken">:: infer_broken_scope
      (test_scope_1 "a" "c") (undeclared ["a"] 14);
    "scope1broken2">:: infer_broken_scope

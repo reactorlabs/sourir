@@ -18,7 +18,7 @@ let disassemble_instrs buf (instrs : instructions) =
       let dump_next_instr () = dump_instr buf (pc+1) (line+1) true in
       let simple buf = function
         | Var v             -> pr buf "%s" v
-        | Constant c        -> pr buf "%s" (IO.string_of_value c)
+        | Constant c        -> pr buf "%s" (IO.string_of_literal c)
       in
       let dump_expr buf exp =
         match exp with

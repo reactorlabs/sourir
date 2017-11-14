@@ -2,16 +2,15 @@ open Instr
 
 exception EOF
 exception Invalid_input
+exception Array_is_not_a_literal
 
-let rec string_of_literal : literal -> string = function
+let string_of_literal : value -> string = function
   | Nil -> "nil"
   | String s -> Printf.sprintf "\"%s\"" s
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
   | Fun_ref f -> Printf.sprintf "'%s" f
-  | Array arr ->
-      Printf.sprintf "[%s]" (String.concat ", " (List.map string_of_value (Array.to_list arr)))
-
+  | Array arr -> raise Array_is_not_a_literal
 
 let value_of_string str =
   try Parse.value_of_string str

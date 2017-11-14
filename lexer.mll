@@ -37,6 +37,9 @@ let comment_of_string str =
   done;
   Buffer.contents buf
 
+let string_of_string str =
+  String.sub str 1 ((String.length str)-2)
+
 let lexing_error lexbuf =
   let invalid_input = String.make 1 (Lexing.lexeme_char lexbuf 0) in
   raise (Error (invalid_input, lexbuf.Lexing.lex_curr_p))
@@ -52,7 +55,7 @@ rule token = parse
   | blank+ { token lexbuf }
   | int_literal { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | "#" [^ '\n']* { COMMENT (comment_of_string (Lexing.lexeme lexbuf)) }
-  | '"' [^ '"']* '"' { STRING (Lexing.lexeme lexbuf) }
+  | '"' [^ '"']* '"' { STRING (string_of_string (Lexing.lexeme lexbuf)) }
   | "nil" { NIL }
   | "true" { BOOL true }
   | "false" { BOOL false }

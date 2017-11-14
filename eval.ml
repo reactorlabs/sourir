@@ -3,8 +3,16 @@ open Instr
 module Env = Map.Make(Variable)
 module Heap = Map.Make(Address)
 
+type dumped_value =
+  | Nil
+  | Bool of bool
+  | Int of int
+  | String of string
+  | Fun_ref of string
+  | Array of dumped_value array
+
 type input = IO.input
-type trace = value list
+type trace = dumped_value list
 type environment = binding Env.t
 type heap = heap_value Heap.t
 
@@ -97,6 +105,32 @@ let drop heap env x =
   | Val _ -> (heap, Env.remove x env)
   | Ref a -> (Heap.remove a heap, Env.remove x env)
 
+let rec dump_value heap : value -> dumped_value = function
+  | Nil -> Nil
+  | String s -> String s
+  | Bool b -> Bool b
+  | Int n -> Int n
+  | Fun_ref f -> Fun_ref f
+  | Array a ->
+    begin match Heap.find a heap with
+    | exception Not_found -> raise Invalid_heap
+    | Undefined -> raise Invalid_heap
+    | Value v -> dump_value heap v
+    | Block vs -> (Array
+        (Array.map (dump_value heap) vs))
+    end
+
+let rec string_of_dumped_value : dumped_value -> string = function
+  | Nil -> "nil"
+  | String s -> Printf.sprintf "\"%s\"" s
+  | Bool b -> string_of_bool b
+  | Int n -> string_of_int n
+  | Fun_ref f -> Printf.sprintf "'%s" f
+  | Array vs ->
+      Printf.sprintf "[%s]"
+        (String.concat ", "
+         (List.map string_of_dumped_value (Array.to_list vs)))
+
 let rec value_eq (v1 : value) (v2 : value) =
   match v1, v2 with
   | Nil, Nil -> true
@@ -107,6 +141,8 @@ let rec value_eq (v1 : value) (v2 : value) =
   | Int _, _ | _, Int _ -> false
   | Fun_ref f1, Fun_ref f2 -> f1 = f2
   | Fun_ref _, _ | _, Fun_ref _ -> false
+  | String a, String b -> a = b
+  | String _, _ | _, String _ -> false
   | Array addr1, Array addr2 -> Address.compare addr1 addr2 = 0
 (*
   | Array _, _ | _, Array _ -> .
@@ -142,7 +178,7 @@ let get_fun (v : value) =
 
 let get_array heap (v : value) =
   match v with
-  | (Nil | Int _ | Bool _ | Fun_ref _) as other ->
+  | (Nil | Int _ | Bool _ | Fun_ref _ | String _) as other ->
      let expected, received = Array, get_tag other in
      raise (Type_error { expected; received })
   | Array addr ->
@@ -377,7 +413,7 @@ let reduce conf =
   | Print e ->
     let v = eval conf e in
     { conf with
-      trace = v :: conf.trace;
+      trace = (dump_value conf.heap v) :: conf.trace;
       pc = pc';
     }
   | Assert e ->
@@ -458,7 +494,7 @@ let rec reduce_interactive conf =
     let conf = reduce conf in
     begin match conf.trace with
       | [] -> ()
-      | vs -> print_endline (String.concat " " (List.map IO.string_of_value vs))
+      | vs -> print_endline (String.concat " " (List.map string_of_dumped_value vs))
     end;
     reduce_interactive { conf with trace = [] }
   end

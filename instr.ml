@@ -416,11 +416,6 @@ let replace_active_version (func : afunction) (repl : version) : afunction =
   { func with
     body = repl :: (List.tl func.body); }
 
-module Value = struct
-  let int n : value = Int n
-  let bool b : value = Bool b
-end
-
 let checkpoint_prefix = "cp_"
 let checkpoint_label pc =
   checkpoint_prefix ^ (string_of_int pc)
