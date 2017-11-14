@@ -67,30 +67,30 @@ let () =
       Printf.eprintf "Error in function %s version %s: " f v;
       begin match[@warning "-4"] e with
       | Check.MissingReturn ->
-        Printf.eprintf "missing return statement\n";
+        Printf.eprintf "missing return statement\n"
       | Check.FunctionDoesNotExist f' ->
-        Printf.eprintf "called function %s does not exist\n" f';
+        Printf.eprintf "called function %s does not exist\n" f'
       | Check.VersionDoesNotExist (f', v') ->
-        Printf.eprintf "bailout target %s %s does not exist\n" f' v';
+        Printf.eprintf "bailout target %s %s does not exist\n" f' v'
       | Check.InvalidNumArgs pc ->
-        Printf.eprintf "at line %d: invalid number of arguments\n" (pc+1);
+        Printf.eprintf "at line %d: invalid number of arguments\n" (pc+1)
       | Check.InvalidArgument (pc, expression) ->
-        Printf.eprintf "at line %d: invalid argument\n" (pc+1);
+        Printf.eprintf "at line %d: invalid argument\n" (pc+1)
       | Instr.Unbound_label (MergeLabel l) ->
-        Printf.eprintf "label %s does not exist\n" l;
+        Printf.eprintf "label %s does not exist\n" l
       | Instr.Unbound_label (BranchLabel l) ->
-        Printf.eprintf "label $%s does not exist\n" l;
+        Printf.eprintf "label $%s does not exist\n" l
       | Instr.Unbound_bailout_label l ->
-        Printf.eprintf "bailout target %s does not exist\n" l;
+        Printf.eprintf "bailout target %s does not exist\n" l
       | Check.BranchLabelReused pc ->
-        Printf.eprintf "label at line %d is used more than once\n" (pc+1);
+        Printf.eprintf "label at line %d is used more than once\n" (pc+1)
       | Check.FallthroughLabel pc ->
-        Printf.eprintf "fallthrough label at line %d is not allowed\n" (pc+1);
+        Printf.eprintf "fallthrough label at line %d is not allowed\n" (pc+1)
       | Check.EntryPointIsLabel ->
-        Printf.eprintf "the first instruction cannot be a label\n";
+        Printf.eprintf "the first instruction cannot be a label\n"
       | Check.DuplicateLabel l ->
-        Printf.eprintf "label %s used multiple times\n" l;
-      | _ -> assert(false)
+        Printf.eprintf "label %s used multiple times\n" l
+      | _ -> raise e
       end;
       exit 1
     end
@@ -143,6 +143,6 @@ let () =
       exit n
     | Result (Bool b) ->
       exit (if b then 1 else 0)
-    | Result (Fun_ref _ | Array _ | Nil) ->
+    | Result (String _ | Fun_ref _ | Array _ | Nil) ->
       exit 0
   end

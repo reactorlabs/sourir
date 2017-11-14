@@ -52,6 +52,7 @@ rule token = parse
   | blank+ { token lexbuf }
   | int_literal { INT (int_of_string (Lexing.lexeme lexbuf)) }
   | "#" [^ '\n']* { COMMENT (comment_of_string (Lexing.lexeme lexbuf)) }
+  | '"' [^ '"']* '"' { STRING (Lexing.lexeme lexbuf) }
   | "nil" { NIL }
   | "true" { BOOL true }
   | "false" { BOOL false }

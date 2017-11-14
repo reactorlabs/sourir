@@ -74,7 +74,7 @@ let well_formed prog =
     let preds = Analysis.predecessors instrs in
     let check_fun_ref instr =
       let rec check_value = function
-        | Nil | Bool _ | Int _ | Array _ -> ()
+        | Nil | Bool _ | Int _ | Array _ | String _ -> ()
         | Fun_ref x -> ignore (lookup_fun x)
       in
       let check_simple_expr = function

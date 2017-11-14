@@ -3,12 +3,15 @@ open Instr
 exception EOF
 exception Invalid_input
 
-let rec string_of_value : value -> string = function
+let rec string_of_literal : literal -> string = function
   | Nil -> "nil"
+  | String s -> Printf.sprintf "\"%s\"" s
   | Bool b -> string_of_bool b
   | Int n -> string_of_int n
   | Fun_ref f -> Printf.sprintf "'%s" f
-  | Array addr -> Printf.sprintf "array@%d" (addr :> int)
+  | Array arr ->
+      Printf.sprintf "[%s]" (String.concat ", " (List.map string_of_value (Array.to_list arr)))
+
 
 let value_of_string str =
   try Parse.value_of_string str

@@ -2,6 +2,7 @@
 %token<bool> BOOL
 %token<int> INT
 %token<string> IDENTIFIER
+%token<string> STRING
 %token SINGLE_QUOTE
 %token DOUBLE_EQUAL NOT_EQUAL LT LTE GT GTE PLUS MINUS TIMES DIVIDE MOD DOUBLE_AMP DOUBLE_PIPE BANG
 %token LPAREN RPAREN LBRACKET RBRACKET LBRACE RBRACE
@@ -209,6 +210,7 @@ infixop:
 
 lit:
   | NIL { (Nil : value) }
+  | s=STRING { (String s : value) }
   | SINGLE_QUOTE f=variable { (Fun_ref f : value) }
   | b=BOOL { (Bool b : value) }
   | n=INT { (Int n : value) }

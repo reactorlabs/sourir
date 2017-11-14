@@ -26,9 +26,10 @@ type configuration = {
   continuation : continuation list;
 }
 
-type type_tag = Nil | Bool | Int | Fun_ref | Array
+type type_tag = Nil | Bool | Int | Fun_ref | Array | String
 let get_tag : value -> type_tag = function
   | Nil -> Nil
+  | String _ -> String
   | Bool _ -> Bool
   | Int _ -> Int
   | Fun_ref _ -> Fun_ref
@@ -121,21 +122,21 @@ let rec value_eq (v1 : value) (v2 : value) =
 let get_int (v : value) =
   match v with
   | Int i -> i
-  | (Nil | Bool _ | Fun_ref _ | Array _) as other ->
+  | (Nil | Bool _ | Fun_ref _ | Array _ | String _) as other ->
      let expected, received = Int, get_tag other in
      raise (Type_error { expected; received })
 
 let get_bool (v : value) =
   match v with
   | Bool b -> b
-  | (Nil | Int _ | Fun_ref _ | Array _) as other ->
+  | (Nil | Int _ | Fun_ref _ | Array _ | String _) as other ->
      let expected, received = Bool, get_tag other in
      raise (Type_error { expected; received })
 
 let get_fun (v : value) =
   match v with
   | Fun_ref f -> f
-  | (Nil | Int _ | Bool _ | Array _) as other ->
+  | (Nil | Int _ | Bool _ | Array _ | String _) as other ->
      let expected, received = Fun_ref, get_tag other in
      raise (Type_error { expected; received })
 

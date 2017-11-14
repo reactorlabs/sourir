@@ -89,6 +89,7 @@ and value =
   | Nil
   | Bool of bool
   | Int of int
+  | String of string
   | Fun_ref of string
   | Array of address
 and unop =
@@ -125,7 +126,7 @@ let negate = function
       | _    -> assert(false)
       end in
       Some (Binop (nop, e1, e2))
-  | Simple (Constant (Nil| Int _|Fun_ref _|Array _))
+  | Simple (Constant (Nil| Int _|Fun_ref _|Array _|String _))
   | Binop ((Plus|Sub|Mult|Div|Mod), _, _)
   | Binop ((And|Or), _, _)  (* TODO *)
   | Unop (Neg, _)
