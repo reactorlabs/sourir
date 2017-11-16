@@ -12,7 +12,7 @@ function ncores {
   fi
 }
 
-export OPTS="prune_true\ninline_small\nprune\nprune_false_no_hoist\nhoist_guards\nconst_fold\nhoist_assign\nhoist_drop\nmin_live"
+export OPTS="prune_true\ninline_small\nprune\nprune_false\nhoist_guards\nconst_fold\nhoist_assign\nhoist_drop\nmin_live"
 export INPUTS="0\n1\n3\nnil\ntrue\nfalse"
 
 # Move into examples directory
