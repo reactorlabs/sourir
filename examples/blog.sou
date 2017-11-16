@@ -1,0 +1,36 @@
+array a = [1,2,3]
+call t1 = 'double(a)
+print t1
+array b = [1,nil,3]
+call t2 = 'double(b)
+print t2
+
+
+# Doubles a vector and counts the number of nils encountered
+function double(var x)
+    var l = length(x)
+    var i = 0
+    var nil_offset = 0
+    array res[l]
+    goto lp
+  lp:
+      branch (i == l) $end $bdy
+    $bdy:
+      var e = x[i]
+      guard_hint (e!=nil)
+      branch (e == nil) $isnil $nonnil
+    $isnil:
+      print "Warning: nil value encountered"
+      nil_offset <- (nil_offset + 1)
+      goto nxt
+    $nonnil:
+      var pos = (i - nil_offset)
+      res[pos] <- (2*e)
+      drop pos
+      goto nxt
+    nxt:
+      drop e
+      i <- (i+1)
+      goto lp
+  $end:
+    return res
