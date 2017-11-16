@@ -15,6 +15,8 @@ and inlining_site = {
   candidates : inlining_candidate list;
 }
 
+exception NoReturnReachable
+
 (* FUNCTION INLINING *)
 (* Given a program, inline the functions in it to the maximum possible extent.
    Transitively recursive calls are inlined until they become self recursive.
@@ -69,15 +71,25 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
                              instrs = callee.instrs;}
     in
     let returns = extract_returns instrs in
+
+    let reachable (pc, _) : bool =
+      let reachable =
+        let merge _ _ _ = None in
+        let update _ _ = () in
+        Analysis.forward_analysis () instrs merge update in
+      match reachable pc with
+      | exception Analysis.UnreachableCode _ -> false
+      | () -> true
+    in
+    if not (List.exists reachable returns) then raise NoReturnReachable;
+
     let subst_returns (pc, e) =
       match scope.(pc) with
       | DeadScope ->
         (* If it is dead scope, it remains dead scope even after this
            substitution. This replacement is done for the sake of consistency
            and clarity of inlined output. *)
-        (pc, 1, [|Assert (Simple (Constant (Bool false)));
-                  Assign (res_var, e);
-                  Goto ret_lab |])
+        (pc, 1, [|Assert (Simple (Constant (Bool false))) |])
       | Scope varset ->
         let varlist = VarSet.elements varset in
         let drop_instrs = List.map (fun var -> Drop var) varlist in
@@ -259,21 +271,27 @@ let inline ?(max_inlinings=10) ?(max_depth=100) ?(max_size=1000) () ({main; func
                            else apply_inlinings target next in
           let callee = apply next in
           let callee_inp = Analysis.as_analysis_input target callee in
-          match has_checkpoint callee.instrs, extra_frame with
-          | false, _ ->
-            (* inlinee has no checkpoints -> nothing to be done *)
-            let inlinee = compose inp callee_inp fresh_label ret args in
-            (pos, 1, inlinee.instrs)
-          | true, Some extra_frame ->
-            (* inlinee has checkpoints -> we need to fixup the checkpoints by adding the extra frames.
-             * note: extra_frame does not need to be renamed as it is from the outer scope! *)
-            let inlinee = compose inp callee_inp fresh_label ret args in
-            let instrs = fixup_extra_frames extra_frame inlinee target.name fresh_bailout_label in
-            (pos, 1, instrs)
-          | true, None ->
-            (* The callee needs to bailout but the caller does not have a safepoint
-             * after the call. We can't do anything. *)
-            (pos, 0, [| |])
+          let try_inline () =
+            match has_checkpoint callee.instrs, extra_frame with
+            | false, _ ->
+              (* inlinee has no checkpoints -> nothing to be done *)
+              let inlinee = compose inp callee_inp fresh_label ret args in
+              (pos, 1, inlinee.instrs)
+            | true, Some extra_frame ->
+              (* inlinee has checkpoints -> we need to fixup the checkpoints by adding the extra frames.
+               * note: extra_frame does not need to be renamed as it is from the outer scope! *)
+              let inlinee = compose inp callee_inp fresh_label ret args in
+              let instrs = fixup_extra_frames extra_frame inlinee target.name fresh_bailout_label in
+              (pos, 1, instrs)
+            | true, None ->
+              (* The callee needs to bailout but the caller does not have a safepoint
+               * after the call. We can't do anything. *)
+              (pos, 0, [| |])
+          in
+          try try_inline () with
+          | NoReturnReachable ->
+              (* This function has no reachable return statements. Inlining it will just cause us headache. *)
+              (pos, 0, [| |])
         in
         let to_inline = List.map get inlinings.candidates in
         let instrs, _ = Edit.subst_many instrs to_inline in

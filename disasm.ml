@@ -114,6 +114,12 @@ let disassemble_instrs_s (prog : instructions) =
   disassemble_instrs b prog;
   Buffer.to_bytes b
 
+let disassemble_instrs_o outchan (prog : instructions) =
+  let b = Buffer.create 1024 in
+  disassemble_instrs b prog;
+  Buffer.output_buffer outchan b;
+  flush outchan
+
 let pretty_print_version outchan (name, version) =
   let b = Buffer.create 1024 in
   Printf.bprintf b "version %s\n" name;
