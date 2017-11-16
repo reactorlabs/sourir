@@ -2,7 +2,7 @@ open Instr
 open Types
 open Transform_utils
 
-let insert_branch_pruning_assumption ?(hoist=true) ?(prune=false) (func : afunction) : version option =
+let insert_branch_pruning_assumption ?(hoist=false) ?(prune=false) (func : afunction) : version option =
   let version = Instr.active_version func in
   let instrs = version.instrs in
   (* Finds the first branch instruction in the stream *)

@@ -102,9 +102,6 @@ let branch_prune_true = optimistic_as_opt_function
 let branch_prune_false = optimistic_as_opt_function
     (Transform_prune.insert_branch_pruning_assumption ~prune:false)
     branch_prune_instrs
-let branch_prune_false_no_hoist = optimistic_as_opt_function
-    (Transform_prune.insert_branch_pruning_assumption ~prune:false ~hoist:false)
-    branch_prune_instrs
 let normalize_graph = as_opt_program (as_opt_function normalize_graph_instrs)
 
 (* Main optimizer loop *)
@@ -113,7 +110,6 @@ exception UnknownOptimization of string
 let all_opts = ["prune_true";
                 "prune_false";
                 "prune";
-                "prune_false_no_hoist";
                 "hoist_guards";
                 "const_fold";
                 "hoist_assign";
@@ -133,8 +129,6 @@ let optimize (opts : string list) (num : int) (prog : program) : program option 
       as_opt_program minimize_liverange
     | "const_fold" ->
       as_opt_program const_fold
-    | "prune_false_no_hoist" ->
-      as_opt_program branch_prune_false_no_hoist
     | "prune_false" ->
       as_opt_program branch_prune_false
     | "prune_true" ->
