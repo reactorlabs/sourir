@@ -1,6 +1,8 @@
 open Instr
 open Types
 
+exception ConstFoldFailed
+
 (*
  * Constant folding.
  *
@@ -30,7 +32,7 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
   let fold env = object
     inherit Instr.map as super
 
-    method! expression exp =
+    method! expression (exp : expression) =
       let all_propagated = ref true in
       let propagate x e =
         match VarMap.find x env with
@@ -39,9 +41,36 @@ let const_fold : transform_instructions = fun {formals; instrs} ->
       in
       let eval_closed exp =
         Eval.eval Eval.Heap.empty Eval.Env.empty exp in
+      let eval_trivial (exp : expression) =
+        let z = Constant (Int 0) in
+        let l = Constant (Int 1) in
+        let t = Constant (Bool true) in
+        let f = Constant (Bool false) in
+        match[@warning "-4"] exp with
+        | Binop (Eq,   a,  b) when a=b -> t
+        | Binop (Neq,  a,  b) when a=b -> f
+        | Binop (Plus, a,  b) when b=z -> a
+        | Binop (Plus, a,  b) when a=z -> b
+        | Binop (Sub,  a,  b) when b=z -> a
+        | Binop (Mult, a,  b) when b=l -> a
+        | Binop (Mult, a,  b) when a=l -> b
+        | Binop (And,  a,  b) when a=t -> b
+        | Binop (And,  a,  b) when a=f -> f
+        | Binop (And,  a,  b) when b=t -> a
+        | Binop (And,  a,  b) when b=f -> f
+        | Binop (Or,   a,  b) when a=t -> t
+        | Binop (Or,   a,  b) when a=f -> b
+        | Binop (Or,   a,  b) when b=t -> t
+        | Binop (Or,   a,  b) when b=f -> a
+        | Unop  (Not,  a)     when a=t -> f
+        | Unop  (Not,  a)     when a=f -> t
+        | _ -> raise ConstFoldFailed
+      in
       let exp = VarSet.fold propagate (expr_vars exp) exp in
       if not !all_propagated
-      then exp
+      then
+        try Simple (eval_trivial exp) with
+        | ConstFoldFailed -> exp
       else
         (* A closed expression might still fail to evaluate (eg. 1+true) *)
         try Simple (Constant (eval_closed exp)) with
