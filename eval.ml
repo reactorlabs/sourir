@@ -401,7 +401,10 @@ let reduce conf =
   | Branch (e, l1, l2) ->
      let b = get_bool (eval conf e) in
      { conf with pc = 1 + (resolve conf.instrs (if b then (BranchLabel l1) else (BranchLabel l2))) }
-  | Label l -> raise (LabelFallthrough l)
+  | Label (BailoutLabel l) ->
+    { conf with
+      pc = pc' }
+  | Label ((BranchLabel _ | MergeLabel _) as l) -> raise (LabelFallthrough l)
   | Goto label -> { conf with pc = 1 + (resolve conf.instrs (MergeLabel label)) }
   | Read x ->
     let (IO.Next (v, input')) = conf.input () in

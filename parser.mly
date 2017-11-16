@@ -144,6 +144,8 @@ instruction:
   { Label (MergeLabel l) }
 | DOLLAR l=label COLON
   { Label (BranchLabel l) }
+| GT l=label COLON
+  { Label (BailoutLabel l) }
 | GOTO l=label
   { Goto l }
 | READ x=variable
@@ -156,8 +158,7 @@ instruction:
   { Assert e }
 | GUARD_HINT es=separated_list(COMMA, expression)
   { Guard_hint es }
-| ASSUME
-  label=label
+| GT label=label COLON ASSUME
   LBRACKET guards=separated_list(COMMA, expression) RBRACKET
   ELSE
   LPAREN func=label COMMA version=label COMMA pos=label RPAREN

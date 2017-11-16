@@ -343,7 +343,7 @@ c:
 let test_branch_pruned =
 " var x = 9
  var y = 10
- assume cp_2 [(x != y)] else (main, anon, cp_2) [var x = x, var y = y]
+>cp_2: assume [(x != y)] else (main, anon, cp_2) [var x = x, var y = y]
  var r = 1
  r <- 3
  print r
@@ -373,7 +373,7 @@ $end:
 let test_loop_branch_pruned =
 " var x = 9
  var y = 10
- assume cp_2 [(x != y)] else (main, anon, cp_2) [var x = x, var y = y]
+>cp_2: assume [(x != y)] else (main, anon, cp_2) [var x = x, var y = y]
  var r = 1
  goto loop
 $loop_b:
@@ -1576,12 +1576,12 @@ let do_test_deopt () =
     function main ()
     version a
      var x = 1
-     assume l [(x!=1)] else (main, b, l) [var y=42]
+     >l: assume [(x!=1)] else (main, b, l) [var y=42]
      return x
 
     version b
      var y = 2
-     assume l [] else (main, b, l) [var y=y]
+     >l: assume [] else (main, b, l) [var y=y]
      return y
   |pr} 42;
 
@@ -1591,11 +1591,11 @@ let do_test_deopt () =
      return x
     function foo()
     version vers_a
-     assume l [false] else (foo,vers_b,l) [var x = (41 + 1)]
+     >l: assume [false] else (foo,vers_b,l) [var x = (41 + 1)]
      return 0
     version vers_b
      var x = 0
-     assume l [] else (foo,vers_b,l) [var x = x]
+     >l: assume [] else (foo,vers_b,l) [var x = x]
      return x
   |pr} 42;
   ()
@@ -1772,7 +1772,7 @@ let do_test_assumptions () =
     function main ()
     version anon_1
      var x = 1
-     assume cp_1 [(x == 1)] else (main, anon, cp_1) [var x = x]
+    >cp_1: assume [(x == 1)] else (main, anon, cp_1) [var x = x]
      branch (x == 1) $la $lb
     $la:
      return 1
@@ -1780,7 +1780,7 @@ let do_test_assumptions () =
      return 2
     version anon
      var x = 1
-     assume cp_1 [] else (main, anon, cp_1) [var x = x]
+     >cp_1:
      guard_hint (x == 1)
      branch (x == 1) $la $lb
     $la:
@@ -1924,9 +1924,9 @@ let suite =
    "parser3">:: test_parse_disasm  ("var x = (y + x)\n");
    "parser4">:: test_parse_disasm  ("x <- (x == y)\n");
    "parser5">:: test_parse_disasm  ("# asdfasdf\n");
-   "parser5b">:: test_parse_disasm ("assume l [(x == y)] else (f, v, l) [var x = x, var v, var x = (1+2)]\n");
-   "parser5c">:: test_parse_disasm ("assume l [(x == y)] else (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $]\n");
-   "parser5d">:: test_parse_disasm ("assume l [(x == y)] else (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $], (f,v,l) [var y = $, var c = 4]\n");
+   "parser5b">:: test_parse_disasm (">l: assume [(x == y)] else (f, v, l) [var x = x, var v, var x = (1+2)]\n");
+   "parser5c">:: test_parse_disasm (">l: assume [(x == y)] else (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $]\n");
+   "parser5d">:: test_parse_disasm (">l: assume [(x == y)] else (f, v, l) [var x = x, var v, var x = (1+2)], (f,v,l) [var x = $], (f,v,l) [var y = $, var c = 4]\n");
    "parser6">:: test_parse_disasm  ("branch (x == y) $as $fd\n");
    "parser7">:: test_parse_disasm  ("var x = (y + x)\n x <- (x == y)\n# asdfasdf\nbranch (x == y) $as $fd\n");
    "parser8">:: test_parse_disasm_file "examples/sum.sou";

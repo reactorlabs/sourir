@@ -90,13 +90,17 @@ let remove_empty_checkpoints : opt_prog = fun prog ->
 
   let prog' =
     let apply func =
+      let baseline = List.hd (List.rev func.body) in
       let body =
         List.map (fun version ->
           let inp = (Analysis.as_analysis_input func version) in
           let transform pc =
             let target pos = { func = func.name; version = version.label; pos = pos } in
             match[@warning "-4"] inp.instrs.(pc) with
-            | Assume {guards; label} when guards = [] && not (TargetSet.mem (target label) used) -> Remove 1
+            | Assume {guards; label}
+                when guards = [] && not (TargetSet.mem (target label) used) -> Remove 1
+            | Assume {guards; label}
+                when guards = [] && version == baseline -> Replace [Label (BailoutLabel label)]
             | _ -> Unchanged
           in
           match change_instrs transform inp with

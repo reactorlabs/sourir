@@ -47,7 +47,7 @@ let disassemble_instrs buf ?(ott_compatible = false) ?(format_pc = no_line_numbe
       pr buf " (%a) %s" (dump_comma_separated dump_arg) args l;
     | Stop exp                        -> pr buf " stop %a" dump_expr exp
     | Return exp                      -> pr buf " return %a" dump_expr exp
-    | Decl_var (var, exp)           -> pr buf " var %s = %a" var dump_expr exp
+    | Decl_var (var, exp)             -> pr buf " var %s = %a" var dump_expr exp
     | Decl_array (var, Length exp)    -> pr buf " array %s[%a]" var dump_expr exp
     | Decl_array (var, List li)       -> pr buf " array %s = [%a]" var
                                            (dump_comma_separated dump_expr) li
@@ -57,6 +57,7 @@ let disassemble_instrs buf ?(ott_compatible = false) ?(format_pc = no_line_numbe
     | Branch (exp, l1, l2)            -> pr buf " branch %a $%s $%s" dump_expr exp l1 l2
     | Label (MergeLabel label)        -> pr buf "%s:" label
     | Label (BranchLabel label)       -> pr buf "$%s:" label
+    | Label (BailoutLabel label)      -> pr buf ">%s:" label
     | Goto label                      -> pr buf " goto %s" label
     | Print exp                       -> pr buf " print %a" dump_expr exp
     | Assert exp                      -> pr buf " assert %a" dump_expr exp
@@ -73,7 +74,7 @@ let disassemble_instrs buf ?(ott_compatible = false) ?(format_pc = no_line_numbe
             (if varmap = [] then "" else ", ")
             (dump_comma_separated dump_var) varmap
       in
-      pr buf " assume %s [%a] else (%s, %s, %s) [%a]%s%a"
+      pr buf ">%s: assume [%a] else (%s, %s, %s) [%a]%s%a"
         label
         (dump_comma_separated dump_expr) guards
         func version pos

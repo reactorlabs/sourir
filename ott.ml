@@ -85,7 +85,7 @@ let disassemble_instrs buf (instrs : instructions) =
       | Branch (exp, l1, l2)            ->
         pr buf " branch %a %s %s\n" dump_expr exp l1 l2;
         dump_next_instr ()
-      | Label (MergeLabel l | BranchLabel l) ->
+      | Label (MergeLabel l | BranchLabel l | BailoutLabel l) ->
         print_label l;
         dump_instr buf (pc+1) line false
       | Goto label                      ->

@@ -1,6 +1,6 @@
 program: BRANCH NIL DOLLAR IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 112.
+## Ends in an error in state: 159.
 ##
 ## instruction -> BRANCH expression DOLLAR label . DOLLAR label [ NEWLINE ]
 ##
@@ -15,7 +15,7 @@ instruction
 
 program: BRANCH NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 110.
+## Ends in an error in state: 157.
 ##
 ## instruction -> BRANCH expression . DOLLAR label DOLLAR label [ NEWLINE ]
 ##
@@ -29,7 +29,7 @@ example "$foo", is now expected to construct a branch instruction
 
 program: BRANCH TRIPLE_DOT 
 ##
-## Ends in an error in state: 109.
+## Ends in an error in state: 156.
 ##
 ## instruction -> BRANCH . expression DOLLAR label DOLLAR label [ NEWLINE ]
 ##
@@ -87,7 +87,7 @@ example "x", is now expected to construct a variable declaration
 
 program: GOTO TRIPLE_DOT 
 ##
-## Ends in an error in state: 88.
+## Ends in an error in state: 135.
 ##
 ## instruction -> GOTO . label [ NEWLINE ]
 ##
@@ -101,7 +101,7 @@ Parsing an instruction, we parsed "goto" so far; a label, for example
 
 program: IDENTIFIER LEFTARROW TRIPLE_DOT 
 ##
-## Ends in an error in state: 170.
+## Ends in an error in state: 174.
 ##
 ## instruction -> variable LEFTARROW . expression [ NEWLINE ]
 ##
@@ -115,7 +115,7 @@ for example "(x + 1)", is now expected to construct an assignment
 
 program: IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 81.
+## Ends in an error in state: 82.
 ##
 ## label -> IDENTIFIER . [ COLON ]
 ## variable -> IDENTIFIER . [ LEFTARROW LBRACKET ]
@@ -128,9 +128,9 @@ Parsing an instruction, we parsed an identifier so far (variable or label).
 - if this is a label declaration, we expect a semicolon: "<label>:"
 - if this is an assignment, we expect a left arrow: "<var> <- <expression>"
 
-program: ASSUME IDENTIFIER LBRACKET RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET RBRACKET COMMA LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME LBRACKET RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET RBRACKET COMMA LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 145.
+## Ends in an error in state: 122.
 ##
 ## extra_frame -> LPAREN label COMMA label COMMA label RPAREN LBRACKET . VAR variable EQUAL DOLLAR list(preceded(COMMA,varmap_entry)) RBRACKET [ NEWLINE COMMA ]
 ##
@@ -147,11 +147,11 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
-program: ASSUME IDENTIFIER LBRACKET RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET RBRACKET COMMA TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME LBRACKET RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET RBRACKET COMMA TRIPLE_DOT 
 ##
-## Ends in an error in state: 137.
+## Ends in an error in state: 114.
 ##
 ## list(preceded(COMMA,extra_frame)) -> COMMA . extra_frame list(preceded(COMMA,extra_frame)) [ NEWLINE ]
 ##
@@ -166,11 +166,11 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
-program: ASSUME IDENTIFIER LBRACKET NIL RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME LBRACKET NIL RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN LBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 128.
+## Ends in an error in state: 105.
 ##
 ## varmap -> LBRACKET . loption(separated_nonempty_list(COMMA,varmap_entry)) RBRACKET [ NEWLINE COMMA ]
 ##
@@ -186,16 +186,16 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
-program: ASSUME IDENTIFIER LBRACKET NIL RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME LBRACKET NIL RBRACKET ELSE LPAREN IDENTIFIER COMMA IDENTIFIER COMMA IDENTIFIER RPAREN TRIPLE_DOT 
 ##
-## Ends in an error in state: 127.
+## Ends in an error in state: 104.
 ##
-## instruction -> ASSUME label LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN . varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
+## instruction -> GT label COLON ASSUME LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN . varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## ASSUME label LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN 
+## GT label COLON ASSUME LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN 
 ##
 
 After "assume [...] (...) " we expect the specification of the new environment.
@@ -206,17 +206,17 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
 
-program: ASSUME IDENTIFIER LBRACKET NIL RBRACKET ELSE LPAREN TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME LBRACKET NIL RBRACKET ELSE LPAREN TRIPLE_DOT 
 ##
-## Ends in an error in state: 121.
+## Ends in an error in state: 98.
 ##
-## instruction -> ASSUME label LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN . label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
+## instruction -> GT label COLON ASSUME LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN . label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## ASSUME label LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN 
+## GT label COLON ASSUME LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN 
 ##
 
 Parsing an assume instruction, there is an error with the syntax of the target
@@ -226,16 +226,16 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
-program: ASSUME IDENTIFIER LBRACKET NIL RBRACKET TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME LBRACKET NIL RBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 119.
+## Ends in an error in state: 96.
 ##
-## instruction -> ASSUME label LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET . ELSE LPAREN label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
+## instruction -> GT label COLON ASSUME LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET . ELSE LPAREN label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## ASSUME label LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET 
+## GT label COLON ASSUME LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET 
 ##
 
 Parsing an assume instruction, we parsed "assume l [<expr> ...]", and are
@@ -245,16 +245,16 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
-program: ASSUME IDENTIFIER LBRACKET TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME LBRACKET TRIPLE_DOT 
 ##
-## Ends in an error in state: 117.
+## Ends in an error in state: 94.
 ##
-## instruction -> ASSUME label LBRACKET . loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
+## instruction -> GT label COLON ASSUME LBRACKET . loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## ASSUME label LBRACKET 
+## GT label COLON ASSUME LBRACKET 
 ##
 
 Parsing an assume instruction, there was an error parsing the list of conditions.
@@ -264,16 +264,16 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
-program: ASSUME TRIPLE_DOT 
+program: GT IDENTIFIER COLON ASSUME TRIPLE_DOT 
 ##
-## Ends in an error in state: 115.
+## Ends in an error in state: 93.
 ##
-## instruction -> ASSUME . label LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
+## instruction -> GT label COLON ASSUME . LBRACKET loption(separated_nonempty_list(COMMA,expression)) RBRACKET ELSE LPAREN label COMMA label COMMA label RPAREN varmap list(preceded(COMMA,extra_frame)) [ NEWLINE ]
 ##
 ## The known suffix of the stack is as follows:
-## ASSUME 
+## GT label COLON ASSUME 
 ##
 
 Parsing an assume instruction, we parsed "assume", and are now expecting a bracket
@@ -283,7 +283,7 @@ where <frame> is "(func_label, vers_label, label) [<varmap>*]"
 and <extra_frame> is "(func_label, vers_label, label) [var res = $, <varmap>*]"
 and <varmap> is "var x = exp"
 For example,
-"assume l [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
+">l: assume [(a==1)] else (Main,optimized,l2) [var x = e, var y = y, var z], (f,v,l) [var y = $, var z = (1+x)]".
 
 program: LBRACE IDENTIFIER COMMA STOP 
 ##
@@ -324,7 +324,7 @@ program: LBRACE STOP
 ##
 ## Ends in an error in state: 5.
 ##
-## scope_annotation -> LBRACE . scope RBRACE optional_newlines [ VAR STOP RETURN READ PRINT IDENTIFIER GUARD_HINT GOTO DROP DOLLAR COMMENT CALL BRANCH ASSUME ASSERT ARRAY ]
+## scope_annotation -> LBRACE . scope RBRACE optional_newlines [ VAR STOP RETURN READ PRINT IDENTIFIER GUARD_HINT GT GOTO DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE 
@@ -341,7 +341,7 @@ program: LBRACE TRIPLE_DOT RBRACE BOOL
 ##
 ## Ends in an error in state: 12.
 ##
-## scope_annotation -> LBRACE scope RBRACE . optional_newlines [ VAR STOP RETURN READ PRINT IDENTIFIER GUARD_HINT GOTO DROP DOLLAR COMMENT CALL BRANCH ASSUME ASSERT ARRAY ]
+## scope_annotation -> LBRACE scope RBRACE . optional_newlines [ VAR STOP RETURN READ PRINT IDENTIFIER GUARD_HINT GT GOTO DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE scope RBRACE 
@@ -354,7 +354,7 @@ program: LBRACE TRIPLE_DOT TRIPLE_DOT
 ##
 ## Ends in an error in state: 11.
 ##
-## scope_annotation -> LBRACE scope . RBRACE optional_newlines [ VAR STOP RETURN READ PRINT IDENTIFIER GUARD_HINT GOTO DROP DOLLAR COMMENT CALL BRANCH ASSUME ASSERT ARRAY ]
+## scope_annotation -> LBRACE scope . RBRACE optional_newlines [ VAR STOP RETURN READ PRINT IDENTIFIER GUARD_HINT GT GOTO DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## LBRACE scope 
@@ -365,7 +365,7 @@ In a scope annotation, "..." should be the last item. "{ x, ... }" or
 
 program: PRINT LPAREN IDENTIFIER PLUS IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 57.
+## Ends in an error in state: 58.
 ##
 ## expression -> LPAREN simple_expression infixop simple_expression . RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ##
@@ -378,7 +378,7 @@ a closing parenthesis ")" is now expected.
 
 program: PRINT LPAREN IDENTIFIER PLUS TRIPLE_DOT 
 ##
-## Ends in an error in state: 56.
+## Ends in an error in state: 57.
 ##
 ## expression -> LPAREN simple_expression infixop . simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ##
@@ -392,7 +392,7 @@ Parsing an expression, we parsed "( <arg> <op>" so far; an argument
 
 program: PRINT LPAREN IDENTIFIER TRIPLE_DOT 
 ##
-## Ends in an error in state: 42.
+## Ends in an error in state: 43.
 ##
 ## expression -> LPAREN simple_expression . infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ##
@@ -406,7 +406,7 @@ Parsing an expression, we parsed "( <arg>" so far; an operator such as
 
 program: PRINT LPAREN TRIPLE_DOT 
 ##
-## Ends in an error in state: 36.
+## Ends in an error in state: 37.
 ##
 ## expression -> LPAREN . simple_expression infixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
 ## expression -> LPAREN . prefixop simple_expression RPAREN [ RPAREN RBRACKET NEWLINE LPAREN DOLLAR COMMA ]
@@ -421,7 +421,7 @@ literal value) is now expected to construct an expression
 
 program: PRINT TRIPLE_DOT 
 ##
-## Ends in an error in state: 79.
+## Ends in an error in state: 80.
 ##
 ## instruction -> PRINT . expression [ NEWLINE ]
 ##
@@ -436,7 +436,7 @@ to construct a print instruction
 
 program: READ TRIPLE_DOT 
 ##
-## Ends in an error in state: 77.
+## Ends in an error in state: 78.
 ##
 ## instruction -> READ . variable [ NEWLINE ]
 ##
@@ -451,9 +451,9 @@ to construct a read assignment
 
 program: STOP NIL NEWLINE TRIPLE_DOT 
 ##
-## Ends in an error in state: 181.
+## Ends in an error in state: 185.
 ##
-## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ VERSION VAR STOP RETURN READ PRINT LBRACE IDENTIFIER GUARD_HINT GOTO FUNCTION EOF DROP DOLLAR COMMENT CALL BRANCH ASSUME ASSERT ARRAY ]
+## instruction_line -> scope_annotation instruction NEWLINE . optional_newlines [ VERSION VAR STOP RETURN READ PRINT LBRACE IDENTIFIER GUARD_HINT GT GOTO FUNCTION EOF DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction NEWLINE 
@@ -464,9 +464,9 @@ instruction on the next line, or the end of the file.
 
 program: STOP NIL TRIPLE_DOT 
 ##
-## Ends in an error in state: 180.
+## Ends in an error in state: 184.
 ##
-## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ VERSION VAR STOP RETURN READ PRINT LBRACE IDENTIFIER GUARD_HINT GOTO FUNCTION EOF DROP DOLLAR COMMENT CALL BRANCH ASSUME ASSERT ARRAY ]
+## instruction_line -> scope_annotation instruction . NEWLINE optional_newlines [ VERSION VAR STOP RETURN READ PRINT LBRACE IDENTIFIER GUARD_HINT GT GOTO FUNCTION EOF DROP DOLLAR COMMENT CALL BRANCH ASSERT ARRAY ]
 ##
 ## The known suffix of the stack is as follows:
 ## scope_annotation instruction 

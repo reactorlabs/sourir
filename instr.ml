@@ -67,6 +67,7 @@ and instruction =
 and label_type =
   | MergeLabel of label
   | BranchLabel of label
+  | BailoutLabel of label
 and array_def =
   | Length of expression
   | List of expression list
@@ -192,6 +193,7 @@ let resolve_bailout code l =
   let pred = function[@warning "-4"]
     | Assume {label} when label = l -> Some 0
     | Call (label, _,_,_) when label = l -> Some 1
+    | Label (BailoutLabel label) when label = l -> Some 1
     | _ -> None
   in
   try resolve_by pred code
@@ -222,6 +224,7 @@ let resolver_bailout code =
   let indexer = function[@warning "-4"]
     | Assume {label} -> Some (label, 0)
     | Call (label, _,_,_) -> Some (label, 1)
+    | Label (BailoutLabel label) -> Some (label, 1)
     | _ -> None
   in
   let resolver = resolver_by indexer code in
@@ -489,6 +492,8 @@ class map = object (m)
       Label (MergeLabel (m#goto_label l))
     | Label (BranchLabel l) ->
       Label (BranchLabel (m#branch_label l))
+    | Label (BailoutLabel l) ->
+      Label (BailoutLabel (m#bailout_label l))
     | Goto l ->
       Goto (m#goto_label l)
     | Print e ->

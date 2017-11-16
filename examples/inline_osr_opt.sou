@@ -5,7 +5,7 @@ version inlined_version
  var local_var = (3 + user_input)
  var res = nil
  var choice = user_input
- assume cp_0 [(choice != 0)] else (foo, anon, cp_0) [var choice = choice], (main, anon, cp_4) [var foo_res = $, var local_var = local_var, var user_input = user_input]
+ >cp_0: assume [(choice != 0)] else (foo, anon, cp_0) [var choice = choice], (main, anon, cp_4) [var foo_res = $, var local_var = local_var, var user_input = user_input]
  drop choice
  drop res
  print 0
@@ -15,15 +15,15 @@ version anon
  read user_input
  var local_var = (3 + user_input)
  call foo_res = 'foo (user_input)
- assume cp_4 [] else (main, anon, cp_4) [var foo_res = foo_res, var local_var = local_var, var user_input = user_input]
+ >cp_4: assume [] else (main, anon, cp_4) [var foo_res = foo_res, var local_var = local_var, var user_input = user_input]
  print foo_res
  print local_var
 function foo (var choice)
 version anon_1
- assume cp_0 [(choice != 0)] else (foo, anon, cp_0) [var choice = choice]
+ >cp_0: assume [(choice != 0)] else (foo, anon, cp_0) [var choice = choice]
  return 0
 version anon
- assume cp_0 [] else (foo, anon, cp_0) [var choice = choice]
+ >cp_0: assume [] else (foo, anon, cp_0) [var choice = choice]
  branch (choice == 0) $a $b
 $a:
  return 1
